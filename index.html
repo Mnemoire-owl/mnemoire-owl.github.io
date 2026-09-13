@@ -799,7 +799,7 @@ const LANG = {
       upcomingTitle:'⏳ 다가오는 일정', noUpcoming:'다가오는 일정이 없어요.',
       ddayToday:'D-day', hoursLeftFormat:'{h}시간 {m}분 남음', hoursPastFormat:'{h}시간 {m}분 지남'
     },
-    dash: {progressTitle:'과목별 진행률 · 등록 주제', overallProgress:'전체 회독 진행률', dueToday:'오늘 복습할 카드', todayFocus:'오늘 집중 시간', minutesUnit:'분', hoursUnit:'시간',
+    dash: {progressTitle:'과목별 진행률 · 등록 주제', overallProgress:'전체 회독 진행률', dueToday:'오늘 복습할 카드', todayFocus:'오늘 집중 시간', minutesUnit:'분', hoursUnit:'시간', secondsUnit:'초',
       totalTimeTitle:'총 시간 결정', totalTimeSubtitle:'지금까지 쌓아온 모든 시간이 하나의 결정 안에 응축돼요',
       crystalTierNames:['첫 결정','자라난 결정','빛나는 결정','공명하는 결정','심원의 결정','불멸의 결정','태초의 결정','무한의 결정'],
       crystalNextIn:'다음 결정까지 {hours}시간', crystalInfinite:'끝없이 자라나는 결정', collectedCrystals:'모아온 결정',
@@ -1082,7 +1082,7 @@ const LANG = {
       upcomingTitle:'⏳ Upcoming events', noUpcoming:'No upcoming events.',
       ddayToday:'D-day', hoursLeftFormat:'{h}h {m}m left', hoursPastFormat:'{h}h {m}m ago'
     },
-    dash: {progressTitle:'Progress by subject · topics registered', overallProgress:'Overall pass progress', dueToday:'Cards due today', todayFocus:"Today's focus time", minutesUnit:'min', hoursUnit:'h',
+    dash: {progressTitle:'Progress by subject · topics registered', overallProgress:'Overall pass progress', dueToday:'Cards due today', todayFocus:"Today's focus time", minutesUnit:'min', hoursUnit:'h', secondsUnit:'s',
       totalTimeTitle:'Total time crystal', totalTimeSubtitle:'Every hour you have ever studied is condensed into a single crystal',
       crystalTierNames:['First Crystal','Grown Crystal','Shining Crystal','Resonant Crystal','Deep Crystal','Eternal Crystal','Primordial Crystal','Infinite Crystal'],
       crystalNextIn:'{hours}h to the next crystal', crystalInfinite:'A crystal that never stops growing', collectedCrystals:'Crystals collected',
@@ -1365,7 +1365,7 @@ const LANG = {
       upcomingTitle:'⏳ Bevorstehende Termine', noUpcoming:'Keine bevorstehenden Termine.',
       ddayToday:'D-Day', hoursLeftFormat:'noch {h}Std {m}Min', hoursPastFormat:'vor {h}Std {m}Min'
     },
-    dash: {progressTitle:'Fortschritt nach Fach · erfasste Themen', overallProgress:'Gesamtfortschritt', dueToday:'Heute fällige Karten', todayFocus:'Heutige Fokuszeit', minutesUnit:'Min', hoursUnit:'Std.',
+    dash: {progressTitle:'Fortschritt nach Fach · erfasste Themen', overallProgress:'Gesamtfortschritt', dueToday:'Heute fällige Karten', todayFocus:'Heutige Fokuszeit', minutesUnit:'Min', hoursUnit:'Std.', secondsUnit:'Sek.',
       totalTimeTitle:'Zeitkristall der Gesamtzeit', totalTimeSubtitle:'Jede jemals gelernte Stunde ist in einem einzigen Kristall verdichtet',
       crystalTierNames:['Erster Kristall','Gewachsener Kristall','Leuchtender Kristall','Resonanter Kristall','Kristall der Tiefe','Ewiger Kristall','Uralter Kristall','Unendlicher Kristall'],
       crystalNextIn:'Noch {hours} Std. bis zum nächsten Kristall', crystalInfinite:'Ein Kristall, der nie aufhört zu wachsen', collectedCrystals:'Gesammelte Kristalle',
@@ -2499,6 +2499,21 @@ function fmtTime(sec){
    own separate bookkeeping or migration. */
 function totalStudyMinutesAllTime(){
   return Math.max(0, state.focusLog.reduce((a,f)=>a+f.minutes,0));
+}
+/* Like fmtTime but spells out hours/minutes/seconds with their unit labels
+   instead of a bare (and, past 59 minutes, ambiguous — e.g. "83:20" reads
+   like hours:minutes but is actually total-minutes:seconds) MM:SS pair.
+   Used anywhere a stopwatch duration is shown out of context, away from the
+   live running timer display where MM:SS is already unambiguous. */
+function fmtTimeHMS(sec){
+  sec = Math.max(0, Math.round(sec));
+  const h = Math.floor(sec/3600);
+  const m = Math.floor((sec%3600)/60);
+  const s = sec%60;
+  const hu = t('dash.hoursUnit'), mu = t('dash.minutesUnit'), su = t('dash.secondsUnit');
+  if(h>0) return `${h}${hu} ${m}${mu} ${s}${su}`;
+  if(m>0) return `${m}${mu} ${s}${su}`;
+  return `${s}${su}`;
 }
 function fmtHoursMinutesLabel(totalMinutes){
   const mins = Math.max(0, Math.round(totalMinutes));
@@ -3927,11 +3942,15 @@ function renderHeaderTimers(){
   const modeLabel = onBreak ? t('focus.breakMode') : (overtime ? t('focus.overtimeMode') : t('focus.workMode'));
   const timeDisplay = overtime ? '+'+fmtTime(state.timer.overtimeSeconds) : fmtTime(state.timer.remaining);
   const stopwatchBody = state.editingStopwatchTime ? `
-        <div style="display:flex;align-items:center;gap:4px;margin-top:2px;">
-          <input type="number" id="editStopwatchMin" value="${Math.round(state.stopwatch.elapsedSeconds/60)}" min="0" max="1440" step="1"
-            style="width:56px;font-family:'IBM Plex Mono',monospace;font-size:13px;padding:2px 4px;"
+        <div style="display:flex;align-items:center;gap:4px;margin-top:2px;flex-wrap:wrap;">
+          <input type="number" id="editStopwatchMin" value="${Math.floor(state.stopwatch.elapsedSeconds/60)}" min="0" max="1440" step="1"
+            style="width:48px;font-family:'IBM Plex Mono',monospace;font-size:13px;padding:2px 4px;"
             onkeypress="if(event.key==='Enter'){App.saveStopwatchEdit()} else if(event.key==='Escape'){App.cancelStopwatchEdit()}">
           <span class="muted" style="font-size:10px;">${t('dash.minutesUnit')}</span>
+          <input type="number" id="editStopwatchSec" value="${state.stopwatch.elapsedSeconds%60}" min="0" max="59" step="1"
+            style="width:42px;font-family:'IBM Plex Mono',monospace;font-size:13px;padding:2px 4px;"
+            onkeypress="if(event.key==='Enter'){App.saveStopwatchEdit()} else if(event.key==='Escape'){App.cancelStopwatchEdit()}">
+          <span class="muted" style="font-size:10px;">${t('dash.secondsUnit')}</span>
           <button class="btn small" style="padding:2px 6px;font-size:11px;" onclick="App.saveStopwatchEdit()">${t('subjects.save')}</button>
           <button class="btn ghost small" style="padding:2px 6px;font-size:11px;" onclick="App.cancelStopwatchEdit()">${t('subjects.cancel')}</button>
         </div>
@@ -7359,8 +7378,9 @@ function renderFocus(){
       <div style="max-height:160px;overflow-y:auto;">
         ${checkpoints.length ? checkpoints.map(cp=>{
           const d = new Date(cp.t);
+          const dateStr = formatLocalISO(d);
           const hh = String(d.getHours()).padStart(2,'0'), mm = String(d.getMinutes()).padStart(2,'0');
-          return `<div class="topic-row"><span class="topic-name mono" style="font-size:12px;">${hh}:${mm}</span><span>${fmtTime(cp.stopwatch.elapsedSeconds)}</span><button class="btn ghost small" style="padding:2px 8px;" onclick="App.revertToStopwatchCheckpoint('${cp.id}')">${t('focus.revertCheckpointBtn')}</button></div>`;
+          return `<div class="topic-row"><span class="topic-name mono" style="font-size:12px;">${dateStr} ${hh}:${mm}</span><span class="muted" style="font-size:11.5px;">${t('focus.stopwatchLabel')} ${fmtTimeHMS(cp.stopwatch.elapsedSeconds)}</span><button class="btn ghost small" style="padding:2px 8px;" onclick="App.revertToStopwatchCheckpoint('${cp.id}')">${t('focus.revertCheckpointBtn')}</button></div>`;
         }).join('') : `<div class="empty">${t('focus.checkpointsEmpty')}</div>`}
       </div>
     </div>
@@ -7562,12 +7582,19 @@ App.cancelStopwatchEdit = function(){
   state.editingStopwatchTime = false;
   renderHeaderTimers();
 };
-/* Applies a manual correction to real study time. First flushes any minutes
-   already earned under the old value into focusLog (same as a normal
-   commit), then re-bases the stopwatch to the new value and logs the
-   remaining difference as a single 'adjustment' entry so today's goal
-   total (focusLog) stays in sync with what the stopwatch now shows —
-   the difference can be negative if the person is correcting time downward.
+/* Applies a manual correction to real study time, down to the second (the
+   minutes and seconds fields are combined into one target duration — this
+   lets a correction land exactly on e.g. "12분 34초" instead of only whole
+   minutes). First flushes any minutes already earned under the old value
+   into focusLog (same as a normal commit), then re-bases the stopwatch to
+   the new value and logs the remaining difference as a single 'adjustment'
+   entry so today's goal total (focusLog) stays in sync with what the
+   stopwatch now shows — the difference can be negative if the person is
+   correcting time downward. focusLog/XP bookkeeping is still minute-
+   granularity by design (every focusLog row represents whole minutes), so
+   the adjustment logged there is the seconds difference rounded to the
+   nearest minute; the stopwatch display itself (elapsedSeconds/
+   committedSeconds) keeps the exact seconds the person entered.
    XP is adjusted by the same rate as normal stopwatch time (2 XP/minute):
    correcting upward awards XP through the normal awardXp() path (streak/
    badges/quest bonus all apply, same as any other earned minute); correcting
@@ -7575,12 +7602,14 @@ App.cancelStopwatchEdit = function(){
    badges — deleting real study time isn't a "study session" to celebrate,
    it's an accounting fix. */
 App.saveStopwatchEdit = function(){
-  const el = document.getElementById('editStopwatchMin');
-  if(!el) return;
-  const newMinutes = Math.max(0, Math.round(parseFloat(el.value)||0));
+  const minEl = document.getElementById('editStopwatchMin');
+  const secEl = document.getElementById('editStopwatchSec');
+  if(!minEl) return;
+  const newMinutesPart = Math.max(0, Math.round(parseFloat(minEl.value)||0));
+  const newSecondsPart = secEl ? Math.min(59, Math.max(0, Math.round(parseFloat(secEl.value)||0))) : 0;
   commitStopwatch(true);
-  const newSeconds = newMinutes*60;
-  const deltaMinutes = newMinutes - Math.round(state.stopwatch.committedSeconds/60);
+  const newSeconds = newMinutesPart*60 + newSecondsPart;
+  const deltaMinutes = Math.round((newSeconds - state.stopwatch.committedSeconds)/60);
   if(deltaMinutes !== 0){
     state.focusLog.push({id:uid(), date:sessionToday(), minutes:deltaMinutes, subjectId:null, source:'adjustment', t:Date.now(), xpApplied:true});
     if(deltaMinutes > 0){
