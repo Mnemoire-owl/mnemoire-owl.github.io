@@ -2443,6 +2443,31 @@ function focusInput(id, selectText){
     if(selectText && el.select) el.select();
   });
 }
+/* After an "add" action pushes a new item to the END of a list, renderAll()
+   rebuilds that list's DOM from scratch. When the list lives inside its own
+   scrollable box (overflow-y:auto + max-height), replacing its innerHTML
+   resets that box's scrollTop to 0 — so a newly-appended item can end up
+   hidden below the fold even though it was just added. Call this right
+   after renderAll() (it schedules its own rAF, same pattern as focusInput)
+   to snap that box back to the bottom so the new item is immediately
+   visible. */
+function scrollBoxToBottom(containerId){
+  requestAnimationFrame(()=>{
+    const el = document.getElementById(containerId);
+    if(el) el.scrollTop = el.scrollHeight;
+  });
+}
+/* Same idea for lists that are NOT inside their own scroll box (e.g. they
+   just flow in the page), where the thing that needs to be revealed is the
+   page's own scroll position rather than a container's scrollTop. Scrolls
+   the last element matching `selector` into view. */
+function scrollLastIntoView(selector){
+  requestAnimationFrame(()=>{
+    const items = document.querySelectorAll(selector);
+    const last = items[items.length-1];
+    if(last && last.scrollIntoView) last.scrollIntoView({behavior:'smooth', block:'nearest'});
+  });
+}
 function formatLocalISO(d){
   const y = d.getFullYear();
   const m = String(d.getMonth()+1).padStart(2,'0');
@@ -5064,7 +5089,7 @@ function renderSubjectDetail(s){
 
     <hr class="divider">
     <label>${t('subjects.topicListLabel')}</label>
-    <div style="max-height:220px;overflow-y:auto;margin-bottom:14px;">${topics}</div>
+    <div id="topicListBox" style="max-height:220px;overflow-y:auto;margin-bottom:14px;">${topics}</div>
     <div class="row">
       <div><input type="text" id="newTopicName" placeholder="${t('subjects.newTopicPh')}" onkeypress="if(event.key==='Enter'){App.addTopic('${s.id}')}"></div>
       <div><select id="newTopicCategory">${catOptions}</select></div>
@@ -5107,6 +5132,7 @@ App.addSubject = function(){
   if(wasEmpty) state.notesSubjectMgmtOpen = true;
   saveState(); renderAll();
   focusInput('newSubjectName');
+  scrollLastIntoView('.subject-row');
 };
 App.setNotesSubjectMgmtOpen = function(isOpen){
   state.notesSubjectMgmtOpen = !!isOpen;
@@ -5179,6 +5205,7 @@ App.addTopic = function(sid){
   s.topics.push({id:uid(), name, categoryId: categoryId||null, notes:'', pretestText:'', subtopics:[], passes:new Array(s.passCount).fill(false), createdAt: todayISO(), reviewDone: []});
   saveState(); renderAll();
   focusInput('newTopicName');
+  scrollBoxToBottom('topicListBox');
 };
 App.deleteTopic = function(sid,tid){
   const s = state.subjects.find(x=>x.id===sid);
