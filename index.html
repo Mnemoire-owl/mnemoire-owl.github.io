@@ -2360,6 +2360,7 @@ function defaultState(){
     editingSubjectId: null,
     editingTopicId: null,
     lastCardSubjectId: null,
+    lastCardType: 'basic',
     cardEditingId: null,
     cardReview: { queue: [], index: 0, flipped: false, mode: 'due', browseSubjectId: 'all' },
     editingCategoryId: null,
@@ -2805,6 +2806,7 @@ function normalizeState(){
   if(state.editingSubjectId===undefined) state.editingSubjectId = null;
   if(state.editingTopicId===undefined) state.editingTopicId = null;
   if(state.lastCardSubjectId===undefined) state.lastCardSubjectId = null;
+  if(state.lastCardType!=='basic' && state.lastCardType!=='cloze') state.lastCardType = 'basic';
   if(state.cardEditingId===undefined) state.cardEditingId = null;
   if(state.editingCategoryId===undefined) state.editingCategoryId = null;
   if(state.editingSubtopicId===undefined) state.editingSubtopicId = null;
@@ -3318,6 +3320,7 @@ App.addGoal = function(){
   titleEl.value = '';
   dateEl.value = '';
   saveState(); renderAll();
+  focusInput('goalTitle');
 };
 App.resolveGoal = function(id, achieved){
   const gl = state.goals.find(x=>x.id===id);
@@ -4281,6 +4284,7 @@ App.addCalendarEvent = function(){
   titleEl.value = '';
   if(timeEl) timeEl.value = '';
   saveState(); renderAll();
+  focusInput('calEventTitle');
 };
 App.deleteCalendarEvent = function(id){
   const target = state.calendarEvents.find(e=>e.id===id);
@@ -4616,6 +4620,7 @@ App.addRecurringPlan = function(){
   state.recurringPlans.push({id:uid(), label, weekdays, createdAt: todayISO(), completedDates:[]});
   input.value = '';
   saveState(); renderAll();
+  focusInput('newRecurringLabel');
 };
 App.startEditRecurringPlan = function(id){ state.editingRecurringPlanId = id; renderAll(); focusInput('editRecurringLabel_'+id, true); };
 App.cancelEditRecurringPlan = function(){ state.editingRecurringPlanId = null; renderAll(); };
@@ -4901,6 +4906,7 @@ App.addCustomPlanItem = function(){
   if(!label) return;
   state.plan.items.push({id:uid(), type:'custom', label, subjectName:null, topicId:null, done:false});
   saveState(); renderAll();
+  focusInput('customPlanInput');
 };
 App.deletePlanItem = function(id){
   showConfirm(t('confirm.deletePlanItem'), function(){
@@ -5100,6 +5106,7 @@ App.addSubject = function(){
   state.activeSubjectId = s.id;
   if(wasEmpty) state.notesSubjectMgmtOpen = true;
   saveState(); renderAll();
+  focusInput('newSubjectName');
 };
 App.setNotesSubjectMgmtOpen = function(isOpen){
   state.notesSubjectMgmtOpen = !!isOpen;
@@ -5131,6 +5138,7 @@ App.addCategory = function(sid){
   const s = state.subjects.find(x=>x.id===sid);
   s.categories.push({id:uid(), name, color});
   saveState(); renderAll();
+  focusInput('newCatName');
 };
 App.deleteCategory = function(sid,cid){
   const s = state.subjects.find(x=>x.id===sid);
@@ -5170,6 +5178,7 @@ App.addTopic = function(sid){
   const s = state.subjects.find(x=>x.id===sid);
   s.topics.push({id:uid(), name, categoryId: categoryId||null, notes:'', pretestText:'', subtopics:[], passes:new Array(s.passCount).fill(false), createdAt: todayISO(), reviewDone: []});
   saveState(); renderAll();
+  focusInput('newTopicName');
 };
 App.deleteTopic = function(sid,tid){
   const s = state.subjects.find(x=>x.id===sid);
@@ -5611,6 +5620,7 @@ App.addSubtopic = function(sid, tid, parentId){
   }
   targetList.push({id:uid(), name, notes:'', subtopics:[]});
   saveState(); renderAll();
+  focusInput('newSub-'+inputKey);
 };
 App.deleteSubtopic = function(sid, tid, subid){
   const s = state.subjects.find(x=>x.id===sid);
@@ -6604,7 +6614,12 @@ function renderCards(){
   const fallbackSubjectId = state.subjects.some(s=>s.id===state.lastCardSubjectId) ? state.lastCardSubjectId : (state.subjects[0] && state.subjects[0].id);
   const selectedSubjectId = editingCard ? editingCard.subjectId : (draft ? draft.subjectId : fallbackSubjectId);
   const subOptions = state.subjects.map(s=>`<option value="${s.id}" ${selectedSubjectId===s.id?'selected':''}>${escapeHtml(s.name)}</option>`).join('');
-  const initialType = editingCard ? editingCard.type : 'basic';
+  // A freshly-seeded draft (from the notes/pretest "make card" shortcut) is
+  // always the basic front/back shape, so it overrides lastCardType — but
+  // otherwise remember whichever type was last added (mirrors
+  // lastCardSubjectId) so adding several cloze cards in a row doesn't force
+  // re-selecting "cloze" from the dropdown after every single add.
+  const initialType = editingCard ? editingCard.type : (draft ? 'basic' : state.lastCardType);
 
   const queue = state.cardReview.queue;
   const browseMode = state.cardReview.mode==='all';
@@ -6726,8 +6741,10 @@ App.addCard = function(){
   state.cards.push(card);
   state.stats.cardsCreated++;
   state.lastCardSubjectId = subjectId;
+  state.lastCardType = type;
   awardXp(3);
   saveState(); renderAll();
+  focusInput(type==='cloze' ? 'cardCloze' : 'cardFront');
 };
 App.startEditCard = function(id){
   state.cardEditingId = id;
@@ -6915,6 +6932,7 @@ App.addReward = function(){
   state.rewards.push({id:uid(), title: title || url, url, cyclesRequired: cycles, restMinutes});
   titleEl.value=''; urlEl.value=''; cyclesEl.value='2'; restMinEl.value='10';
   saveState(); renderAll();
+  focusInput('rewardTitle');
 };
 App.deleteReward = function(id){
   const target = state.rewards.find(r=>r.id===id);
