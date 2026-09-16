@@ -306,6 +306,9 @@
     flex-wrap:wrap;
   }
   .topic-row:last-child{border-bottom:none;}
+  .plan-item-row.plan-item-dragging{opacity:.4;}
+  .plan-item-row.plan-item-dragover{background:var(--surface-2);outline:2px dashed var(--amber);outline-offset:-2px;}
+  .plan-drag-handle:active{cursor:grabbing;}
 
   .cycle-topic{border-bottom:1px solid var(--line);}
   .cycle-topic:last-child{border-bottom:none;}
@@ -987,6 +990,7 @@ const LANG = {
     plan: {
       goalTitle:'오늘 목표 학습 시간', goalLabel:'목표 (분)', startBtn:'집중 세션 시작하기',
       todayPlanTitle:'오늘의 계획', noPlanYet:'아직 계획에 추가한 주제가 없어요. 아래 목록에서 골라보세요.',
+      dragPriorityHint:'⠿ 항목을 드래그해서 우선순위 순서를 정하세요 (맨 위가 최우선).',
       reviewTitle:'오늘 복습할 것', noReviews:'오늘 예정된 노트 복습이 없어요.',
       cardsDue:'복습 대기 카드', gapsOpen:'미해결 오답', staleTopics:'복습 필요 주제', reviewStaleBtn:'🔁 지금 복습하기', goToCards:'암기카드로 이동', goToGaps:'오답노트로 이동',
       pickTitle:'오늘 공부할 주제 고르기', pickHint:'체크하면 위 "오늘의 계획"에 추가돼요. 계획에 넣은 뒤 하나씩 끝낼 때마다 체크하며 진행 상황을 확인하세요.',
@@ -1270,6 +1274,7 @@ const LANG = {
     plan: {
       goalTitle:"Today's study goal", goalLabel:'Goal (min)', startBtn:'Start focus session',
       todayPlanTitle:"Today's plan", noPlanYet:'No topics added to the plan yet. Pick some from the list below.',
+      dragPriorityHint:'⠿ Drag items to set their priority order (top = highest priority).',
       reviewTitle:'What to review today', noReviews:'No note reviews due today.',
       cardsDue:'Cards due', gapsOpen:'Open gaps', staleTopics:'Topics needing review', reviewStaleBtn:'🔁 Review now', goToCards:'Go to Flashcards', goToGaps:'Go to Gap Notebook',
       pickTitle:'Pick topics to study today', pickHint:'Checking a topic adds it to the plan list above. Check items off one by one as you finish them to track progress.',
@@ -1553,6 +1558,7 @@ const LANG = {
     plan: {
       goalTitle:'Heutiges Lernziel', goalLabel:'Ziel (Min)', startBtn:'Fokuszeit starten',
       todayPlanTitle:'Heutiger Plan', noPlanYet:'Noch keine Themen im Plan. Wähle unten welche aus.',
+      dragPriorityHint:'⠿ Ziehe Einträge, um ihre Priorität festzulegen (oben = höchste Priorität).',
       reviewTitle:'Was heute zu wiederholen ist', noReviews:'Heute keine Notiz-Wiederholungen fällig.',
       cardsDue:'Fällige Karten', gapsOpen:'Offene Lücken', staleTopics:'Themen mit Wiederholungsbedarf', reviewStaleBtn:'🔁 Jetzt wiederholen', goToCards:'Zu Karteikarten', goToGaps:'Zu Fehlernotizen',
       pickTitle:'Themen für heute auswählen', pickHint:'Ein angehaktes Thema wird oben in den Plan aufgenommen. Hake es ab, sobald es erledigt ist, um den Fortschritt zu verfolgen.',
@@ -3486,9 +3492,23 @@ App.confirmNo = function(){
 };
 // Esc closes the confirm/alert modal the same way clicking the overlay
 // backdrop does (safe default = cancel, never confirm), matching what
-// people expect from any modal dialog.
+// people expect from any modal dialog. Space starts/stops the linked
+// pomodoro+stopwatch timer from anywhere on the page (same action as
+// clicking the header timer's start/pause button), EXCEPT while the
+// person is actually typing somewhere — a text field, a dropdown, a
+// contenteditable area (the rich-text notes editor, sidenotes), or a
+// focused button that space would otherwise activate (e.g. a confirm
+// modal's own buttons) — there space needs to keep doing its normal job.
 document.addEventListener('keydown', function(e){
   if(e.key === 'Escape' && confirmModalOpen) App.confirmNo();
+  if((e.key === ' ' || e.code === 'Space') && !e.repeat && !confirmModalOpen){
+    const target = e.target;
+    const isTypingTarget = target && target.closest && target.closest('input, textarea, select, button, [contenteditable="true"]');
+    if(!isTypingTarget){
+      e.preventDefault(); // stop the page from scrolling on space
+      App.linkedToggle();
+    }
+  }
 });
 
 function celebrate(title, sub){
@@ -4720,7 +4740,8 @@ function renderPlan(){
       `;
     }
     return `
-    <div class="topic-row">
+    <div class="topic-row plan-item-row" data-plan-item-id="${item.id}" ondragover="App.onPlanItemDragOver(event)" ondragleave="App.onPlanItemDragLeave(event)" ondrop="App.onPlanItemDrop(event,'${item.id}')">
+      <span class="plan-drag-handle" draggable="true" ondragstart="App.onPlanItemDragStart(event,'${item.id}')" ondragend="App.onPlanItemDragEnd(event)" title="${t('plan.dragPriorityHint')}" style="cursor:grab;user-select:none;opacity:.4;padding:0 6px 0 0;flex:none;touch-action:none;">⠿</span>
       <label style="display:flex;align-items:center;gap:8px;flex:1;cursor:pointer;min-width:0;">
         <input type="checkbox" style="width:auto;" ${item.done?'checked':''} onchange="App.togglePlanDone('${item.id}')">
         <span style="${item.done?'text-decoration:line-through;opacity:.55;':''}">
@@ -4734,6 +4755,7 @@ function renderPlan(){
     </div>
   `;
   }).join('') || `<div class="empty">${t('plan.noPlanYet')}</div>`;
+  const plannedRowsHint = items.length>1 ? `<div class="muted" style="font-size:11px;margin:-2px 0 8px;">${t('plan.dragPriorityHint')}</div>` : '';
 
   const pickerBox = state.subjects.length===0
     ? needSubjectsBlock(t('notes.needSubjects'))
@@ -4821,6 +4843,7 @@ function renderPlan(){
 
     <div class="card" style="margin-bottom:16px;">
       <h2 class="section-title">${t('plan.todayPlanTitle')} ${items.length?`(${doneCount}/${items.length})`:''}</h2>
+      ${plannedRowsHint}
       ${plannedRows}
       <div class="row" style="margin-top:12px;">
         <div><input type="text" id="customPlanInput" placeholder="${t('plan.customPh')}" onkeypress="if(event.key==='Enter'){App.addCustomPlanItem()}"></div>
@@ -4958,6 +4981,54 @@ App.togglePlanDone = function(id){
   item.done = !item.done;
   if(item.done) awardXp(5);
   saveState(); renderAll();
+};
+/* ---- Drag-to-reorder for "오늘의 계획" (today's plan) — order in
+   state.plan.items IS the priority order (top = highest priority), so
+   dragging a row just reorders the array; no separate priority field
+   needed. Deliberately avoids renderAll() (or any state mutation) during
+   dragstart/dragover/dragleave — rebuilding #panel's DOM mid-drag would
+   destroy the very node the browser is dragging and abort the gesture.
+   The array is only touched, and the panel only re-rendered, on drop
+   (the drag is over by then, so a fresh render is safe). Visual feedback
+   while dragging is done with plain classList toggles instead. */
+let draggedPlanItemId = null;
+App.onPlanItemDragStart = function(ev, id){
+  draggedPlanItemId = id;
+  try{
+    ev.dataTransfer.effectAllowed = 'move';
+    ev.dataTransfer.setData('text/plain', id);
+  }catch(err){ /* some browsers restrict dataTransfer access; the module-level var still works */ }
+  const row = ev.target.closest('.plan-item-row');
+  if(row) row.classList.add('plan-item-dragging');
+};
+App.onPlanItemDragOver = function(ev){
+  if(!draggedPlanItemId) return;
+  ev.preventDefault(); // required so this row becomes a valid drop target
+  if(ev.currentTarget) ev.currentTarget.classList.add('plan-item-dragover');
+};
+App.onPlanItemDragLeave = function(ev){
+  if(ev.currentTarget) ev.currentTarget.classList.remove('plan-item-dragover');
+};
+App.onPlanItemDrop = function(ev, targetId){
+  ev.preventDefault();
+  if(ev.currentTarget) ev.currentTarget.classList.remove('plan-item-dragover');
+  const sourceId = draggedPlanItemId;
+  draggedPlanItemId = null;
+  if(!sourceId || sourceId===targetId) return;
+  const items = state.plan.items;
+  const fromIdx = items.findIndex(i=>i.id===sourceId);
+  const toIdx = items.findIndex(i=>i.id===targetId);
+  if(fromIdx<0 || toIdx<0) return;
+  const [moved] = items.splice(fromIdx,1);
+  items.splice(toIdx,0,moved);
+  saveState(); renderAll();
+};
+App.onPlanItemDragEnd = function(){
+  // Fires even when the drag is cancelled (dropped outside any valid
+  // target) — clean up so a stray class never lingers.
+  draggedPlanItemId = null;
+  document.querySelectorAll('.plan-item-dragging').forEach(el=>el.classList.remove('plan-item-dragging'));
+  document.querySelectorAll('.plan-item-dragover').forEach(el=>el.classList.remove('plan-item-dragover'));
 };
 
 /* ============ SUBJECTS ============ */
