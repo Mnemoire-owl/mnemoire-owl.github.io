@@ -6819,18 +6819,37 @@ App.toggleCardType = function(){
   document.getElementById('clozeFields').style.display = ty==='cloze'?'block':'none';
 };
 App.setCardSubject = function(v){ state.lastCardSubjectId = v || null; saveState(); };
+/* Places the caret at the very end of a contenteditable field's content —
+   used when double-Enter jumps focus from front to back, so continuing to
+   type (or reviewing existing text while editing a card) starts after
+   whatever's already there instead of before it. */
+function placeCaretAtEnd(el){
+  el.focus();
+  if(window.getSelection && document.createRange){
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    range.collapse(false);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
+}
 /* Front/back (rich text) and the cloze body (textarea) are all multi-line
    fields — a single Enter has to keep inserting a normal newline, since a
    card's answer or a cloze passage can legitimately span multiple lines.
-   But pressing Enter twice in a row (an empty line) is a handy "I'm done,
-   add the card" shortcut so people don't have to reach for the mouse/button
-   for every single card. Only the SECOND consecutive Enter is special: it
-   submits instead of inserting anything, and any other keypress in between
-   resets the count back to zero so this only fires for two Enters back to
-   back with nothing else typed (including switching fields). Also removes
-   the now-unwanted empty line the first Enter left behind in a rich-text
-   field, so the saved card doesn't end with a stray blank line (the cloze
-   textarea already gets .trim()'d when read, so no cleanup needed there). */
+   But pressing Enter twice in a row (an empty line) is a handy shortcut so
+   people don't have to reach for the mouse for every single card: on the
+   FRONT field it jumps straight to the back field (front, Enter Enter,
+   back — like filling out a paper flashcard front-then-back in one motion),
+   and on the back field or the cloze body it submits (adds the card, or
+   saves the edit if one is in progress). Only the SECOND consecutive Enter
+   is special; any other keypress in between resets the count back to zero
+   so this only fires for two Enters back to back with nothing else typed
+   (including switching fields). Also removes the now-unwanted empty line
+   the first Enter left behind in a rich-text field, so neither the saved
+   card nor the field you just jumped away from ends with a stray blank
+   line (the cloze textarea already gets .trim()'d when read, so no
+   cleanup needed there). */
 let cardFieldLastKeyWasEnter = {};
 App.handleCardFieldEnterKey = function(event, fieldId){
   if(event.isComposing) return; // don't hijack an IME's own Enter (confirming composition)
@@ -6842,7 +6861,7 @@ App.handleCardFieldEnterKey = function(event, fieldId){
     cardFieldLastKeyWasEnter[fieldId] = true;
     return; // first Enter — let it insert a normal newline
   }
-  // second consecutive Enter — submit instead of inserting another newline
+  // second consecutive Enter — act instead of inserting another newline
   event.preventDefault();
   cardFieldLastKeyWasEnter[fieldId] = false;
   const el = document.getElementById(fieldId);
@@ -6852,6 +6871,11 @@ App.handleCardFieldEnterKey = function(event, fieldId){
       if(last.nodeName==='BR'){ el.removeChild(last); }
       else if(last.nodeName==='DIV' && richIsEmpty(last.innerHTML)){ el.removeChild(last); }
     }
+  }
+  if(fieldId==='cardFront'){
+    const backEl = document.getElementById('cardBack');
+    if(backEl) placeCaretAtEnd(backEl);
+    return;
   }
   if(state.cardEditingId){ App.saveCardEdit(); } else { App.addCard(); }
 };
