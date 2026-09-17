@@ -2545,6 +2545,21 @@ function flattenSubtopics(list, depth){
   });
   return out;
 }
+/* All 소주제 (subtopic) names already defined in Subject Management for a
+   given subject — i.e. every subtopic node nested under any of that
+   subject's topics (s.topics[].subtopics, however deeply nested), not the
+   flashcard-side subtopic strings. Used to offer the *real* subtopic list
+   as searchable/selectable suggestions when tagging a flashcard, on top of
+   (not instead of) freely typing a brand-new one. */
+function getSubjectSubtopicNames(subjectId){
+  const s = state.subjects.find(x=>x.id===subjectId);
+  if(!s) return [];
+  const names = [];
+  s.topics.forEach(tp=>{
+    flattenSubtopics(tp.subtopics||[]).forEach(({node})=>{ if(node.name) names.push(node.name); });
+  });
+  return names;
+}
 function addDays(iso, days){
   const d = new Date(iso + 'T00:00:00');
   d.setDate(d.getDate()+days);
@@ -6925,7 +6940,18 @@ function renderCards(){
   // subtopic, but adding several cards under the same subtopic in a row
   // (the whole point of the field) doesn't require retyping it each time.
   const subtopicValue = editingCard ? (editingCard.subtopic||'') : (draft ? '' : (state.lastCardSubtopicBySubject[selectedSubjectId]||''));
-  const subtopicChoices = Array.from(new Set(state.cards.filter(c=>c.subjectId===selectedSubjectId && c.subtopic).map(c=>c.subtopic))).sort();
+  // Suggestion list is a union of two sources — the real 소주제 list already
+  // defined for this subject in Subject Management (so an existing subtopic
+  // can be searched and picked instead of retyped, keeping wording
+  // consistent with the notes side of the app), plus any subtopic strings
+  // already used on this subject's flashcards (in case one was typed here
+  // before ever being added in Subject Management). The <input list=...>
+  // still accepts free text, so creating a brand-new subtopic name stays
+  // just as easy as before.
+  const subtopicChoices = Array.from(new Set([
+    ...getSubjectSubtopicNames(selectedSubjectId),
+    ...state.cards.filter(c=>c.subjectId===selectedSubjectId && c.subtopic).map(c=>c.subtopic)
+  ])).sort();
   const subtopicDatalistOptions = subtopicChoices.map(x=>`<option value="${escapeAttr(x)}"></option>`).join('');
 
   const browseMode = state.cardReview.mode==='all';
