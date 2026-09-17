@@ -6949,8 +6949,16 @@ App.rateCard = function(id, quality){
 };
 document.addEventListener('keydown', function(e){
   if(!state || state.activeTab!=='cards') return;
-  const tag = (e.target && e.target.tagName) || '';
-  if(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT') return;
+  // Bug fix: this used to only skip INPUT/TEXTAREA/SELECT, but the card
+  // add/edit form's front/back fields are rich-text areas — contenteditable
+  // DIVs (see richFieldHtml), not any of those tags. Space or arrow keys
+  // typed while writing a card front/back were getting swallowed here and
+  // firing flip/prev/next (which calls renderAll(), wiping the not-yet-saved
+  // text the person had just typed). Match the same typing-target check the
+  // global space-toggle listener uses so contenteditable fields are covered.
+  const target = e.target;
+  const isTypingTarget = target && target.closest && target.closest('input, textarea, select, button, [contenteditable="true"]');
+  if(isTypingTarget) return;
   if(e.key==='ArrowLeft'){ e.preventDefault(); App.cardReviewPrev(); }
   else if(e.key==='ArrowRight'){ e.preventDefault(); App.cardReviewNext(); }
   else if(e.key===' '||e.code==='Space'){ e.preventDefault(); App.flipCard(); }
