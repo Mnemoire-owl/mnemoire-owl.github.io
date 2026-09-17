@@ -505,6 +505,20 @@
   }
   .memorize-overlay-inner{width:100%;max-width:720px;margin:auto;}
 
+  /* ---- Custom subtopic-suggestion dropdown (#cardSubtopic) ----
+     A hand-rolled replacement for <input list="..."><datalist>: Safari
+     doesn't reliably show datalist suggestions at all, so that native
+     approach silently did nothing there. Positioned relative to the
+     .field wrapper (see the inline position:relative on that div). */
+  .subtopic-suggestions{
+    position:absolute;top:100%;left:0;right:0;z-index:50;
+    background:var(--surface);border:1px solid var(--line);border-radius:8px;
+    margin-top:4px;max-height:180px;overflow-y:auto;
+    box-shadow:0 6px 18px rgba(43,39,31,.18);
+  }
+  .subtopic-suggestion-item{padding:8px 12px;font-size:13px;cursor:pointer;}
+  .subtopic-suggestion-item:hover{background:var(--surface-2);}
+
   /* ---- Interactive tutorial overlay ----
      Deliberately non-blocking: the dim layer and highlight box are both
      pointer-events:none, so the real UI underneath stays fully clickable
@@ -6957,14 +6971,24 @@ function renderCards(){
   // can be searched and picked instead of retyped, keeping wording
   // consistent with the notes side of the app), plus any subtopic strings
   // already used on this subject's flashcards (in case one was typed here
-  // before ever being added in Subject Management). The <input list=...>
-  // still accepts free text, so creating a brand-new subtopic name stays
-  // just as easy as before.
+  // before ever being added in Subject Management). The suggestion box
+  // still lets the field be typed into freely, so creating a brand-new
+  // subtopic name stays just as easy as before.
+  //
+  // This used to be a native <input list="..."><datalist> pairing, but
+  // Safari doesn't reliably pop up datalist suggestions at all (a
+  // long-standing WebKit limitation) — the person testing on a Mac just
+  // saw a plain text field with no hint anything was suggested. Rendering
+  // our own dropdown (App.showSubtopicSuggestions/pickSubtopicSuggestion
+  // below) works the same in every browser. cardSubtopicSuggestionPool is
+  // a plain module-level array (not app state) refreshed on every render,
+  // read directly by those handlers — same pattern as
+  // cardFieldLastKeyWasEnter's module-level tracking elsewhere in this file.
   const subtopicChoices = Array.from(new Set([
     ...getSubjectSubtopicNames(selectedSubjectId),
     ...state.cards.filter(c=>c.subjectId===selectedSubjectId && c.subtopic).map(c=>c.subtopic)
   ])).sort();
-  const subtopicDatalistOptions = subtopicChoices.map(x=>`<option value="${escapeAttr(x)}"></option>`).join('');
+  cardSubtopicSuggestionPool = subtopicChoices;
 
   const browseMode = state.cardReview.mode==='all';
   const studyPanelHtml = renderCardStudyPanel();
@@ -6996,7 +7020,12 @@ function renderCards(){
       <div class="card">
         <h2 class="section-title">${editingCard ? t('cards.editTitle') : t('cards.createTitle')}</h2>
         <div class="field"><label>${t('cards.subjectLabel')}</label><select id="cardSubject" onchange="App.setCardSubject(this.value)">${subOptions}</select></div>
-        <div class="field"><label>${t('cards.subtopicLabel')}</label><input type="text" id="cardSubtopic" list="cardSubtopicList" placeholder="${t('cards.subtopicPh')}" value="${escapeAttr(subtopicValue)}"><datalist id="cardSubtopicList">${subtopicDatalistOptions}</datalist></div>
+        <div class="field" style="position:relative;">
+          <label>${t('cards.subtopicLabel')}</label>
+          <input type="text" id="cardSubtopic" autocomplete="off" placeholder="${t('cards.subtopicPh')}" value="${escapeAttr(subtopicValue)}"
+            oninput="App.showSubtopicSuggestions()" onfocus="App.showSubtopicSuggestions()" onblur="App.hideSubtopicSuggestionsDelayed()">
+          <div id="cardSubtopicSuggestions" class="subtopic-suggestions" style="display:none;"></div>
+        </div>
         <div class="field"><label>${t('cards.typeLabel')}</label>
           <select id="cardType" onchange="App.toggleCardType()">
             <option value="basic" ${initialType==='basic'?'selected':''}>${t('cards.basicOpt')}</option>
@@ -7064,6 +7093,41 @@ App.toggleCardType = function(){
   document.getElementById('clozeFields').style.display = ty==='cloze'?'block':'none';
 };
 App.setCardSubject = function(v){ state.lastCardSubjectId = v || null; saveState(); };
+/* Custom dropdown for the #cardSubtopic field — see the comment above its
+   render call in renderCards() for why this isn't a native <datalist>
+   (Safari doesn't show datalist suggestions at all). cardSubtopicSuggestionPool
+   is refreshed by renderCards() on every render; these handlers just filter
+   it against the input's current text and paint a small absolutely-
+   positioned list under the field, entirely outside renderAll()/innerHTML
+   churn so typing doesn't lose focus or re-render the rest of the form. */
+let cardSubtopicSuggestionPool = [];
+App.showSubtopicSuggestions = function(){
+  const input = document.getElementById('cardSubtopic');
+  const box = document.getElementById('cardSubtopicSuggestions');
+  if(!input || !box) return;
+  const q = input.value.trim().toLowerCase();
+  const matches = cardSubtopicSuggestionPool.filter(x => (!q || x.toLowerCase().includes(q)) && x.toLowerCase()!==q);
+  if(matches.length===0){ box.style.display = 'none'; box.innerHTML = ''; return; }
+  box.innerHTML = matches.slice(0,20).map(x=>
+    `<div class="subtopic-suggestion-item" onmousedown="event.preventDefault();App.pickSubtopicSuggestion('${escapeAttr(x)}')">${escapeHtml(x)}</div>`
+  ).join('');
+  box.style.display = 'block';
+};
+App.pickSubtopicSuggestion = function(value){
+  const input = document.getElementById('cardSubtopic');
+  if(input) input.value = value;
+  App.hideSubtopicSuggestions();
+};
+App.hideSubtopicSuggestions = function(){
+  const box = document.getElementById('cardSubtopicSuggestions');
+  if(box){ box.style.display = 'none'; box.innerHTML = ''; }
+};
+// onmousedown above already calls preventDefault() so picking a suggestion
+// never blurs the field in the first place — this delayed hide only
+// handles the "click away entirely" case (blurring for some other reason).
+App.hideSubtopicSuggestionsDelayed = function(){
+  setTimeout(App.hideSubtopicSuggestions, 150);
+};
 /* Places the caret at the very end of a contenteditable field's content —
    used when double-Enter jumps focus from front to back, so continuing to
    type (or reviewing existing text while editing a card) starts after
