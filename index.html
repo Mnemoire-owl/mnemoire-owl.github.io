@@ -6925,6 +6925,10 @@ function renderCardStudyPanel(){
         <button class="btn ghost small" onclick="App.cardReviewNext()" ${idx===queue.length-1?'disabled':''}>${t('cards.nextBtn')}</button>
       </div>
       <div class="row" style="margin-top:8px;">
+        <button class="btn ghost small" onclick="App.startEditCardFromBrowse('${c.id}')">${t('cards.edit')}</button>
+        <button class="btn danger small" onclick="App.deleteCard('${c.id}')">${t('cards.delete')}</button>
+      </div>
+      <div class="row" style="margin-top:8px;">
         <button class="btn danger" onclick="App.rateCard('${c.id}',0)">${t('cards.again')}</button>
         <button class="btn ghost" onclick="App.rateCard('${c.id}',1)">${t('cards.good')}</button>
         <button class="btn teal" onclick="App.rateCard('${c.id}',2)">${t('cards.easy')}</button>
@@ -6991,22 +6995,15 @@ function renderCards(){
   cardSubtopicSuggestionPool = subtopicChoices;
 
   const browseMode = state.cardReview.mode==='all';
+  // The raw "every card, most-recent-first" list that used to live under
+  // the create/edit form was removed per the user's own request — it only
+  // ever showed a partial slice (most recent 50) and felt incomplete
+  // ("전체 리스트가 안보이고 파트로 보이는" — looks partial, not the full list).
+  // Editing/deleting now happens from the study panel on the left instead
+  // (see the edit/delete row added to renderCardStudyPanel()'s reviewBlock),
+  // which already lets you page through — and, in browse-all mode,
+  // subject/subtopic-filter down to — every card, one at a time.
   const studyPanelHtml = renderCardStudyPanel();
-
-  // Newest cards first (and always within the visible slice) so a card
-  // that was just added is immediately visible in this list — previously
-  // this sliced the first 50 of state.cards, so once 50+ cards existed a
-  // freshly pushed (i.e. appended) card would never show up here at all.
-  const allList = state.cards.slice(-50).reverse().map(c=>{
-    const s = state.subjects.find(x=>x.id===c.subjectId);
-    return `<div class="topic-row">
-      <span class="topic-name">${escapeHtml(c.type==='cloze'? stripCloze(c.clozeText) : richTextToPlain(c.front))}</span>
-      <span class="pill">${c.type==='cloze'?'Cloze':'Basic'}</span>
-      <span class="muted mono" style="font-size:11px;">${s?escapeHtml(s.name):''}${c.subtopic?' · '+escapeHtml(c.subtopic):''} · ${c.dueDate}</span>
-      <button class="btn ghost small" onclick="App.startEditCard('${c.id}')">${t('cards.edit')}</button>
-      <button class="btn danger small" onclick="App.deleteCard('${c.id}')">${t('cards.delete')}</button>
-    </div>`;
-  }).join('') || `<div class="empty">${t('cards.noCards')}</div>`;
 
   return `
     <div class="grid grid-2">
@@ -7045,8 +7042,6 @@ function renderCards(){
           ? `<div class="row"><button class="btn" onclick="App.saveCardEdit()">${t('cards.saveEdit')}</button><button class="btn ghost" onclick="App.cancelCardEdit()">${t('cards.cancelEdit')}</button></div>`
           : `<button class="btn" onclick="App.addCard()">${t('cards.addCard')}</button>`
         }
-        <hr class="divider">
-        <div style="max-height:200px;overflow-y:auto;">${allList}</div>
       </div>
     </div>
   `;
@@ -7222,6 +7217,17 @@ App.startEditCard = function(id){
   renderAll();
   const c = state.cards.find(x=>x.id===id);
   focusInput(c && c.type==='cloze' ? 'cardCloze' : 'cardFront');
+};
+/* Edit button inside the study/browse panel (renderCardStudyPanel) — that
+   panel is also reused verbatim inside the fullscreen "카드 암기" overlay,
+   which has no create/edit form of its own. Exiting fullscreen first
+   guarantees the edit form is actually on screen for the person to use,
+   instead of silently setting cardEditingId with nothing visible showing
+   for it. Editing from the normal split view is unaffected — fullscreen is
+   already false there, so this is equivalent to plain startEditCard(). */
+App.startEditCardFromBrowse = function(id){
+  state.cardReview.fullscreen = false;
+  App.startEditCard(id);
 };
 App.cancelCardEdit = function(){
   state.cardEditingId = null;
