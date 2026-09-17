@@ -6915,7 +6915,13 @@ function renderCardStudyPanel(){
       backHtml = c.back;
     }
     reviewBlock = `
-      <div class="muted mono" style="font-size:11px;margin-bottom:8px;">${tf('cards.progressLabel',{current:idx+1,total:queue.length})} · ${s?escapeHtml(s.name):''}${c.subtopic?' · '+escapeHtml(c.subtopic):''}</div>
+      <div class="row" style="margin-bottom:8px;justify-content:space-between;align-items:center;flex-wrap:nowrap;">
+        <div class="muted mono" style="font-size:11px;">${tf('cards.progressLabel',{current:idx+1,total:queue.length})} · ${s?escapeHtml(s.name):''}${c.subtopic?' · '+escapeHtml(c.subtopic):''}</div>
+        <div style="display:flex;gap:2px;flex-shrink:0;">
+          <button class="btn ghost small" style="padding:1px 5px;font-size:11px;opacity:.55;" onclick="App.startEditCardFromBrowse('${c.id}')" title="${t('cards.edit')}">✏️</button>
+          <button class="btn ghost small" style="padding:1px 5px;font-size:11px;opacity:.55;" onclick="App.deleteCard('${c.id}')" title="${t('cards.delete')}">🗑️</button>
+        </div>
+      </div>
       <div class="flash" id="flashCard" onclick="App.flipCard()">
         ${cr.flipped ? backHtml : frontHtml}
       </div>
@@ -6923,10 +6929,6 @@ function renderCardStudyPanel(){
         <button class="btn ghost small" onclick="App.cardReviewPrev()" ${idx===0?'disabled':''}>${t('cards.prevBtn')}</button>
         <button class="btn ghost small" onclick="App.flipCard()">${t('cards.flipHint')}</button>
         <button class="btn ghost small" onclick="App.cardReviewNext()" ${idx===queue.length-1?'disabled':''}>${t('cards.nextBtn')}</button>
-      </div>
-      <div class="row" style="margin-top:8px;">
-        <button class="btn ghost small" onclick="App.startEditCardFromBrowse('${c.id}')">${t('cards.edit')}</button>
-        <button class="btn danger small" onclick="App.deleteCard('${c.id}')">${t('cards.delete')}</button>
       </div>
       <div class="row" style="margin-top:8px;">
         <button class="btn danger" onclick="App.rateCard('${c.id}',0)">${t('cards.again')}</button>
