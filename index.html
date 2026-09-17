@@ -931,7 +931,7 @@ const LANG = {
       addCard:'+ 주문 추가', noCards:'각인된 주문이 없어요.', delete:'삭제',
       chooseSubjectFirst:'과목을 먼저 등록해 주세요.', clozeRequired:'가릴 부분을 [[ ]]로 감싸주세요.',
       edit:'수정', editTitle:'주문 수정', saveEdit:'저장', cancelEdit:'취소',
-      prevBtn:'← 이전', nextBtn:'다음 →', navHint:'← → 방향키로 이전/다음, 스페이스로 답 확인',
+      prevBtn:'← 이전', nextBtn:'다음 →', navHint:'← → 방향키로 이전/다음, Enter로 답 확인',
       progressLabel:'{current}/{total}',
       memorizeBtn:'🧠 주문 암기', memorizeTitle:'주문 암기', exitMemorize:'닫기'
     },
@@ -1221,7 +1221,7 @@ const LANG = {
       addCard:'+ Add spell', noCards:'No spells inscribed yet.', delete:'Delete',
       chooseSubjectFirst:'Please add a subject first.', clozeRequired:'Wrap the hidden part in [[ ]].',
       edit:'Edit', editTitle:'Edit spell', saveEdit:'Save', cancelEdit:'Cancel',
-      prevBtn:'← Prev', nextBtn:'Next →', navHint:'Use ← → to go prev/next, space to flip',
+      prevBtn:'← Prev', nextBtn:'Next →', navHint:'Use ← → to go prev/next, Enter to flip',
       progressLabel:'{current}/{total}',
       memorizeBtn:'🧠 Memorize', memorizeTitle:'Memorize spells', exitMemorize:'Close'
     },
@@ -1511,7 +1511,7 @@ const LANG = {
       addCard:'+ Zauber hinzufügen', noCards:'Noch keine Zaubersprüche eingeprägt.', delete:'Löschen',
       chooseSubjectFirst:'Bitte zuerst ein Fach anlegen.', clozeRequired:'Verstecke den Teil mit [[ ]].',
       edit:'Bearbeiten', editTitle:'Zauberspruch bearbeiten', saveEdit:'Speichern', cancelEdit:'Abbrechen',
-      prevBtn:'← Zurück', nextBtn:'Weiter →', navHint:'← → für vor/zurück, Leertaste zum Umdrehen',
+      prevBtn:'← Zurück', nextBtn:'Weiter →', navHint:'← → für vor/zurück, Enter zum Umdrehen',
       progressLabel:'{current}/{total}',
       memorizeBtn:'🧠 Einprägen', memorizeTitle:'Zaubersprüche einprägen', exitMemorize:'Schließen'
     },
@@ -7363,7 +7363,13 @@ document.addEventListener('keydown', function(e){
   if(isTypingTarget) return;
   if(e.key==='ArrowLeft'){ e.preventDefault(); App.cardReviewPrev(); }
   else if(e.key==='ArrowRight'){ e.preventDefault(); App.cardReviewNext(); }
-  else if(e.key===' '||e.code==='Space'){ e.preventDefault(); App.flipCard(); }
+  // Flipping used to be bound to Space, but the study timer's start/pause
+  // shortcut is ALSO Space (see the separate global keydown listener above
+  // that calls App.linkedToggle()) — since that listener isn't scoped to any
+  // tab, every space press while reviewing cards both flipped the card AND
+  // toggled the timer on/off. Moved the flip shortcut to Enter so checking
+  // an answer no longer fights with the timer shortcut.
+  else if(e.key==='Enter'){ e.preventDefault(); App.flipCard(); }
   else if(e.key==='Escape' && state.cardReview.fullscreen){ e.preventDefault(); App.closeCardMemorize(); }
 });
 
