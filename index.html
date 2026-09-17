@@ -492,6 +492,19 @@
   .confirm-box p{margin:0 0 18px;font-size:14px;line-height:1.6;}
   .confirm-actions{display:flex;justify-content:flex-end;gap:8px;}
 
+  /* ---- Fullscreen flashcard "카드 암기" (memorize) mode ----
+     A fixed full-viewport overlay (covers the sidebar/header too, not just
+     #panel) so the review card gets the whole screen instead of sharing
+     half of it with the create-card form. margin:auto on the inner box
+     inside a flex column centers short content vertically while still
+     scrolling normally once it's taller than the viewport. */
+  .memorize-overlay{
+    position:fixed;inset:0;background:var(--bg);z-index:1200;
+    display:flex;flex-direction:column;align-items:center;
+    overflow-y:auto;padding:40px 20px;
+  }
+  .memorize-overlay-inner{width:100%;max-width:720px;margin:auto;}
+
   /* ---- Interactive tutorial overlay ----
      Deliberately non-blocking: the dim layer and highlight box are both
      pointer-events:none, so the real UI underneath stays fully clickable
@@ -858,7 +871,10 @@ const LANG = {
       noNotes:'등록된 메모가 없어요.', reveal:'확인하기', drawBtn:'🎲 주제 뽑기',
       emptyPool:'이 카테고리에 등록된 주제가 없어요.', includeSubtopics:'소주제도 포함해서 뽑기',
       modeLabel:'뽑기 방식', modeEqual:'균등 확률', modeWeighted:'약점 우선',
-      weightedHint:'오답노트가 많거나, 회독이 덜 끝났거나, 복습이 시급하거나, 자신감이 낮은 주제일수록 더 자주 뽑혀요.'
+      weightedHint:'오답노트가 많거나, 회독이 덜 끝났거나, 복습이 시급하거나, 자신감이 낮은 주제일수록 더 자주 뽑혀요.',
+      itemTypeLabel:'뽑을 대상', itemTypeTopic:'노트 뽑기', itemTypeCard:'암기카드 뽑기',
+      cardIdle:'뽑기 버튼을 눌러 카드를 뽑아보세요.', drawnCardLabel:'뽑힌 카드',
+      drawCardBtn:'🎲 카드 뽑기', emptyCardPool:'이 조건에 맞는 카드가 없어요.'
     },
     output: {
       targetLabel:'소환 대상', targetTopicOption:'주제 메모 전체',
@@ -889,9 +905,11 @@ const LANG = {
       todayTitle:'오늘의 주문 복습', noneToday:'오늘 외울 주문이 없어요 🎉',
       browseTitle:'주문서 둘러보기', noneAll:'해당하는 주문이 없어요.',
       modeDue:'오늘 복습', modeAll:'전체 주문 보기', browseSubjectLabel:'과목 필터', allSubjectsOpt:'전체 과목',
+      subtopicFilterLabel:'소주제 필터', allSubtopicsOpt:'전체 소주제', noSubtopicOpt:'소주제 없음',
       remaining:'오늘 남은 주문', flipHint:'주문을 클릭하면 봉인이 풀려요.',
       again:'다시', good:'좋음', easy:'쉬움',
       createTitle:'주문 각인하기', subjectLabel:'과목', typeLabel:'유형',
+      subtopicLabel:'소주제', subtopicPh:'예: RBC (선택 사항)',
       basicOpt:'기본 주문 (앞/뒤)', clozeOpt:'봉인 주문 (빈칸)',
       frontLabel:'주문 이름 (질문)', backLabel:'주문 효과 (답)',
       clozeBodyLabel:'본문 — 가릴 부분을 [[ ]]로 감싸주세요',
@@ -900,7 +918,8 @@ const LANG = {
       chooseSubjectFirst:'과목을 먼저 등록해 주세요.', clozeRequired:'가릴 부분을 [[ ]]로 감싸주세요.',
       edit:'수정', editTitle:'주문 수정', saveEdit:'저장', cancelEdit:'취소',
       prevBtn:'← 이전', nextBtn:'다음 →', navHint:'← → 방향키로 이전/다음, 스페이스로 답 확인',
-      progressLabel:'{current}/{total}'
+      progressLabel:'{current}/{total}',
+      memorizeBtn:'🧠 주문 암기', memorizeTitle:'주문 암기', exitMemorize:'닫기'
     },
     focus: {
       workMode:'집중 시간', breakMode:'휴식 시간', start:'시작', pause:'일시정지', reset:'초기화',
@@ -1142,7 +1161,10 @@ const LANG = {
       noNotes:'No notes yet.', reveal:'Reveal', drawBtn:'🎲 Draw a topic',
       emptyPool:'No topics in this category.', includeSubtopics:'Include subtopics in the draw',
       modeLabel:'Draw mode', modeEqual:'Equal probability', modeWeighted:'Weak spots first',
-      weightedHint:'Topics with more gap-notebook entries, unfinished passes, overdue review, or low confidence come up more often.'
+      weightedHint:'Topics with more gap-notebook entries, unfinished passes, overdue review, or low confidence come up more often.',
+      itemTypeLabel:'Draw from', itemTypeTopic:'Draw topics', itemTypeCard:'Draw flashcards',
+      cardIdle:'Press draw to pull a random card.', drawnCardLabel:'Drawn card',
+      drawCardBtn:'🎲 Draw a card', emptyCardPool:'No cards match this filter.'
     },
     output: {
       targetLabel:'Summoning target', targetTopicOption:'Whole topic notes',
@@ -1173,9 +1195,11 @@ const LANG = {
       todayTitle:"Today's spell review", noneToday:'No spells to review today 🎉',
       browseTitle:'Browse the spellbook', noneAll:'No spells match this filter.',
       modeDue:"Today's review", modeAll:'Browse all spells', browseSubjectLabel:'Filter by subject', allSubjectsOpt:'All subjects',
+      subtopicFilterLabel:'Filter by subtopic', allSubtopicsOpt:'All subtopics', noSubtopicOpt:'No subtopic',
       remaining:'Spells remaining today', flipHint:'Click the spell to break its seal.',
       again:'Again', good:'Good', easy:'Easy',
       createTitle:'Inscribe a spell', subjectLabel:'Subject', typeLabel:'Type',
+      subtopicLabel:'Subtopic', subtopicPh:'e.g. RBC (optional)',
       basicOpt:'Basic spell (front/back)', clozeOpt:'Sealed spell (fill-in-blank)',
       frontLabel:'Spell name (question)', backLabel:'Spell effect (answer)',
       clozeBodyLabel:'Text — wrap the hidden part in [[ ]]',
@@ -1184,7 +1208,8 @@ const LANG = {
       chooseSubjectFirst:'Please add a subject first.', clozeRequired:'Wrap the hidden part in [[ ]].',
       edit:'Edit', editTitle:'Edit spell', saveEdit:'Save', cancelEdit:'Cancel',
       prevBtn:'← Prev', nextBtn:'Next →', navHint:'Use ← → to go prev/next, space to flip',
-      progressLabel:'{current}/{total}'
+      progressLabel:'{current}/{total}',
+      memorizeBtn:'🧠 Memorize', memorizeTitle:'Memorize spells', exitMemorize:'Close'
     },
     focus: {
       workMode:'Focus time', breakMode:'Break time', start:'Start', pause:'Pause', reset:'Reset',
@@ -1426,7 +1451,10 @@ const LANG = {
       noNotes:'Noch keine Notizen.', reveal:'Aufdecken', drawBtn:'🎲 Thema ziehen',
       emptyPool:'Keine Themen in dieser Kategorie.', includeSubtopics:'Unterthemen einbeziehen',
       modeLabel:'Ziehmodus', modeEqual:'Gleiche Wahrscheinlichkeit', modeWeighted:'Schwachstellen zuerst',
-      weightedHint:'Themen mit mehr Fehlernotizen, unvollständigen Durchgängen, überfälliger Wiederholung oder geringer Sicherheit kommen häufiger dran.'
+      weightedHint:'Themen mit mehr Fehlernotizen, unvollständigen Durchgängen, überfälliger Wiederholung oder geringer Sicherheit kommen häufiger dran.',
+      itemTypeLabel:'Ziehen aus', itemTypeTopic:'Themen ziehen', itemTypeCard:'Karten ziehen',
+      cardIdle:'Drücke „Ziehen", um eine zufällige Karte zu erhalten.', drawnCardLabel:'Gezogene Karte',
+      drawCardBtn:'🎲 Karte ziehen', emptyCardPool:'Keine Karten für diesen Filter.'
     },
     output: {
       targetLabel:'Beschwörungsziel', targetTopicOption:'Gesamte Themen-Notiz',
@@ -1457,9 +1485,11 @@ const LANG = {
       todayTitle:'Heutige Zauberwiederholung', noneToday:'Heute keine fälligen Zaubersprüche 🎉',
       browseTitle:'Zauberbuch durchstöbern', noneAll:'Keine Zaubersprüche für diesen Filter.',
       modeDue:'Heutige Wiederholung', modeAll:'Alle Zaubersprüche durchstöbern', browseSubjectLabel:'Nach Fach filtern', allSubjectsOpt:'Alle Fächer',
+      subtopicFilterLabel:'Nach Unterthema filtern', allSubtopicsOpt:'Alle Unterthemen', noSubtopicOpt:'Kein Unterthema',
       remaining:'Heute verbleibende Zaubersprüche', flipHint:'Zauberspruch anklicken, um das Siegel zu brechen.',
       again:'Nochmal', good:'Gut', easy:'Leicht',
       createTitle:'Zauberspruch einprägen', subjectLabel:'Fach', typeLabel:'Typ',
+      subtopicLabel:'Unterthema', subtopicPh:'z. B. RBC (optional)',
       basicOpt:'Einfacher Zauber (Vorder-/Rückseite)', clozeOpt:'Versiegelter Zauber (Lückentext)',
       frontLabel:'Zaubername (Frage)', backLabel:'Zauberwirkung (Antwort)',
       clozeBodyLabel:'Text — verstecke Teile mit [[ ]]',
@@ -1468,7 +1498,8 @@ const LANG = {
       chooseSubjectFirst:'Bitte zuerst ein Fach anlegen.', clozeRequired:'Verstecke den Teil mit [[ ]].',
       edit:'Bearbeiten', editTitle:'Zauberspruch bearbeiten', saveEdit:'Speichern', cancelEdit:'Abbrechen',
       prevBtn:'← Zurück', nextBtn:'Weiter →', navHint:'← → für vor/zurück, Leertaste zum Umdrehen',
-      progressLabel:'{current}/{total}'
+      progressLabel:'{current}/{total}',
+      memorizeBtn:'🧠 Einprägen', memorizeTitle:'Zaubersprüche einprägen', exitMemorize:'Schließen'
     },
     focus: {
       workMode:'Fokuszeit', breakMode:'Pause', start:'Start', pause:'Pause', reset:'Zurücksetzen',
@@ -2340,7 +2371,7 @@ function defaultState(){
     sidenoteLeft: { content: '', collapsed: true, width: 260, mobileHeight: 280 },
     settings: { pomodoroWork: 25, pomodoroBreak: 5, language: 'ko', theme: 'wizard', soundscape: { type: 'none', volume: 0.5 } },
     activeTab: 'dashboard',
-    draw: { subjectId: null, categoryId: 'all', current: null, currentSubId: null, revealed: false, includeSubtopics: false, mode: 'equal' },
+    draw: { subjectId: null, categoryId: 'all', current: null, currentSubId: null, revealed: false, includeSubtopics: false, mode: 'equal', itemType: 'topic', cardSubjectId: 'all', cardSubtopic: 'all', currentCardId: null, cardRevealed: false },
     timer: { mode: 'work', remaining: 25*60, running:false, subjectId:null, alarmed:false, overtimeSeconds:0 },
     stopwatch: { running:false, elapsedSeconds:0, committedSeconds:0, subElapsed:0, lastSittingSeconds:0, checkpoints:[], day: todayISO() },
     focusSessions: [],
@@ -2367,8 +2398,9 @@ function defaultState(){
     editingTopicId: null,
     lastCardSubjectId: null,
     lastCardType: 'basic',
+    lastCardSubtopicBySubject: {},
     cardEditingId: null,
-    cardReview: { queue: [], index: 0, flipped: false, mode: 'due', browseSubjectId: 'all' },
+    cardReview: { queue: [], index: 0, flipped: false, mode: 'due', browseSubjectId: 'all', browseSubtopic: 'all', fullscreen: false },
     editingCategoryId: null,
     editingSubtopicId: null,
     editingRewardId: null,
@@ -2833,11 +2865,12 @@ const SUBJECT_COLORS = ['#E05C82','#3B82F6','#22C55E','#F59E0B','#8B5CF6','#06B6
 function normalizeState(){
   state.settings = Object.assign({pomodoroWork:25,pomodoroBreak:5,language:'ko',theme:'wizard'}, state.settings||{});
   if(!THEME_IDS.includes(state.settings.theme)) state.settings.theme = 'wizard';
-  state.cardReview = Object.assign({queue:[], index:0, flipped:false, mode:'due', browseSubjectId:'all'}, state.cardReview||{});
+  state.cardReview = Object.assign({queue:[], index:0, flipped:false, mode:'due', browseSubjectId:'all', browseSubtopic:'all', fullscreen:false}, state.cardReview||{});
   if(state.editingSubjectId===undefined) state.editingSubjectId = null;
   if(state.editingTopicId===undefined) state.editingTopicId = null;
   if(state.lastCardSubjectId===undefined) state.lastCardSubjectId = null;
   if(state.lastCardType!=='basic' && state.lastCardType!=='cloze') state.lastCardType = 'basic';
+  if(!state.lastCardSubtopicBySubject || typeof state.lastCardSubtopicBySubject!=='object' || Array.isArray(state.lastCardSubtopicBySubject)) state.lastCardSubtopicBySubject = {};
   if(state.cardEditingId===undefined) state.cardEditingId = null;
   if(state.editingCategoryId===undefined) state.editingCategoryId = null;
   if(state.editingSubtopicId===undefined) state.editingSubtopicId = null;
@@ -2866,7 +2899,7 @@ function normalizeState(){
   });
   state.calendarView = Object.assign({year:null, month:null}, state.calendarView||{});
   if(state.calendarSelectedDate===undefined) state.calendarSelectedDate = null;
-  state.draw = Object.assign({subjectId:null,categoryId:'all',current:null,currentSubId:null,revealed:false,includeSubtopics:false,mode:'equal'}, state.draw||{});
+  state.draw = Object.assign({subjectId:null,categoryId:'all',current:null,currentSubId:null,revealed:false,includeSubtopics:false,mode:'equal',itemType:'topic',cardSubjectId:'all',cardSubtopic:'all',currentCardId:null,cardRevealed:false}, state.draw||{});
   if(typeof state.notesSubjectMgmtOpen !== 'boolean') state.notesSubjectMgmtOpen = false;
   if(!Array.isArray(state.subjects)) state.subjects = [];
   state.subjects.forEach((s,sIdx)=>{
@@ -3014,6 +3047,7 @@ function normalizeState(){
   state.reviewQueue = Object.assign({active:false, items:[], index:0}, state.reviewQueue||{});
   state.reviewQueue.active = false;
   if(!Array.isArray(state.cards)) state.cards = [];
+  state.cards.forEach(c=>{ if(typeof c.subtopic!=='string') c.subtopic = ''; });
   /* Migration: topic/subtopic notes, pretest answers, gap-notebook entries,
      and basic flashcard front/back all used to be stored as plain text and
      rendered via escapeHtml()+\n->br. Rich-text color typing (introduced
@@ -4138,6 +4172,7 @@ function renderAll(){
     case 'rewards': panel.innerHTML = renderRewards(); break;
   }
   if(state.tutorialActive) renderTutorialOverlay(); else removeTutorialOverlayEls();
+  renderCardMemorizeOverlayIfNeeded();
 }
 
 /* ============ DASHBOARD ============ */
@@ -5919,10 +5954,28 @@ function renderDraw(){
   if(state.subjects.length===0){
     return `<div class="card">${needSubjectsBlock(t('draw.needSubjects'))}</div>`;
   }
+  // The tab's own toggle between drawing a random NOTE topic (original
+  // behavior) and drawing a random FLASHCARD (added so this tab can double
+  // as flashcard practice, per the user's own suggestion to reuse the
+  // existing random-draw tab rather than build a separate one) — kept
+  // separate from the equal/weighted mode-toggle inside the topic body,
+  // which only applies to topic drawing.
+  const itemType = state.draw.itemType==='card' ? 'card' : 'topic';
+  return `
+    <div class="card">
+      <div class="mode-toggle" style="margin-bottom:12px;">
+        <button class="btn ${itemType==='topic'?'':'ghost'} small" onclick="App.setDrawItemType('topic')">${t('draw.itemTypeTopic')}</button>
+        <button class="btn ${itemType==='card'?'':'ghost'} small" onclick="App.setDrawItemType('card')">${t('draw.itemTypeCard')}</button>
+      </div>
+      ${itemType==='card' ? renderDrawCardBody() : renderDrawTopicBody()}
+    </div>
+  `;
+}
+function renderDrawTopicBody(){
   const sid = state.draw.subjectId || state.activeSubjectId || state.subjects[0].id;
   state.draw.subjectId = sid;
   const s = state.subjects.find(x=>x.id===sid);
-  if(!s){ state.draw.subjectId = state.subjects[0].id; return renderDraw(); }
+  if(!s){ state.draw.subjectId = state.subjects[0].id; return renderDrawTopicBody(); }
   const subOptions = state.subjects.map(x=>`<option value="${x.id}" ${x.id===sid?'selected':''}>${escapeHtml(x.name)}</option>`).join('');
   const catOptions = `<option value="all">${t('draw.allCategories')}</option>` + s.categories.map(c=>`<option value="${c.id}" ${state.draw.categoryId===c.id?'selected':''}>${escapeHtml(c.name)}</option>`).join('');
 
@@ -5947,24 +6000,68 @@ function renderDraw(){
   }
 
   return `
-    <div class="card">
-      <div class="mode-toggle" style="margin-bottom:12px;">
-        <button class="btn ${state.draw.mode==='equal'?'':'ghost'} small" onclick="App.setDrawMode('equal')">${t('draw.modeEqual')}</button>
-        <button class="btn ${state.draw.mode==='weighted'?'':'ghost'} small" onclick="App.setDrawMode('weighted')">${t('draw.modeWeighted')}</button>
-      </div>
-      ${state.draw.mode==='weighted' ? `<div class="muted" style="font-size:11.5px;margin-bottom:10px;">${t('draw.weightedHint')}</div>` : ''}
-      <div class="row" style="margin-bottom:6px;">
-        <div><label>${t('draw.subjectLabel')}</label><select onchange="App.setDrawSubject(this.value)">${subOptions}</select></div>
-        <div><label>${t('draw.categoryLabel')}</label><select onchange="App.setDrawCategory(this.value)">${catOptions}</select></div>
-      </div>
-      <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;margin-bottom:6px;">
-        <input type="checkbox" id="includeSub" style="width:auto;" ${state.draw.includeSubtopics?'checked':''} onchange="App.setIncludeSubtopics(this.checked)">
-        ${t('draw.includeSubtopics')}
-      </label>
-      ${resultBlock}
-      <div style="text-align:center;margin-top:10px;">
-        <button class="btn" onclick="App.drawTopic()">${t('draw.drawBtn')}</button>
-      </div>
+    <div class="mode-toggle" style="margin-bottom:12px;">
+      <button class="btn ${state.draw.mode==='equal'?'':'ghost'} small" onclick="App.setDrawMode('equal')">${t('draw.modeEqual')}</button>
+      <button class="btn ${state.draw.mode==='weighted'?'':'ghost'} small" onclick="App.setDrawMode('weighted')">${t('draw.modeWeighted')}</button>
+    </div>
+    ${state.draw.mode==='weighted' ? `<div class="muted" style="font-size:11.5px;margin-bottom:10px;">${t('draw.weightedHint')}</div>` : ''}
+    <div class="row" style="margin-bottom:6px;">
+      <div><label>${t('draw.subjectLabel')}</label><select onchange="App.setDrawSubject(this.value)">${subOptions}</select></div>
+      <div><label>${t('draw.categoryLabel')}</label><select onchange="App.setDrawCategory(this.value)">${catOptions}</select></div>
+    </div>
+    <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;margin-bottom:6px;">
+      <input type="checkbox" id="includeSub" style="width:auto;" ${state.draw.includeSubtopics?'checked':''} onchange="App.setIncludeSubtopics(this.checked)">
+      ${t('draw.includeSubtopics')}
+    </label>
+    ${resultBlock}
+    <div style="text-align:center;margin-top:10px;">
+      <button class="btn" onclick="App.drawTopic()">${t('draw.drawBtn')}</button>
+    </div>
+  `;
+}
+/* Flashcard version of the random-draw tab: picks one random CARD (instead
+   of a note topic) from the cards matching the chosen subject/subtopic
+   filter, shows its front, and reveals the back on click — the same
+   idle -> drawn -> reveal flow as the topic body above, just over
+   state.cards instead of state.subjects[].topics. */
+function renderDrawCardBody(){
+  const csid = state.draw.cardSubjectId || 'all';
+  state.draw.cardSubjectId = csid;
+  const subOptions = `<option value="all" ${csid==='all'?'selected':''}>${t('cards.allSubjectsOpt')}</option>` +
+    state.subjects.map(x=>`<option value="${x.id}" ${x.id===csid?'selected':''}>${escapeHtml(x.name)}</option>`).join('');
+
+  const subtopicPool = state.cards.filter(c=> csid==='all' || c.subjectId===csid);
+  const hasNoSubtopicCard = subtopicPool.some(c=>!c.subtopic);
+  const subtopicNames = Array.from(new Set(subtopicPool.map(c=>c.subtopic).filter(Boolean))).sort();
+  const subtopicOptions = `<option value="all" ${state.draw.cardSubtopic==='all'?'selected':''}>${t('cards.allSubtopicsOpt')}</option>` +
+    (hasNoSubtopicCard ? `<option value="__none__" ${state.draw.cardSubtopic==='__none__'?'selected':''}>${t('cards.noSubtopicOpt')}</option>` : '') +
+    subtopicNames.map(x=>`<option value="${escapeAttr(x)}" ${state.draw.cardSubtopic===x?'selected':''}>${escapeHtml(x)}</option>`).join('');
+
+  let resultBlock = `<div class="draw-result muted">${t('draw.cardIdle')}</div>`;
+  if(state.draw.currentCardId){
+    const c = state.cards.find(x=>x.id===state.draw.currentCardId);
+    if(c){
+      const s = state.subjects.find(x=>x.id===c.subjectId);
+      let frontHtml, backHtml;
+      if(c.type==='cloze'){ frontHtml = clozeRender(c.clozeText,false); backHtml = clozeRender(c.clozeText,true); }
+      else { frontHtml = c.front; backHtml = c.back; }
+      resultBlock = `
+        <div class="draw-result">
+          <div class="muted mono" style="font-size:12px;">${t('draw.drawnCardLabel')}${s?' · '+escapeHtml(s.name):''}${c.subtopic?' · '+escapeHtml(c.subtopic):''}</div>
+          <div class="flash" id="drawFlashCard" onclick="App.flipDrawCard()">${state.draw.cardRevealed?backHtml:frontHtml}</div>
+          <div class="muted" style="font-size:11px;margin-top:8px;">${t('cards.flipHint')}</div>
+        </div>`;
+    }
+  }
+
+  return `
+    <div class="row" style="margin-bottom:6px;">
+      <div><label>${t('cards.subjectLabel')}</label><select onchange="App.setDrawCardSubject(this.value)">${subOptions}</select></div>
+      <div><label>${t('cards.subtopicFilterLabel')}</label><select onchange="App.setDrawCardSubtopic(this.value)">${subtopicOptions}</select></div>
+    </div>
+    ${resultBlock}
+    <div style="text-align:center;margin-top:10px;">
+      <button class="btn" onclick="App.drawCard()">${t('draw.drawCardBtn')}</button>
     </div>
   `;
 }
@@ -5972,6 +6069,39 @@ App.setDrawSubject = function(v){ state.draw.subjectId=v; state.draw.categoryId=
 App.setDrawCategory = function(v){ state.draw.categoryId=v; saveState(); renderAll(); };
 App.setIncludeSubtopics = function(v){ state.draw.includeSubtopics=v; saveState(); renderAll(); };
 App.setDrawMode = function(v){ state.draw.mode=v; saveState(); renderAll(); };
+App.setDrawItemType = function(v){ state.draw.itemType = (v==='card') ? 'card' : 'topic'; saveState(); renderAll(); };
+App.setDrawCardSubject = function(v){
+  state.draw.cardSubjectId = v || 'all';
+  // Subtopics are scoped to a subject, same reasoning as the card browse
+  // filter — switching subjects resets the subtopic filter.
+  state.draw.cardSubtopic = 'all';
+  state.draw.currentCardId = null;
+  state.draw.cardRevealed = false;
+  saveState(); renderAll();
+};
+App.setDrawCardSubtopic = function(v){
+  state.draw.cardSubtopic = v || 'all';
+  state.draw.currentCardId = null;
+  state.draw.cardRevealed = false;
+  saveState(); renderAll();
+};
+App.drawCard = function(){
+  const pool = state.cards.filter(c=>
+    (state.draw.cardSubjectId==='all' || c.subjectId===state.draw.cardSubjectId) &&
+    (state.draw.cardSubtopic==='all' || (state.draw.cardSubtopic==='__none__' ? !c.subtopic : c.subtopic===state.draw.cardSubtopic))
+  );
+  if(pool.length===0){ showAlert(t('draw.emptyCardPool')); return; }
+  const pick = pool[Math.floor(Math.random()*pool.length)];
+  state.draw.currentCardId = pick.id;
+  state.draw.cardRevealed = false;
+  state.stats.drawsUsed++;
+  awardXp(2);
+  saveState(); renderAll();
+};
+App.flipDrawCard = function(){
+  state.draw.cardRevealed = !state.draw.cardRevealed;
+  renderAll();
+};
 function drawItemWeight(s, item){
   let weight = 1;
   const tp = s.topics.find(x=>x.id===item.topicId);
@@ -6689,7 +6819,10 @@ function refreshCardReviewQueue(){
   const cr = state.cardReview;
   let pool;
   if(cr.mode==='all'){
-    pool = state.cards.filter(c=> cr.browseSubjectId==='all' || c.subjectId===cr.browseSubjectId);
+    pool = state.cards.filter(c=>
+      (cr.browseSubjectId==='all' || c.subjectId===cr.browseSubjectId) &&
+      (cr.browseSubtopic==='all' || (cr.browseSubtopic==='__none__' ? !c.subtopic : c.subtopic===cr.browseSubtopic))
+    );
   } else {
     pool = state.cards.filter(c=>c.dueDate<=todayISO());
   }
@@ -6703,27 +6836,33 @@ function refreshCardReviewQueue(){
   cr.queue = ids;
   cr.index = ids.length ? Math.min(newIndex, ids.length-1) : 0;
 }
-function renderCards(){
+/* Builds the "study" side of the Cards tab — the mode toggle (due/browse),
+   the subject+subtopic filters (browse mode only), and the flip-review
+   card itself. Shared verbatim between the normal split layout in
+   renderCards() and the fullscreen memorize overlay, so the filtering
+   logic and review UI never has to be kept in sync across two copies. */
+function renderCardStudyPanel(){
   refreshCardReviewQueue();
-  const draft = state.cardDraft || null;
-  state.cardDraft = null;
-  const editingCard = state.cardEditingId ? state.cards.find(c=>c.id===state.cardEditingId) : null;
+  const cr = state.cardReview;
+  const queue = cr.queue;
+  const browseMode = cr.mode==='all';
 
-  const fallbackSubjectId = state.subjects.some(s=>s.id===state.lastCardSubjectId) ? state.lastCardSubjectId : (state.subjects[0] && state.subjects[0].id);
-  const selectedSubjectId = editingCard ? editingCard.subjectId : (draft ? draft.subjectId : fallbackSubjectId);
-  const subOptions = state.subjects.map(s=>`<option value="${s.id}" ${selectedSubjectId===s.id?'selected':''}>${escapeHtml(s.name)}</option>`).join('');
-  // A freshly-seeded draft (from the notes/pretest "make card" shortcut) is
-  // always the basic front/back shape, so it overrides lastCardType — but
-  // otherwise remember whichever type was last added (mirrors
-  // lastCardSubjectId) so adding several cloze cards in a row doesn't force
-  // re-selecting "cloze" from the dropdown after every single add.
-  const initialType = editingCard ? editingCard.type : (draft ? 'basic' : state.lastCardType);
+  const browseSubOptions = `<option value="all" ${cr.browseSubjectId==='all'?'selected':''}>${t('cards.allSubjectsOpt')}</option>` +
+    state.subjects.map(s=>`<option value="${s.id}" ${cr.browseSubjectId===s.id?'selected':''}>${escapeHtml(s.name)}</option>`).join('');
 
-  const queue = state.cardReview.queue;
-  const browseMode = state.cardReview.mode==='all';
+  // Subtopic filter options are scoped to whichever subject is currently
+  // selected (or all cards, if the subject filter is 'all') so the
+  // dropdown never lists subtopics that don't apply to the current view.
+  const subtopicPool = state.cards.filter(c=> cr.browseSubjectId==='all' || c.subjectId===cr.browseSubjectId);
+  const hasNoSubtopicCard = subtopicPool.some(c=>!c.subtopic);
+  const subtopicNames = Array.from(new Set(subtopicPool.map(c=>c.subtopic).filter(Boolean))).sort();
+  const browseSubtopicOptions = `<option value="all" ${cr.browseSubtopic==='all'?'selected':''}>${t('cards.allSubtopicsOpt')}</option>` +
+    (hasNoSubtopicCard ? `<option value="__none__" ${cr.browseSubtopic==='__none__'?'selected':''}>${t('cards.noSubtopicOpt')}</option>` : '') +
+    subtopicNames.map(x=>`<option value="${escapeAttr(x)}" ${cr.browseSubtopic===x?'selected':''}>${escapeHtml(x)}</option>`).join('');
+
   let reviewBlock = `<div class="empty">${browseMode ? t('cards.noneAll') : t('cards.noneToday')}</div>`;
   if(queue.length>0){
-    const idx = state.cardReview.index;
+    const idx = cr.index;
     const c = state.cards.find(x=>x.id===queue[idx]);
     const s = c ? state.subjects.find(x=>x.id===c.subjectId) : null;
     let frontHtml, backHtml;
@@ -6735,9 +6874,9 @@ function renderCards(){
       backHtml = c.back;
     }
     reviewBlock = `
-      <div class="muted mono" style="font-size:11px;margin-bottom:8px;">${tf('cards.progressLabel',{current:idx+1,total:queue.length})} · ${s?escapeHtml(s.name):''}</div>
+      <div class="muted mono" style="font-size:11px;margin-bottom:8px;">${tf('cards.progressLabel',{current:idx+1,total:queue.length})} · ${s?escapeHtml(s.name):''}${c.subtopic?' · '+escapeHtml(c.subtopic):''}</div>
       <div class="flash" id="flashCard" onclick="App.flipCard()">
-        ${state.cardReview.flipped ? backHtml : frontHtml}
+        ${cr.flipped ? backHtml : frontHtml}
       </div>
       <div class="row" style="margin-top:12px;">
         <button class="btn ghost small" onclick="App.cardReviewPrev()" ${idx===0?'disabled':''}>${t('cards.prevBtn')}</button>
@@ -6753,34 +6892,73 @@ function renderCards(){
     `;
   }
 
-  const allList = state.cards.slice(0,50).map(c=>{
+  return `
+    <div class="mode-toggle" style="margin-bottom:10px;">
+      <button class="btn ${!browseMode?'':'ghost'} small" onclick="App.setCardReviewMode('due')">${t('cards.modeDue')}</button>
+      <button class="btn ${browseMode?'':'ghost'} small" onclick="App.setCardReviewMode('all')">${t('cards.modeAll')}</button>
+    </div>
+    ${browseMode ? `
+      <div class="row" style="margin-bottom:10px;">
+        <div class="field" style="margin-bottom:0;"><label>${t('cards.browseSubjectLabel')}</label><select onchange="App.setCardBrowseSubject(this.value)">${browseSubOptions}</select></div>
+        <div class="field" style="margin-bottom:0;"><label>${t('cards.subtopicFilterLabel')}</label><select onchange="App.setCardBrowseSubtopic(this.value)">${browseSubtopicOptions}</select></div>
+      </div>
+    ` : ''}
+    ${reviewBlock}
+  `;
+}
+function renderCards(){
+  const draft = state.cardDraft || null;
+  state.cardDraft = null;
+  const editingCard = state.cardEditingId ? state.cards.find(c=>c.id===state.cardEditingId) : null;
+
+  const fallbackSubjectId = state.subjects.some(s=>s.id===state.lastCardSubjectId) ? state.lastCardSubjectId : (state.subjects[0] && state.subjects[0].id);
+  const selectedSubjectId = editingCard ? editingCard.subjectId : (draft ? draft.subjectId : fallbackSubjectId);
+  const subOptions = state.subjects.map(s=>`<option value="${s.id}" ${selectedSubjectId===s.id?'selected':''}>${escapeHtml(s.name)}</option>`).join('');
+  // A freshly-seeded draft (from the notes/pretest "make card" shortcut) is
+  // always the basic front/back shape, so it overrides lastCardType — but
+  // otherwise remember whichever type was last added (mirrors
+  // lastCardSubjectId) so adding several cloze cards in a row doesn't force
+  // re-selecting "cloze" from the dropdown after every single add.
+  const initialType = editingCard ? editingCard.type : (draft ? 'basic' : state.lastCardType);
+  // Same idea for the subtopic text field: remembered per-subject (not
+  // globally) so switching subjects doesn't carry over an unrelated
+  // subtopic, but adding several cards under the same subtopic in a row
+  // (the whole point of the field) doesn't require retyping it each time.
+  const subtopicValue = editingCard ? (editingCard.subtopic||'') : (draft ? '' : (state.lastCardSubtopicBySubject[selectedSubjectId]||''));
+  const subtopicChoices = Array.from(new Set(state.cards.filter(c=>c.subjectId===selectedSubjectId && c.subtopic).map(c=>c.subtopic))).sort();
+  const subtopicDatalistOptions = subtopicChoices.map(x=>`<option value="${escapeAttr(x)}"></option>`).join('');
+
+  const browseMode = state.cardReview.mode==='all';
+  const studyPanelHtml = renderCardStudyPanel();
+
+  // Newest cards first (and always within the visible slice) so a card
+  // that was just added is immediately visible in this list — previously
+  // this sliced the first 50 of state.cards, so once 50+ cards existed a
+  // freshly pushed (i.e. appended) card would never show up here at all.
+  const allList = state.cards.slice(-50).reverse().map(c=>{
     const s = state.subjects.find(x=>x.id===c.subjectId);
     return `<div class="topic-row">
       <span class="topic-name">${escapeHtml(c.type==='cloze'? stripCloze(c.clozeText) : richTextToPlain(c.front))}</span>
       <span class="pill">${c.type==='cloze'?'Cloze':'Basic'}</span>
-      <span class="muted mono" style="font-size:11px;">${s?escapeHtml(s.name):''} · ${c.dueDate}</span>
+      <span class="muted mono" style="font-size:11px;">${s?escapeHtml(s.name):''}${c.subtopic?' · '+escapeHtml(c.subtopic):''} · ${c.dueDate}</span>
       <button class="btn ghost small" onclick="App.startEditCard('${c.id}')">${t('cards.edit')}</button>
       <button class="btn danger small" onclick="App.deleteCard('${c.id}')">${t('cards.delete')}</button>
     </div>`;
   }).join('') || `<div class="empty">${t('cards.noCards')}</div>`;
 
-  const browseSubOptions = `<option value="all" ${state.cardReview.browseSubjectId==='all'?'selected':''}>${t('cards.allSubjectsOpt')}</option>` +
-    state.subjects.map(s=>`<option value="${s.id}" ${state.cardReview.browseSubjectId===s.id?'selected':''}>${escapeHtml(s.name)}</option>`).join('');
-
   return `
     <div class="grid grid-2">
       <div class="card">
-        <h2 class="section-title">${browseMode ? t('cards.browseTitle') : t('cards.todayTitle')}</h2>
-        <div class="mode-toggle" style="margin-bottom:10px;">
-          <button class="btn ${!browseMode?'':'ghost'} small" onclick="App.setCardReviewMode('due')">${t('cards.modeDue')}</button>
-          <button class="btn ${browseMode?'':'ghost'} small" onclick="App.setCardReviewMode('all')">${t('cards.modeAll')}</button>
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+          <h2 class="section-title" style="margin-bottom:0;">${browseMode ? t('cards.browseTitle') : t('cards.todayTitle')}</h2>
+          <button class="btn ghost small" onclick="App.openCardMemorize()">${t('cards.memorizeBtn')}</button>
         </div>
-        ${browseMode ? `<div class="field" style="margin-bottom:10px;"><label>${t('cards.browseSubjectLabel')}</label><select onchange="App.setCardBrowseSubject(this.value)">${browseSubOptions}</select></div>` : ''}
-        ${reviewBlock}
+        <div style="margin-top:10px;">${studyPanelHtml}</div>
       </div>
       <div class="card">
         <h2 class="section-title">${editingCard ? t('cards.editTitle') : t('cards.createTitle')}</h2>
         <div class="field"><label>${t('cards.subjectLabel')}</label><select id="cardSubject" onchange="App.setCardSubject(this.value)">${subOptions}</select></div>
+        <div class="field"><label>${t('cards.subtopicLabel')}</label><input type="text" id="cardSubtopic" list="cardSubtopicList" placeholder="${t('cards.subtopicPh')}" value="${escapeAttr(subtopicValue)}"><datalist id="cardSubtopicList">${subtopicDatalistOptions}</datalist></div>
         <div class="field"><label>${t('cards.typeLabel')}</label>
           <select id="cardType" onchange="App.toggleCardType()">
             <option value="basic" ${initialType==='basic'?'selected':''}>${t('cards.basicOpt')}</option>
@@ -6805,6 +6983,35 @@ function renderCards(){
       </div>
     </div>
   `;
+}
+/* Fullscreen "카드 암기" (memorize) mode — a distraction-free version of
+   the review/flip UI from renderCardStudyPanel(), rendered as a fixed
+   full-viewport overlay appended directly to document.body (same pattern
+   as the tutorial overlay below) rather than into #panel, so it covers the
+   sidebar/header too instead of only replacing half of the Cards tab.
+   Rebuilt from scratch on every renderAll() call, mirroring the tutorial
+   overlay's own reasoning: cheap to do, and avoids ever holding a stale
+   reference into a #panel that just got its innerHTML replaced. */
+function removeCardMemorizeOverlayEls(){
+  const el = document.getElementById('cardMemorizeOverlay');
+  if(el) el.remove();
+}
+function renderCardMemorizeOverlayIfNeeded(){
+  removeCardMemorizeOverlayEls();
+  if(!(state.activeTab==='cards' && state.cardReview.fullscreen)) return;
+  const wrap = document.createElement('div');
+  wrap.id = 'cardMemorizeOverlay';
+  wrap.className = 'memorize-overlay';
+  wrap.innerHTML = `
+    <div class="memorize-overlay-inner">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <h2 class="section-title" style="margin-bottom:0;">${t('cards.memorizeTitle')}</h2>
+        <button class="btn ghost small" onclick="App.closeCardMemorize()">${t('cards.exitMemorize')}</button>
+      </div>
+      ${renderCardStudyPanel()}
+    </div>
+  `;
+  document.body.appendChild(wrap);
 }
 function clozeRender(text, revealed){
   const escaped = escapeHtml(text||'');
@@ -6883,7 +7090,9 @@ App.addCard = function(){
   const subjectId = document.getElementById('cardSubject').value;
   const type = document.getElementById('cardType').value;
   if(!subjectId){ showAlert(t('cards.chooseSubjectFirst')); return; }
-  let card = {id:uid(), subjectId, type, interval:1, ease:2.5, reps:0, dueDate:todayISO()};
+  const subtopicEl = document.getElementById('cardSubtopic');
+  const subtopic = subtopicEl ? subtopicEl.value.trim() : '';
+  let card = {id:uid(), subjectId, type, subtopic, interval:1, ease:2.5, reps:0, dueDate:todayISO()};
   if(type==='basic'){
     const frontEl = document.getElementById('cardFront');
     const backEl = document.getElementById('cardBack');
@@ -6900,6 +7109,7 @@ App.addCard = function(){
   state.stats.cardsCreated++;
   state.lastCardSubjectId = subjectId;
   state.lastCardType = type;
+  state.lastCardSubtopicBySubject[subjectId] = subtopic;
   awardXp(3);
   saveState(); renderAll();
   focusInput(type==='cloze' ? 'cardCloze' : 'cardFront');
@@ -6922,6 +7132,8 @@ App.saveCardEdit = function(){
   const subjectId = document.getElementById('cardSubject').value;
   const type = document.getElementById('cardType').value;
   if(!subjectId){ showAlert(t('cards.chooseSubjectFirst')); return; }
+  const subtopicEl = document.getElementById('cardSubtopic');
+  const subtopic = subtopicEl ? subtopicEl.value.trim() : '';
   if(type==='basic'){
     const frontEl = document.getElementById('cardFront');
     const backEl = document.getElementById('cardBack');
@@ -6938,7 +7150,9 @@ App.saveCardEdit = function(){
   }
   c.subjectId = subjectId;
   c.type = type;
+  c.subtopic = subtopic;
   state.lastCardSubjectId = subjectId;
+  state.lastCardSubtopicBySubject[subjectId] = subtopic;
   state.cardEditingId = null;
   saveState(); renderAll();
 };
@@ -6964,9 +7178,27 @@ App.setCardReviewMode = function(mode){
 };
 App.setCardBrowseSubject = function(v){
   state.cardReview.browseSubjectId = v || 'all';
+  // The subtopic list depends on which subject is selected, so switching
+  // subjects resets it rather than leaving a filter value that may no
+  // longer apply (or may silently apply to the wrong subject's subtopic).
+  state.cardReview.browseSubtopic = 'all';
   state.cardReview.index = 0;
   state.cardReview.flipped = false;
   saveState(); renderAll();
+};
+App.setCardBrowseSubtopic = function(v){
+  state.cardReview.browseSubtopic = v || 'all';
+  state.cardReview.index = 0;
+  state.cardReview.flipped = false;
+  saveState(); renderAll();
+};
+App.openCardMemorize = function(){
+  state.cardReview.fullscreen = true;
+  renderAll();
+};
+App.closeCardMemorize = function(){
+  state.cardReview.fullscreen = false;
+  renderAll();
 };
 App.cardReviewNext = function(){
   const q = state.cardReview.queue;
@@ -7022,6 +7254,7 @@ document.addEventListener('keydown', function(e){
   if(e.key==='ArrowLeft'){ e.preventDefault(); App.cardReviewPrev(); }
   else if(e.key==='ArrowRight'){ e.preventDefault(); App.cardReviewNext(); }
   else if(e.key===' '||e.code==='Space'){ e.preventDefault(); App.flipCard(); }
+  else if(e.key==='Escape' && state.cardReview.fullscreen){ e.preventDefault(); App.closeCardMemorize(); }
 });
 
 /* ============ FOCUS / POMODORO ============ */
