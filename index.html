@@ -4196,6 +4196,7 @@ App.setTab = function(id){
 
 /* ============ RENDER ROOT ============ */
 function renderAll(){
+  captureUnsavedCardFormSnapshot();
   renderTabs();
   const panel = document.getElementById('panel');
   switch(state.activeTab){
@@ -5827,6 +5828,9 @@ App.saveSubtopicEdit = function(sid, tid, subid){
 };
 App.seedCard = function(sid, name, notes){
   if(state.activeTab==='notes') saveAllNotes();
+  // An explicit draft from this shortcut should always win over any leftover
+  // unsaved-form snapshot from an earlier, unrelated cards-tab visit.
+  unsavedCardFormSnapshot = null;
   state.cardDraft = { subjectId: sid, front: name, back: notes || '' };
   state.activeTab = 'cards';
   saveState(); renderAll();
@@ -6957,21 +6961,30 @@ function renderCards(){
   const draft = state.cardDraft || null;
   state.cardDraft = null;
   const editingCard = state.cardEditingId ? state.cards.find(c=>c.id===state.cardEditingId) : null;
+  // Whatever the person had typed into the new-card form but hadn't
+  // submitted yet, captured just before this render replaced the DOM (see
+  // captureUnsavedCardFormSnapshot()) — e.g. from flipping/paging through
+  // cards in the 카드 둘러보기 panel right next to it. A one-shot seedCard()
+  // draft is a more explicit, intentional prefill (from a notes/pretest
+  // "make card" shortcut) and always wins over a leftover snapshot; editing
+  // an existing card always shows that card's own data regardless of either.
+  const snapshot = (!editingCard && !draft) ? unsavedCardFormSnapshot : null;
+  const snapshotSubjectValid = snapshot && state.subjects.some(s=>s.id===snapshot.subjectId);
 
   const fallbackSubjectId = state.subjects.some(s=>s.id===state.lastCardSubjectId) ? state.lastCardSubjectId : (state.subjects[0] && state.subjects[0].id);
-  const selectedSubjectId = editingCard ? editingCard.subjectId : (draft ? draft.subjectId : fallbackSubjectId);
+  const selectedSubjectId = editingCard ? editingCard.subjectId : (draft ? draft.subjectId : (snapshotSubjectValid ? snapshot.subjectId : fallbackSubjectId));
   const subOptions = state.subjects.map(s=>`<option value="${s.id}" ${selectedSubjectId===s.id?'selected':''}>${escapeHtml(s.name)}</option>`).join('');
   // A freshly-seeded draft (from the notes/pretest "make card" shortcut) is
   // always the basic front/back shape, so it overrides lastCardType — but
   // otherwise remember whichever type was last added (mirrors
   // lastCardSubjectId) so adding several cloze cards in a row doesn't force
   // re-selecting "cloze" from the dropdown after every single add.
-  const initialType = editingCard ? editingCard.type : (draft ? 'basic' : state.lastCardType);
+  const initialType = editingCard ? editingCard.type : (draft ? 'basic' : (snapshot ? snapshot.type : state.lastCardType));
   // Same idea for the subtopic text field: remembered per-subject (not
   // globally) so switching subjects doesn't carry over an unrelated
   // subtopic, but adding several cards under the same subtopic in a row
   // (the whole point of the field) doesn't require retyping it each time.
-  const subtopicValue = editingCard ? (editingCard.subtopic||'') : (draft ? '' : (state.lastCardSubtopicBySubject[selectedSubjectId]||''));
+  const subtopicValue = editingCard ? (editingCard.subtopic||'') : (draft ? '' : (snapshot ? snapshot.subtopic : (state.lastCardSubtopicBySubject[selectedSubjectId]||'')));
   // Suggestion list is a union of two sources — the real 소주제 list already
   // defined for this subject in Subject Management (so an existing subtopic
   // can be searched and picked instead of retyped, keeping wording
@@ -7032,12 +7045,12 @@ function renderCards(){
           </select>
         </div>
         <div id="basicFields" style="display:${initialType==='basic'?'block':'none'};">
-          <div class="field"><label>${t('cards.frontLabel')}</label>${richFieldHtml('cardFront', editingCard&&editingCard.type==='basic'?editingCard.front:(draft?plainToRichHtml(draft.front):''), '', 60, 'onkeydown="App.handleCardFieldEnterKey(event,\'cardFront\')"')}</div>
-          <div class="field"><label>${t('cards.backLabel')}</label>${richFieldHtml('cardBack', editingCard&&editingCard.type==='basic'?editingCard.back:(draft?draft.back:''), '', 60, 'onkeydown="App.handleCardFieldEnterKey(event,\'cardBack\')"')}</div>
+          <div class="field"><label>${t('cards.frontLabel')}</label>${richFieldHtml('cardFront', editingCard&&editingCard.type==='basic'?editingCard.front:(draft?plainToRichHtml(draft.front):(snapshot?snapshot.frontHtml:'')), '', 60, 'onkeydown="App.handleCardFieldEnterKey(event,\'cardFront\')"')}</div>
+          <div class="field"><label>${t('cards.backLabel')}</label>${richFieldHtml('cardBack', editingCard&&editingCard.type==='basic'?editingCard.back:(draft?draft.back:(snapshot?snapshot.backHtml:'')), '', 60, 'onkeydown="App.handleCardFieldEnterKey(event,\'cardBack\')"')}</div>
         </div>
         <div id="clozeFields" style="display:${initialType==='cloze'?'block':'none'};">
           <div class="field"><label>${t('cards.clozeBodyLabel')}</label>
-            <textarea id="cardCloze" placeholder="${t('cards.clozePh')}" onkeydown="App.handleCardFieldEnterKey(event,'cardCloze')">${editingCard&&editingCard.type==='cloze'?escapeHtml(editingCard.clozeText):''}</textarea>
+            <textarea id="cardCloze" placeholder="${t('cards.clozePh')}" onkeydown="App.handleCardFieldEnterKey(event,'cardCloze')">${editingCard&&editingCard.type==='cloze'?escapeHtml(editingCard.clozeText):(snapshot?escapeHtml(snapshot.clozeText):'')}</textarea>
           </div>
         </div>
         ${editingCard
@@ -7098,6 +7111,40 @@ App.setCardSubject = function(v){ state.lastCardSubjectId = v || null; saveState
    positioned list under the field, entirely outside renderAll()/innerHTML
    churn so typing doesn't lose focus or re-render the rest of the form. */
 let cardSubtopicSuggestionPool = [];
+
+/* Whatever's currently typed into the NEW-card form (not yet submitted) used
+   to get silently thrown away by any unrelated renderAll() call — most
+   noticeably, flipping/paging through cards in the "카드 둘러보기" panel right
+   next to it, since renderCards() only ever pre-fills the form from an
+   explicit editingCard or a one-shot seedCard() draft, and blanks it
+   otherwise. captureUnsavedCardFormSnapshot() is called at the top of every
+   renderAll(), right before the DOM it would read gets replaced, and stashes
+   the live field values here so renderCards() can restore them on the next
+   paint. skipCardFormCapture is set (briefly, synchronously) around the
+   handful of actions that legitimately WANT the form to go blank — adding
+   the card, cancelling/saving an edit, or starting to edit a different card —
+   so those don't re-capture the very content they're clearing. */
+let unsavedCardFormSnapshot = null;
+let skipCardFormCapture = false;
+function captureUnsavedCardFormSnapshot(){
+  if(skipCardFormCapture) return;
+  if(!state || state.activeTab!=='cards' || state.cardEditingId) return;
+  const subjectEl = document.getElementById('cardSubject');
+  const frontEl = document.getElementById('cardFront');
+  const clozeEl = document.getElementById('cardCloze');
+  if(!subjectEl && !frontEl && !clozeEl) return; // create form isn't on screen right now
+  const subtopicEl = document.getElementById('cardSubtopic');
+  const typeEl = document.getElementById('cardType');
+  const backEl = document.getElementById('cardBack');
+  unsavedCardFormSnapshot = {
+    subjectId: subjectEl ? subjectEl.value : null,
+    subtopic: subtopicEl ? subtopicEl.value : '',
+    type: typeEl ? typeEl.value : 'basic',
+    frontHtml: frontEl ? frontEl.innerHTML : '',
+    backHtml: backEl ? backEl.innerHTML : '',
+    clozeText: clozeEl ? clozeEl.value : ''
+  };
+}
 App.showSubtopicSuggestions = function(){
   const input = document.getElementById('cardSubtopic');
   const box = document.getElementById('cardSubtopicSuggestions');
@@ -7210,13 +7257,26 @@ App.addCard = function(){
   state.lastCardType = type;
   state.lastCardSubtopicBySubject[subjectId] = subtopic;
   awardXp(3);
+  // The card just got saved, so the form SHOULD go blank now — without this,
+  // captureUnsavedCardFormSnapshot() would re-capture the very text this
+  // render is trying to clear, from the same DOM elements it's about to
+  // replace, and the "empty" front/back fields would just come right back.
+  unsavedCardFormSnapshot = null;
+  skipCardFormCapture = true;
   saveState(); renderAll();
+  skipCardFormCapture = false;
   focusInput(type==='cloze' ? 'cardCloze' : 'cardFront');
 };
 App.startEditCard = function(id){
   state.cardEditingId = id;
   state.cardDraft = null;
+  // Switching to editing an existing card intentionally replaces whatever
+  // was in the new-card form with that card's own data — see the note above
+  // addCard() for why skipCardFormCapture is needed here too.
+  unsavedCardFormSnapshot = null;
+  skipCardFormCapture = true;
   renderAll();
+  skipCardFormCapture = false;
   const c = state.cards.find(x=>x.id===id);
   focusInput(c && c.type==='cloze' ? 'cardCloze' : 'cardFront');
 };
@@ -7233,7 +7293,14 @@ App.startEditCardFromBrowse = function(id){
 };
 App.cancelCardEdit = function(){
   state.cardEditingId = null;
+  // Without this, captureUnsavedCardFormSnapshot() would treat the edit
+  // form's still-on-screen content (the existing card being cancelled out
+  // of) as if it were unsaved new-card text and resurrect it as the new-card
+  // form's prefill on this very render.
+  unsavedCardFormSnapshot = null;
+  skipCardFormCapture = true;
   renderAll();
+  skipCardFormCapture = false;
 };
 App.saveCardEdit = function(){
   const id = state.cardEditingId;
@@ -7264,7 +7331,13 @@ App.saveCardEdit = function(){
   state.lastCardSubjectId = subjectId;
   state.lastCardSubtopicBySubject[subjectId] = subtopic;
   state.cardEditingId = null;
+  // Same reasoning as cancelCardEdit() above — the edit form's content is
+  // still what's on screen at this point and must not be captured as a
+  // "new card" draft.
+  unsavedCardFormSnapshot = null;
+  skipCardFormCapture = true;
   saveState(); renderAll();
+  skipCardFormCapture = false;
 };
 App.deleteCard = function(id){
   showConfirm(t('confirm.deleteCard'), function(){
