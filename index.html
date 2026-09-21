@@ -2625,20 +2625,19 @@ function flattenSubtopics(list, depth){
   });
   return out;
 }
-/* All 소주제 (subtopic) names already defined in Subject Management for a
-   given subject — i.e. every subtopic node nested under any of that
-   subject's topics (s.topics[].subtopics, however deeply nested), not the
-   flashcard-side subtopic strings. Used to offer the *real* subtopic list
-   as searchable/selectable suggestions when tagging a flashcard, on top of
-   (not instead of) freely typing a brand-new one. */
+/* Flashcard "소주제" (subtopic tag) suggestions for a subject. A flashcard's
+   소주제 is meant to mirror the formal 주제 (Topic) set up for that subject
+   in 과목 관리 — NOT the informal, note-internal subtopics/bold-headings
+   that live inside a topic's own notes (Notes tab, tp.subtopics) — so this
+   returns each of the subject's topic names, same as what
+   App.seedCard()/App.makeCardsFromSubtopics() already tag notes-originated
+   cards with. Used to offer them as searchable/selectable suggestions when
+   tagging a flashcard, on top of (not instead of) freely typing anything
+   else into the field. */
 function getSubjectSubtopicNames(subjectId){
   const s = state.subjects.find(x=>x.id===subjectId);
   if(!s) return [];
-  const names = [];
-  s.topics.forEach(tp=>{
-    flattenSubtopics(tp.subtopics||[]).forEach(({node})=>{ if(node.name) names.push(node.name); });
-  });
-  return names;
+  return s.topics.map(tp=>tp.name).filter(Boolean);
 }
 function addDays(iso, days){
   const d = new Date(iso + 'T00:00:00');
