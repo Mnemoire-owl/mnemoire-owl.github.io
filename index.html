@@ -5556,7 +5556,7 @@ function renderNotes(){
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap;">
         <h2 class="section-title" style="margin-bottom:0;">${escapeHtml(tp.name)}</h2>
         <div style="display:flex;gap:6px;flex-wrap:wrap;">
-          <button class="btn ghost small" onclick="App.seedCard('${s.id}','${escapeAttr(tp.name)}','${escapeAttr(tp.notes)}')">${t('notes.makeCard')}</button>
+          <button class="btn ghost small" onclick="App.seedCard('${s.id}','${escapeAttr(tp.name)}','${escapeAttr(tp.notes)}','${escapeAttr(tp.name)}')">${t('notes.makeCard')}</button>
           <button class="btn ghost small" onclick="App.makeCardsFromSubtopics('${s.id}','${tp.id}')">${t('notes.makeSubtopicCards')}</button>
           <button class="btn ghost small" onclick="App.exportNotesPDF('topic')">${t('notes.exportTopicPdf')}</button>
           <button class="btn ghost small" onclick="App.exportNotesPDF('subject')">${t('notes.exportSubjectPdf')}</button>
@@ -6051,10 +6051,16 @@ App.makeCardsFromSubtopics = function(sid, tid){
     showAlert(t('notes.noSubtopicContentForCards'));
     return;
   }
+  // The card's 소주제 tag is the FORMAL topic name (the "주제" set up under
+  // 과목 관리 when the subject was created) — not the note's own internal
+  // subtopic/heading name — per the person's clarification, so every card
+  // made from this topic's notes is filterable/groupable by that topic
+  // regardless of which subtopic inside it the card came from. The front
+  // text still carries the specific subtopic name, so nothing is lost.
   let created = 0, updated = 0;
   nodes.forEach(node=>{
     const existing = state.cards.find(c=>
-      c.subjectId===sid && c.type==='basic' && c.subtopic===node.name &&
+      c.subjectId===sid && c.type==='basic' && c.subtopic===tp.name &&
       richTextToPlain(c.front).trim()===node.name.trim()
     );
     if(existing){
@@ -6062,7 +6068,7 @@ App.makeCardsFromSubtopics = function(sid, tid){
       updated++;
     } else {
       state.cards.push({
-        id: uid(), subjectId: sid, type:'basic', subtopic: node.name,
+        id: uid(), subjectId: sid, type:'basic', subtopic: tp.name,
         interval:1, ease:2.5, reps:0, dueDate: todayISO(),
         front: escapeHtml(node.name), back: node.notes
       });
