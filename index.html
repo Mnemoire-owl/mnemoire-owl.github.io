@@ -5614,7 +5614,7 @@ function renderSubtopicNode(s, tp, node, depth){
         <strong style="font-size:13px;">${escapeHtml(node.name)}</strong>
         <div style="display:flex;gap:6px;">
           <button class="btn ghost small" onclick="App.startEditSubtopic('${node.id}')">${t('notes.edit')}</button>
-          <button class="btn ghost small" onclick="App.seedCard('${s.id}','${escapeAttr(node.name)}','${escapeAttr(node.notes)}')">${t('notes.makeCard')}</button>
+          <button class="btn ghost small" onclick="App.seedCard('${s.id}','${escapeAttr(node.name)}','${escapeAttr(node.notes)}','${escapeAttr(tp.name)}')">${t('notes.makeCard')}</button>
           <button class="btn danger small" onclick="App.deleteSubtopic('${s.id}','${tp.id}','${node.id}')">${t('notes.delete')}</button>
         </div>
       </div>`;
@@ -6012,12 +6012,15 @@ App.saveSubtopicEdit = function(sid, tid, subid){
   state.editingSubtopicId = null;
   saveState(); renderAll();
 };
-App.seedCard = function(sid, name, notes){
+App.seedCard = function(sid, name, notes, subtopic){
   if(state.activeTab==='notes') saveAllNotes();
   // An explicit draft from this shortcut should always win over any leftover
   // unsaved-form snapshot from an earlier, unrelated cards-tab visit.
   unsavedCardFormSnapshot = null;
-  state.cardDraft = { subjectId: sid, front: name, back: notes || '' };
+  // subtopic is optional (only the per-subtopic "카드로 만들기" button passes
+  // it, set to that subtopic's parent topic name) so the topic-level and
+  // 오답노트 shortcuts keep their old blank-subtopic behavior unchanged.
+  state.cardDraft = { subjectId: sid, front: name, back: notes || '', subtopic: subtopic || '' };
   state.activeTab = 'cards';
   saveState(); renderAll();
   scrollActiveTabIntoView();
@@ -7218,7 +7221,7 @@ function renderCards(){
   // globally) so switching subjects doesn't carry over an unrelated
   // subtopic, but adding several cards under the same subtopic in a row
   // (the whole point of the field) doesn't require retyping it each time.
-  const subtopicValue = editingCard ? (editingCard.subtopic||'') : (draft ? '' : (snapshot ? snapshot.subtopic : (state.lastCardSubtopicBySubject[selectedSubjectId]||'')));
+  const subtopicValue = editingCard ? (editingCard.subtopic||'') : (draft ? (draft.subtopic||'') : (snapshot ? snapshot.subtopic : (state.lastCardSubtopicBySubject[selectedSubjectId]||'')));
   // Suggestion list is a union of two sources — the real 소주제 list already
   // defined for this subject in Subject Management (so an existing subtopic
   // can be searched and picked instead of retyped, keeping wording
