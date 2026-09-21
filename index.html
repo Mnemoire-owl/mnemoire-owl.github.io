@@ -872,6 +872,8 @@ const LANG = {
       topicNotesLabel:'주제 메모', notesPh:'이 주제에 대해 자유롭게 정리해 보세요…',
       subtopicsLabel:'소주제', addSubtopicPh:'새 소주제 이름', addSubtopic:'+ 소주제 추가', addSubSubtopicPh:'이 소주제 안에 하위 소주제 추가',
       subtopicNotesPh:'이 소주제에 대한 메모…', makeCard:'카드로 만들기', delete:'삭제',
+      makeSubtopicCards:'소주제로 카드 만들기', noSubtopicContentForCards:'카드로 만들 소주제 내용이 없어요. 노트에 굵게 제목을 쓰거나 소주제를 추가해 보세요.',
+      subtopicCardsResult:'소주제 카드 {created}개 생성, {updated}개 업데이트했어요.',
       edit:'수정', cancel:'취소', editSubtopicNameLabel:'소주제 이름',
       topicSelect:'주제 선택', save:'저장', saveAll:'전체 저장', saved:'저장됨', noSubtopicsYet:'아직 소주제가 없어요. 아래에서 추가해 보세요.',
       nextTopicBtn:'다음 주제로',
@@ -1162,6 +1164,8 @@ const LANG = {
       topicNotesLabel:'Topic notes', notesPh:'Write freely about this topic…',
       subtopicsLabel:'Subtopics', addSubtopicPh:'New subtopic name', addSubtopic:'+ Add subtopic', addSubSubtopicPh:'Add a sub-subtopic under this one',
       subtopicNotesPh:'Notes for this subtopic…', makeCard:'Make a card', delete:'Delete',
+      makeSubtopicCards:'Make cards from subtopics', noSubtopicContentForCards:'No subtopic content to make cards from yet. Try writing a bold heading in the note, or add a subtopic.',
+      subtopicCardsResult:'Created {created} subtopic card(s), updated {updated}.',
       edit:'Edit', cancel:'Cancel', editSubtopicNameLabel:'Subtopic name',
       topicSelect:'Topic', save:'Save', saveAll:'Save all', saved:'Saved', noSubtopicsYet:'No subtopics yet. Add one below.',
       nextTopicBtn:'Next topic',
@@ -1452,6 +1456,8 @@ const LANG = {
       topicNotesLabel:'Notizen zum Thema', notesPh:'Halte hier frei fest, was du zu diesem Thema weißt…',
       subtopicsLabel:'Unterthemen', addSubtopicPh:'Neues Unterthema', addSubtopic:'+ Unterthema hinzufügen', addSubSubtopicPh:'Unter-Unterthema hinzufügen',
       subtopicNotesPh:'Notizen zu diesem Unterthema…', makeCard:'Karte erstellen', delete:'Löschen',
+      makeSubtopicCards:'Karten aus Unterthemen erstellen', noSubtopicContentForCards:'Noch kein Unterthema-Inhalt für Karten. Schreibe eine fett gedruckte Überschrift in die Notiz oder füge ein Unterthema hinzu.',
+      subtopicCardsResult:'{created} Unterthema-Karte(n) erstellt, {updated} aktualisiert.',
       edit:'Bearbeiten', cancel:'Abbrechen', editSubtopicNameLabel:'Name des Unterthemas',
       topicSelect:'Thema', save:'Speichern', saveAll:'Alles speichern', saved:'Gespeichert', noSubtopicsYet:'Noch keine Unterthemen. Füge unten eines hinzu.',
       nextTopicBtn:'Nächstes Thema',
@@ -5551,6 +5557,7 @@ function renderNotes(){
         <h2 class="section-title" style="margin-bottom:0;">${escapeHtml(tp.name)}</h2>
         <div style="display:flex;gap:6px;flex-wrap:wrap;">
           <button class="btn ghost small" onclick="App.seedCard('${s.id}','${escapeAttr(tp.name)}','${escapeAttr(tp.notes)}')">${t('notes.makeCard')}</button>
+          <button class="btn ghost small" onclick="App.makeCardsFromSubtopics('${s.id}','${tp.id}')">${t('notes.makeSubtopicCards')}</button>
           <button class="btn ghost small" onclick="App.exportNotesPDF('topic')">${t('notes.exportTopicPdf')}</button>
           <button class="btn ghost small" onclick="App.exportNotesPDF('subject')">${t('notes.exportSubjectPdf')}</button>
         </div>
@@ -6014,6 +6021,54 @@ App.seedCard = function(sid, name, notes){
   state.activeTab = 'cards';
   saveState(); renderAll();
   scrollActiveTabIntoView();
+};
+/* Bulk "소주제로 카드 만들기" — one flashcard per subtopic in this topic
+   (front = the subtopic's name, back = its notes), covering BOTH
+   manually-added subtopics and the ones auto-detected from a bold heading
+   in the main note (see syncAutoSubtopicsFromNotes()) — exactly the "note
+   written in the bold-heading format" the person asked to turn into cards,
+   without having to open each subtopic and click "카드로 만들기" one at a
+   time. Unlike seedCard() this commits the cards directly instead of
+   dropping a single draft into the create form, since there can be many.
+   Re-running it after editing the note updates each card's back to match
+   the latest notes instead of piling up duplicates, while keeping that
+   card's own review progress (interval/ease/reps/dueDate) untouched. Each
+   card is tagged with subtopic = that subtopic's name, same as typing it
+   into the subtopic field by hand, so it's immediately reachable through
+   the existing subtopic filters everywhere else in the app. */
+App.makeCardsFromSubtopics = function(sid, tid){
+  if(state.activeTab==='notes') saveAllNotes();
+  const s = state.subjects.find(x=>x.id===sid);
+  const tp = s && s.topics.find(x=>x.id===tid);
+  if(!tp) return;
+  const nodes = flattenSubtopics(tp.subtopics||[])
+    .map(({node})=>node)
+    .filter(node=>!richIsEmpty(node.notes));
+  if(nodes.length===0){
+    showAlert(t('notes.noSubtopicContentForCards'));
+    return;
+  }
+  let created = 0, updated = 0;
+  nodes.forEach(node=>{
+    const existing = state.cards.find(c=>
+      c.subjectId===sid && c.type==='basic' && c.subtopic===node.name &&
+      richTextToPlain(c.front).trim()===node.name.trim()
+    );
+    if(existing){
+      existing.back = node.notes;
+      updated++;
+    } else {
+      state.cards.push({
+        id: uid(), subjectId: sid, type:'basic', subtopic: node.name,
+        interval:1, ease:2.5, reps:0, dueDate: todayISO(),
+        front: escapeHtml(node.name), back: node.notes
+      });
+      created++;
+    }
+  });
+  state.lastCardSubjectId = sid;
+  saveState(); renderAll();
+  showAlert(tf('notes.subtopicCardsResult', {created, updated}));
 };
 
 /* ============ CYCLE (reading passes) ============ */
