@@ -211,11 +211,22 @@
     background:var(--surface-2);color:var(--ink-dim);font-size:11px;font-weight:700;
     display:flex;align-items:center;justify-content:center;border:1px solid var(--line);
   }
+  .rich-toolbar-sep{width:1px;align-self:stretch;background:var(--line);margin:0 2px;}
+  .rich-format-btn{
+    min-width:24px;height:22px;border-radius:5px;border:1px solid var(--line);
+    background:var(--surface-2);color:var(--ink);font-size:12px;line-height:1;
+    cursor:pointer;padding:0 6px;flex:none;font-family:inherit;
+  }
+  .rich-format-btn:hover{border-color:var(--amber);}
+  .rich-format-btn.bold{font-weight:700;}
+  .rich-format-btn.italic{font-style:italic;}
+  .rich-format-btn.underline{text-decoration:underline;}
   .rich-body{
     width:100%;background:var(--surface-2);border:1px solid var(--line);color:var(--ink);
     border-radius:7px;padding:9px 10px;font-size:14px;line-height:1.55;
     outline:none;overflow-wrap:break-word;white-space:pre-wrap;
   }
+  .rich-body ul{margin:4px 0 4px 20px;padding:0;}
   .rich-body:focus{border-color:var(--amber);}
   .rich-body:empty::before{content:attr(data-placeholder);color:var(--ink-dim);}
   .output-pane .rich-body{flex:1;min-height:220px;font-size:14px;line-height:1.6;}
@@ -1038,7 +1049,7 @@ const LANG = {
       recurringNoneToday:'오늘 해당하는 상주 계획이 없어요.', recurringEmpty:'등록된 상주 계획이 없어요.',
       recurringManageTitle:'전체 상주 계획 관리', recurringNotTodayTag:'오늘 아님'
     },
-    richtext: { colorAria:'글자색 선택', clearAria:'기본색으로' },
+    richtext: { colorAria:'글자색 선택', clearAria:'기본색으로', boldAria:'굵게', italicAria:'기울임', underlineAria:'밑줄', bulletAria:'글머리 기호 목록' },
     sidenote: {
       title:'메모장', placeholder:'여기에 자유롭게 적어보세요…', saved:'저장됨',
       collapseAria:'메모장 접기', expandAria:'메모장 펼치기', resizeAria:'너비 조절',
@@ -1328,7 +1339,7 @@ const LANG = {
       recurringNoneToday:'No recurring plans scheduled for today.', recurringEmpty:'No recurring plans yet.',
       recurringManageTitle:'Manage all recurring plans', recurringNotTodayTag:'Not today'
     },
-    richtext: { colorAria:'Choose text color', clearAria:'Reset color' },
+    richtext: { colorAria:'Choose text color', clearAria:'Reset color', boldAria:'Bold', italicAria:'Italic', underlineAria:'Underline', bulletAria:'Bulleted list' },
     sidenote: {
       title:'Notes', placeholder:'Jot down anything here…', saved:'Saved',
       collapseAria:'Collapse notes', expandAria:'Expand notes', resizeAria:'Resize',
@@ -1618,7 +1629,7 @@ const LANG = {
       recurringNoneToday:'Heute ist kein fester Plan vorgesehen.', recurringEmpty:'Noch keine festen Pläne angelegt.',
       recurringManageTitle:'Alle festen Pläne verwalten', recurringNotTodayTag:'Nicht heute'
     },
-    richtext: { colorAria:'Textfarbe wählen', clearAria:'Farbe zurücksetzen' },
+    richtext: { colorAria:'Textfarbe wählen', clearAria:'Farbe zurücksetzen', boldAria:'Fett', italicAria:'Kursiv', underlineAria:'Unterstrichen', bulletAria:'Aufzählungsliste' },
     sidenote: {
       title:'Notizen', placeholder:'Hier frei notieren…', saved:'Gespeichert',
       collapseAria:'Notizen einklappen', expandAria:'Notizen ausklappen', resizeAria:'Größe ändern',
@@ -3855,7 +3866,7 @@ function richTextToPlain(html){
   const div = document.createElement('div');
   div.innerHTML = html;
   div.querySelectorAll('br').forEach(br=>br.replaceWith('\n'));
-  div.querySelectorAll('div,p').forEach(el=>{
+  div.querySelectorAll('div,p,li').forEach(el=>{
     if(el.nextSibling) el.insertAdjacentText('afterend','\n');
   });
   const text = div.textContent || '';
@@ -3871,13 +3882,32 @@ function plainToRichHtml(text){ return escapeHtml(text||'').replace(/\n/g,'<br>'
    rich-text field. valueHtml must already be sanitized HTML (or a
    migrated plain-text value) — never raw user input. */
 function richFieldHtml(bodyId, valueHtml, placeholder, minHeight, extraAttrs){
+  // onmousedown="event.preventDefault()" on every toolbar button (same fix
+  // for both the format buttons and the color swatches below) stops the
+  // browser's default mousedown behavior of moving focus to the button
+  // being clicked. Without it, clicking a swatch/format button blurs the
+  // contenteditable body first — and when applyRichColor()/applyRichFormat()
+  // then calls body.focus() to bring it back, the browser doesn't reliably
+  // restore the previous selection, so the caret (and the color/format
+  // about to be applied) jumps to the very start of the field instead of
+  // wherever the person was actually typing. Preventing the mousedown's
+  // default keeps focus (and the live selection) on the body the entire
+  // time, so the click just applies to whatever was already selected.
+  const formatBtn = (cmd, cls, label, glyph) =>
+    `<button type="button" class="rich-format-btn ${cls}" onmousedown="event.preventDefault()" onclick="App.applyRichFormat('${bodyId}','${cmd}')" aria-label="${label}" title="${label}">${glyph}</button>`;
+  const formatBtns = [
+    formatBtn('bold', 'bold', t('richtext.boldAria'), 'B'),
+    formatBtn('italic', 'italic', t('richtext.italicAria'), 'I'),
+    formatBtn('underline', 'underline', t('richtext.underlineAria'), 'U'),
+    formatBtn('insertUnorderedList', 'bullet', t('richtext.bulletAria'), '•')
+  ].join('');
   const swatches = RICH_COLORS.map(hex=>
-    `<button type="button" class="rich-swatch" style="background:${hex}" onclick="App.applyRichColor('${bodyId}','${hex}')" aria-label="${t('richtext.colorAria')}"></button>`
+    `<button type="button" class="rich-swatch" style="background:${hex}" onmousedown="event.preventDefault()" onclick="App.applyRichColor('${bodyId}','${hex}')" aria-label="${t('richtext.colorAria')}"></button>`
   ).join('');
-  const clearBtn = `<button type="button" class="rich-swatch rich-swatch-clear" onclick="App.applyRichColor('${bodyId}','${getRichClearColor()}')" aria-label="${t('richtext.clearAria')}">A</button>`;
+  const clearBtn = `<button type="button" class="rich-swatch rich-swatch-clear" onmousedown="event.preventDefault()" onclick="App.applyRichColor('${bodyId}','${getRichClearColor()}')" aria-label="${t('richtext.clearAria')}">A</button>`;
   return `
     <div class="rich-field">
-      <div class="rich-colorbar">${swatches}${clearBtn}</div>
+      <div class="rich-colorbar">${formatBtns}<span class="rich-toolbar-sep"></span>${swatches}${clearBtn}</div>
       <div class="rich-body" id="${bodyId}" contenteditable="true" style="min-height:${minHeight||90}px;" data-placeholder="${escapeAttr(placeholder||'')}" ${extraAttrs||''}>${valueHtml||''}</div>
     </div>
   `;
@@ -3888,6 +3918,23 @@ App.applyRichColor = function(bodyId, hex){
   body.focus();
   document.execCommand('styleWithCSS', false, true);
   document.execCommand('foreColor', false, hex);
+  body.dispatchEvent(new Event('input', {bubbles:true}));
+};
+App.applyRichFormat = function(bodyId, cmd){
+  const body = document.getElementById(bodyId);
+  if(!body) return;
+  body.focus();
+  // Force styleWithCSS off for these — applyRichColor turns it ON (so
+  // execCommand('foreColor', ...) produces an inline color style instead of
+  // a <font> tag), and that flag is a global document setting that would
+  // otherwise leak into bold/italic/underline too, making them produce
+  // <span style="font-weight:bold"> etc. sanitizeRichHtml only ever keeps a
+  // `color:` declaration inside a style attribute and drops the rest, so a
+  // style-based bold/italic/underline would silently vanish the moment the
+  // note is saved. Semantic <b>/<i>/<u>/<ul><li> tags (what execCommand
+  // produces with styleWithCSS off) survive sanitizing untouched.
+  document.execCommand('styleWithCSS', false, false);
+  document.execCommand(cmd, false, null);
   body.dispatchEvent(new Event('input', {bubbles:true}));
 };
 function isMobileSidenote(){
@@ -5743,6 +5790,13 @@ ${bodyHtml}
   setTimeout(()=>URL.revokeObjectURL(url), 60000);
 }
 App.exportNotesPDF = function(scope){
+  // saveAllNotes() flushes whatever's currently live in the notes/pretest/
+  // subtopic contenteditable fields into state — without this, exporting
+  // right after typing or changing a color (without first switching topics
+  // or clicking the explicit "저장" button, both of which happen to call
+  // saveAllNotes() themselves) would build the PDF from whatever was last
+  // explicitly saved, silently ignoring the most recent edit.
+  saveAllNotes();
   const s = state.subjects.find(x=>x.id===state.activeSubjectId);
   if(!s) return;
   let topics;
@@ -7035,7 +7089,8 @@ function renderCards(){
         <div class="field" style="position:relative;">
           <label>${t('cards.subtopicLabel')}</label>
           <input type="text" id="cardSubtopic" autocomplete="off" placeholder="${t('cards.subtopicPh')}" value="${escapeAttr(subtopicValue)}"
-            oninput="App.showSubtopicSuggestions()" onfocus="App.showSubtopicSuggestions()" onblur="App.hideSubtopicSuggestionsDelayed()">
+            oninput="App.showSubtopicSuggestions()" onfocus="App.showSubtopicSuggestions()" onblur="App.hideSubtopicSuggestionsDelayed()"
+            onkeydown="App.handleSubtopicFieldEnterKey(event)">
           <div id="cardSubtopicSuggestions" class="subtopic-suggestions" style="display:none;"></div>
         </div>
         <div class="field"><label>${t('cards.typeLabel')}</label>
@@ -7171,6 +7226,21 @@ App.hideSubtopicSuggestions = function(){
 // handles the "click away entirely" case (blurring for some other reason).
 App.hideSubtopicSuggestionsDelayed = function(){
   setTimeout(App.hideSubtopicSuggestions, 150);
+};
+/* Pressing Enter in the subtopic field used to do nothing (it's a plain
+   text input, not a form, so Enter just sat there) — jump straight to
+   whichever body field is next (front for a basic card, the cloze textarea
+   for a cloze card) so typing a subtopic then Enter then the card content
+   flows as one uninterrupted sequence, same as Tab would but without
+   requiring the person to know that. */
+App.handleSubtopicFieldEnterKey = function(event){
+  if(event.isComposing) return; // don't hijack an IME's own Enter (confirming composition)
+  if(event.key !== 'Enter') return;
+  event.preventDefault();
+  App.hideSubtopicSuggestions();
+  const typeEl = document.getElementById('cardType');
+  const targetId = (typeEl && typeEl.value==='cloze') ? 'cardCloze' : 'cardFront';
+  focusInput(targetId);
 };
 /* Places the caret at the very end of a contenteditable field's content —
    used when double-Enter jumps focus from front to back, so continuing to
