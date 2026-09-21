@@ -5529,7 +5529,13 @@ function renderNotes(){
   const tp = s.topics.find(x=>x.id===tid);
   const topicOptions = buildTopicOptions(s, tid);
 
-  const subBlocks = tp.subtopics.map(node=>renderSubtopicNode(s, tp, node, 0)).join('') || `<div class="muted" style="font-size:12.5px;padding:6px 0;">${t('notes.noSubtopicsYet')}</div>`;
+  // Auto-detected subtopics (from a bold heading in the note above) are
+  // deliberately left out of this manually-managed list — they have no
+  // separate notes box to edit here since their content already lives in
+  // the main note body itself. They still exist in tp.subtopics underneath,
+  // so cards/랜덤뽑기 pick them up exactly like a manually-added subtopic.
+  const manualSubtopics = tp.subtopics.filter(node=>!node.autoDetected);
+  const subBlocks = manualSubtopics.map(node=>renderSubtopicNode(s, tp, node, 0)).join('') || `<div class="muted" style="font-size:12.5px;padding:6px 0;">${t('notes.noSubtopicsYet')}</div>`;
   const reviewBanner = renderReviewQueueBanner();
 
   return `
@@ -5715,6 +5721,114 @@ App.nextNotesTopic = function(){
   window.scrollTo({top:0, behavior:'smooth'});
   if(!changed) flashStatus('notesSaveStatus'); // only one topic exists — nothing to cycle to, but confirm the click registered
 };
+/* ---- Auto-detected subtopics from bold headings in the main topic note ----
+   Writing a whole line in **bold** in the topic notes area (topicNotesArea)
+   marks it as a subtopic title; everything after it — up to two fully-blank
+   lines in a row, or the next bold heading, whichever comes first — becomes
+   that subtopic's content. This is a second, automatic way to get a
+   subtopic (alongside, never instead of, manually clicking "소주제 추가" below
+   — see syncAutoSubtopicsFromNotes()), so the same subtopic list that
+   already feeds card-creation's subtopic autocomplete and 랜덤뽑기's subtopic
+   filter also gets populated just by writing normally in the main note. */
+
+/* Splits a contenteditable's DOM into one element per visual "line", matching
+   how Chrome actually structures typed content: the first line is loose
+   top-level content, every Enter after that wraps its line in its own <div>
+   (an empty line is a lone <div><br></div>), and Shift+Enter inserts a <br>
+   without starting a new top-level node. Returns an array of elements whose
+   .textContent/.innerHTML represent one line each, in document order. */
+function getNotesTopLevelLines(container){
+  const lines = [];
+  let bucket = [];
+  function flushBucket(){
+    if(bucket.length){
+      const wrapper = document.createElement('div');
+      bucket.forEach(n=>wrapper.appendChild(n));
+      lines.push(wrapper);
+      bucket = [];
+    }
+  }
+  Array.from(container.childNodes).forEach(node=>{
+    if(node.nodeType===1 && (node.tagName==='DIV'||node.tagName==='P')){
+      flushBucket();
+      lines.push(node);
+    } else if(node.nodeType===1 && node.tagName==='BR'){
+      flushBucket();
+      lines.push(document.createElement('div')); // explicit blank line
+    } else {
+      bucket.push(node);
+    }
+  });
+  flushBucket();
+  return lines;
+}
+/* True only when EVERY non-whitespace character on the line sits inside a
+   <b>/<strong> — bolding one word in an otherwise-plain sentence (ordinary
+   emphasis) must never be mistaken for a subtopic heading. */
+function lineIsFullyBold(lineEl){
+  const normalize = str=>(str||'').replace(/\s+/g,' ').trim();
+  const fullText = normalize(lineEl.textContent);
+  if(!fullText) return false;
+  let boldText = '';
+  lineEl.querySelectorAll('b,strong').forEach(el=>{ boldText += el.textContent; });
+  return normalize(boldText)===fullText;
+}
+/* Parses sanitized notes HTML into {name, html} sections — one per detected
+   bold heading, with `html` holding everything below it (as real HTML, so
+   colors/bold/etc. inside the body survive) up to the terminating gap. Text
+   before the first heading (or after a heading with no content) belongs to
+   no subtopic and is ignored here — it's already part of tp.notes itself. */
+function parseAutoSubtopicSections(notesHtml){
+  const container = document.createElement('div');
+  container.innerHTML = notesHtml || '';
+  const lineEls = getNotesTopLevelLines(container);
+  const sections = [];
+  let current = null;
+  let blankStreak = 0;
+  lineEls.forEach(lineEl=>{
+    const text = (lineEl.textContent||'').trim();
+    if(text!=='' && lineIsFullyBold(lineEl)){
+      current = { name: text, lines: [] };
+      sections.push(current);
+      blankStreak = 0;
+      return;
+    }
+    if(!current) return;
+    if(text===''){
+      blankStreak++;
+      if(blankStreak>=2){ current = null; blankStreak = 0; return; }
+    } else {
+      blankStreak = 0;
+    }
+    current.lines.push(lineEl);
+  });
+  return sections.map(sec=>({
+    name: sec.name,
+    html: sec.lines.map(l=>l.outerHTML).join('')
+  }));
+}
+/* Upserts one auto-detected subtopic node per heading found in tp.notes right
+   now, and removes any auto-detected node from an EARLIER save whose heading
+   no longer appears (so renaming/deleting a bold heading cleans up after
+   itself). A name that already belongs to a manually-created subtopic
+   (added via the separate "소주제 추가" box) is left completely alone — that
+   person-authored subtopic and its own notes are never overwritten by this. */
+function syncAutoSubtopicsFromNotes(tp){
+  const sections = parseAutoSubtopicSections(tp.notes);
+  const seenNames = new Set();
+  sections.forEach(sec=>{
+    if(seenNames.has(sec.name)) return; // duplicate heading name in one note — keep the first
+    seenNames.add(sec.name);
+    let node = tp.subtopics.find(n=>n.name===sec.name);
+    if(node && !node.autoDetected) return; // a manual subtopic owns this name — don't touch it
+    if(!node){
+      node = {id:uid(), name:sec.name, notes:'', subtopics:[], autoDetected:true};
+      tp.subtopics.push(node);
+    }
+    node.notes = sanitizeRichHtml(sec.html);
+  });
+  tp.subtopics = tp.subtopics.filter(n=> !n.autoDetected || seenNames.has(n.name));
+}
 function saveAllNotes(){
   const s = state.subjects.find(x=>x.id===state.activeSubjectId);
   if(!s) return;
@@ -5722,7 +5836,10 @@ function saveAllNotes(){
   if(!tp) return;
   const wasEmpty = richIsEmpty(tp.notes);
   const topicArea = document.getElementById('topicNotesArea');
-  if(topicArea) tp.notes = sanitizeRichHtml(topicArea.innerHTML);
+  if(topicArea){
+    tp.notes = sanitizeRichHtml(topicArea.innerHTML);
+    syncAutoSubtopicsFromNotes(tp);
+  }
   const pretestArea = document.getElementById('pretestArea');
   if(pretestArea) tp.pretestText = sanitizeRichHtml(pretestArea.innerHTML);
   (function walk(list){
@@ -5812,7 +5929,15 @@ App.exportNotesPDF = function(scope){
       <h2>${escapeHtml(tp.name)}</h2>
       <div class="pdf-meta">${escapeHtml(s.name)}${tp.createdAt ? ' · '+tp.createdAt : ''}</div>
       <div class="pdf-body">${!richIsEmpty(tp.notes) ? tp.notes : `<span class="pdf-empty">${t('notes.exportEmpty')}</span>`}</div>
-      ${flattenSubtopics(tp.subtopics||[]).map(({node:st, depth})=>`
+      ${flattenSubtopics(tp.subtopics||[])
+        // Auto-detected subtopics (from a bold heading up above) are skipped
+        // here on purpose — their content is that bold heading's own text,
+        // already printed once as part of the topic body just above, so
+        // repeating it as a separate section would just duplicate it.
+        // Manually-added subtopics (their own separate notes, never part of
+        // the topic body) still get their own section exactly as before.
+        .filter(({node:st})=>!st.autoDetected)
+        .map(({node:st, depth})=>`
         <div class="pdf-subtopic" style="margin-left:${depth*14}px;">
           <h3>${escapeHtml(st.name)}</h3>
           <div class="pdf-body">${!richIsEmpty(st.notes) ? st.notes : `<span class="pdf-empty">${t('notes.exportEmpty')}</span>`}</div>
