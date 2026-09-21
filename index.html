@@ -369,6 +369,43 @@
     width:70px;
   }
   .flash .cloze-answer{color:var(--amber);font-weight:600;}
+  /* Applied (see flashDisplayClass()) when the currently-shown side is a
+     multi-line or long answer rather than a short term/blank — switches
+     from the default centered single-line look to left-aligned,
+     top-anchored reading, and gives each line/paragraph/list item some
+     breathing room instead of them all running together. */
+  .flash.flash-long{
+    display:block;
+    text-align:left;
+    padding:20px 22px;
+    font-size:15.5px;
+  }
+  .flash.flash-long > div,
+  .flash.flash-long > p{
+    margin:0 0 10px 0;
+  }
+  .flash.flash-long > div:last-child,
+  .flash.flash-long > p:last-child{
+    margin-bottom:0;
+  }
+  .flash.flash-long div:empty,
+  .flash.flash-long div:has(> br:only-child){
+    margin-bottom:0;
+    height:8px;
+  }
+  .flash.flash-long ul,
+  .flash.flash-long ol{
+    text-align:left;
+    margin:0 0 10px 22px;
+    padding:0;
+  }
+  .flash.flash-long li{
+    margin-bottom:4px;
+  }
+  .flash.flash-long b,
+  .flash.flash-long strong{
+    color:var(--ink);
+  }
 
   .draw-result{
     text-align:center;padding:40px 20px;
@@ -3879,6 +3916,24 @@ function richTextToPlain(html){
   return text.replace(/\n{3,}/g,'\n\n');
 }
 function richIsEmpty(html){ return richTextToPlain(html).trim()===''; }
+/* Flashcard front/back display used to always be centered, single-line
+   styling (.flash — see CSS), which reads fine for a short term or cloze
+   blank but turns into an unreadable centered wall of text once the back
+   is a whole paragraph or several lines pulled in from notes (e.g. via the
+   "소주제로 카드 만들기" bulk feature). This looks at whichever side is
+   currently showing and returns 'flash-long' when it's multi-line or long
+   enough that left-aligned, top-anchored reading (see .flash.flash-long in
+   CSS) will look better than centering — short answers still get the
+   original centered look. */
+function flashDisplayClass(html){
+  if(!html) return '';
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  const blockCount = div.querySelectorAll(':scope > div, :scope > p, :scope > ul, :scope > ol').length;
+  const hasList = !!div.querySelector('ul, ol');
+  const textLen = richTextToPlain(html).trim().length;
+  return (blockCount > 1 || hasList || textLen > 60) ? 'flash-long' : '';
+}
 /* One-time migration helper: wraps old plain-text field values (from
    backups saved before rich-text color typing existed) as safe HTML so
    they display identically once the field becomes a contenteditable
@@ -6336,7 +6391,7 @@ function renderDrawCardBody(){
       resultBlock = `
         <div class="draw-result">
           <div class="muted mono" style="font-size:12px;">${t('draw.drawnCardLabel')}${s?' · '+escapeHtml(s.name):''}${c.subtopic?' · '+escapeHtml(c.subtopic):''}</div>
-          <div class="flash" id="drawFlashCard" onclick="App.flipDrawCard()">${state.draw.cardRevealed?backHtml:frontHtml}</div>
+          <div class="flash ${flashDisplayClass(state.draw.cardRevealed?backHtml:frontHtml)}" id="drawFlashCard" onclick="App.flipDrawCard()">${state.draw.cardRevealed?backHtml:frontHtml}</div>
           <div class="muted" style="font-size:11px;margin-top:8px;">${t('cards.flipHint')}</div>
         </div>`;
     }
@@ -7169,7 +7224,7 @@ function renderCardStudyPanel(){
           <button class="btn ghost small" style="padding:1px 5px;font-size:11px;opacity:.55;" onclick="App.deleteCard('${c.id}')" title="${t('cards.delete')}">🗑️</button>
         </div>
       </div>
-      <div class="flash" id="flashCard" onclick="App.flipCard()">
+      <div class="flash ${flashDisplayClass(cr.flipped ? backHtml : frontHtml)}" id="flashCard" onclick="App.flipCard()">
         ${cr.flipped ? backHtml : frontHtml}
       </div>
       <div class="row" style="margin-top:12px;">
