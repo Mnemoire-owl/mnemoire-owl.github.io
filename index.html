@@ -4044,7 +4044,7 @@ function richFieldHtml(bodyId, valueHtml, placeholder, minHeight, extraAttrs){
   return `
     <div class="rich-field">
       <div class="rich-colorbar">${formatBtns}${imageBtn}<span class="rich-toolbar-sep"></span>${swatches}${clearBtn}</div>
-      <div class="rich-body" id="${bodyId}" contenteditable="true" style="min-height:${minHeight||90}px;" data-placeholder="${escapeAttr(placeholder||'')}" ${extraAttrs||''}>${valueHtml||''}</div>
+      <div class="rich-body" id="${bodyId}" contenteditable="true" style="min-height:${minHeight||90}px;" data-placeholder="${escapeAttr(placeholder||'')}" onpaste="App.handleRichBodyPaste(event,'${bodyId}')" ${extraAttrs||''}>${valueHtml||''}</div>
     </div>
   `;
 }
@@ -4124,14 +4124,26 @@ function downscaleImageDataUrl(dataUrl, maxDim){
     img.src = dataUrl;
   });
 }
-/* Inserts a picked image directly into the note/card field as a small
-   self-contained "chip": a non-editable wrapper span (contenteditable=
-   false, so the browser treats the whole thing as one atomic unit — a
-   single backspace removes it rather than letting someone edit into the
-   middle of it) holding the <img> itself plus a drag handle
-   (App.startImageResize) for resizing it in place. Both the wrap and the
-   handle are allowlisted by sanitizeRichHtml specifically so this survives
-   being saved. */
+/* The actual "chip" markup for an inserted image, shared by every way an
+   image can get into a rich-text field (toolbar picker, clipboard paste —
+   see App.insertRichImage / App.handleRichBodyPaste below): a non-editable
+   wrapper span (contenteditable=false, so the browser treats the whole
+   thing as one atomic unit — a single backspace removes it rather than
+   letting someone edit into the middle of it) holding the <img> itself
+   plus a drag handle (App.startImageResize) for resizing it in place. Both
+   the wrap and the handle are allowlisted by sanitizeRichHtml specifically
+   so this survives being saved. Assumes the field is already focused with
+   a live selection at the desired insertion point. */
+function insertImageChipAtSelection(bodyId, dataUrl){
+  const body = document.getElementById(bodyId);
+  if(!body) return;
+  const html = '<span class="rt-img-wrap" contenteditable="false" style="display:inline-block;position:relative;max-width:100%;vertical-align:bottom;">' +
+    `<img src="${dataUrl}" draggable="false" style="width:260px;max-width:100%;display:block;border-radius:6px;">` +
+    '<span class="rt-img-resize-handle" contenteditable="false" onmousedown="App.startImageResize(event)"></span>' +
+    '</span>&nbsp;';
+  document.execCommand('insertHTML', false, html);
+  body.dispatchEvent(new Event('input', {bubbles:true}));
+}
 App.insertRichImage = function(event, bodyId){
   const file = event.target.files && event.target.files[0];
   event.target.value = ''; // so picking the very same file again still fires 'change'
@@ -4147,16 +4159,41 @@ App.insertRichImage = function(event, bodyId){
         sel.removeAllRanges();
         if(pendingRichImageRange) sel.addRange(pendingRichImageRange);
       }
-      const html = '<span class="rt-img-wrap" contenteditable="false" style="display:inline-block;position:relative;max-width:100%;vertical-align:bottom;">' +
-        `<img src="${dataUrl}" draggable="false" style="width:260px;max-width:100%;display:block;border-radius:6px;">` +
-        '<span class="rt-img-resize-handle" contenteditable="false" onmousedown="App.startImageResize(event)"></span>' +
-        '</span>&nbsp;';
-      document.execCommand('insertHTML', false, html);
+      insertImageChipAtSelection(bodyId, dataUrl);
       pendingRichImageRange = null;
-      body.dispatchEvent(new Event('input', {bubbles:true}));
     });
   };
   reader.readAsDataURL(file);
+};
+/* Pasting an image (Cmd/Ctrl+V of something copied from Preview, a
+   screenshot, another app, etc.) previously fell through to the browser's
+   own default paste handling, which drops in a bare <img> with no resize
+   handle — same picture, but with no way to resize it, unlike one added
+   through the toolbar button. This intercepts an image paste specifically
+   (clipboardData.items) and routes it through the exact same wrap-with-
+   handle + downscale pipeline as the toolbar picker, so both ways of
+   adding a picture end up identical and both stay resizable. A paste that
+   isn't an image (plain text, rich text from another app, etc.) is left
+   completely alone — this only ever intercepts when an image is present. */
+App.handleRichBodyPaste = function(event, bodyId){
+  const items = event.clipboardData && event.clipboardData.items;
+  if(!items) return;
+  let imageFile = null;
+  for(let i=0;i<items.length;i++){
+    if(items[i].kind==='file' && items[i].type && items[i].type.startsWith('image/')){
+      imageFile = items[i].getAsFile();
+      break;
+    }
+  }
+  if(!imageFile) return; // not an image paste — let normal paste handling run
+  event.preventDefault();
+  const reader = new FileReader();
+  reader.onload = function(){
+    downscaleImageDataUrl(String(reader.result), 1000).then(function(dataUrl){
+      insertImageChipAtSelection(bodyId, dataUrl);
+    });
+  };
+  reader.readAsDataURL(imageFile);
 };
 /* Drag-to-resize for an inserted image (the small handle in its bottom-
    right corner, see App.insertRichImage). Only the image's CSS width is
