@@ -226,6 +226,11 @@
     width:100%;background:var(--surface-2);border:1px solid var(--line);color:var(--ink);
     border-radius:7px;padding:9px 10px;font-size:14px;line-height:1.55;
     outline:none;overflow-wrap:break-word;white-space:pre-wrap;
+    /* Establishes the positioning context for absolutely-positioned inserted
+       images (see .rt-img-wrap / App.startImageMove) — so a photo's saved
+       left/top coordinates are always relative to this field, regardless of
+       where in the DOM it structurally sits. */
+    position:relative;
   }
   .rich-body ul{margin:4px 0 4px 20px;padding:0;}
   .rich-body:focus{border-color:var(--amber);}
@@ -417,6 +422,9 @@
     font-size:17px;
     cursor:pointer;
     line-height:1.5;
+    /* Same positioning context as .rich-body (see its comment) — a card
+       side can carry an absolutely-positioned inserted image too. */
+    position:relative;
   }
   .flash .blank{
     display:inline-block;border-bottom:2px solid var(--amber);
@@ -4172,35 +4180,105 @@ function downscaleImageDataUrl(dataUrl, maxDim){
     img.src = dataUrl;
   });
 }
+/* Grows a container that holds one or more absolutely-positioned image
+   chips (see .rt-img-wrap below) just enough to actually show all of them,
+   without ever shrinking it below whatever height it would naturally have
+   on its own (its CSS/inline min-height, captured once on first touch).
+   Needed because an absolutely-positioned child contributes nothing to its
+   parent's natural height — the parent would otherwise stay however tall
+   its flowing text made it, clipping/overlapping a photo dropped further
+   down. Generic on purpose: it runs for the live editing field
+   (.rich-body) exactly the same way it runs for a read-only flashcard
+   (.flash) showing the same saved content — see migrateImageWrapIfNeeded. */
+function ensureImageContainerFits(container){
+  if(!container) return;
+  const cs = window.getComputedStyle(container);
+  if(cs.position==='static') container.style.position = 'relative';
+  if(container.dataset.rtBaseMinHeight===undefined){
+    const natural = parseFloat(cs.minHeight);
+    container.dataset.rtBaseMinHeight = String(isNaN(natural) ? 0 : natural);
+  }
+  let maxBottom = 0;
+  for(let i=0;i<container.children.length;i++){
+    const child = container.children[i];
+    if(child.classList && child.classList.contains('rt-img-wrap')){
+      const top = parseFloat(child.style.top)||0;
+      const h = child.offsetHeight||0;
+      if(top+h > maxBottom) maxBottom = top+h;
+    }
+  }
+  const base = parseFloat(container.dataset.rtBaseMinHeight)||0;
+  if(maxBottom>0) container.style.minHeight = Math.max(base, maxBottom+16)+'px';
+}
 /* The actual "chip" markup for an inserted image, shared by every way an
    image can get into a rich-text field (toolbar picker, clipboard paste —
    see App.insertRichImage / App.handleRichBodyPaste below): a non-editable
    wrapper span (contenteditable=false, so the browser treats the whole
    thing as one atomic unit — a single backspace removes it rather than
-   letting someone edit into the middle of it) holding the <img> itself
-   plus a drag handle (App.startImageResize) for resizing it in place. Both
-   the wrap and the handle are allowlisted by sanitizeRichHtml specifically
-   so this survives being saved. Assumes the field is already focused with
-   a live selection at the desired insertion point. */
-function insertImageChipAtSelection(bodyId, dataUrl){
+   letting someone edit into the middle of it) holding the <img> itself,
+   a drag handle (App.startImageMove) to reposition it, a delete handle
+   (App.deleteImageChip), and a resize handle (App.startImageResize). Both
+   the wrap and its handles are allowlisted by sanitizeRichHtml specifically
+   so this survives being saved.
+   The chip is positioned with plain absolute left/top pixel coordinates —
+   like a photo set down on a page — rather than being part of the flowing
+   text: it doesn't sit "between" any two characters and moving it later is
+   a free pixel drag, never tied to a text line or the cursor. anchorRange
+   (optional — a cloned Range snapshot from right before this was called,
+   since a file-picker dialog or a paste can leave the live selection
+   unreliable) is used only to pick a reasonable STARTING spot near wherever
+   the person's cursor happened to be; after that the position is entirely
+   independent of the text. */
+function insertImageChipAtSelection(bodyId, dataUrl, anchorRange){
   const body = document.getElementById(bodyId);
   if(!body) return;
+  const bodyRect = body.getBoundingClientRect();
+  let left = 12, top = 12;
+  let rect = null;
+  const rangeToRect = function(range){
+    try{
+      const r = range.cloneRange();
+      r.collapse(true);
+      const rects = r.getClientRects();
+      return (rects && rects[0]) || r.getBoundingClientRect();
+    } catch(e){ return null; }
+  };
+  if(anchorRange) rect = rangeToRect(anchorRange);
+  if(!rect){
+    const sel = window.getSelection();
+    if(sel && sel.rangeCount>0 && body.contains(sel.anchorNode)) rect = rangeToRect(sel.getRangeAt(0));
+  }
+  if(rect && (rect.width || rect.height || rect.top || rect.left)){
+    left = rect.left - bodyRect.left + body.scrollLeft;
+    top = rect.top - bodyRect.top + body.scrollTop;
+  }
+  // Stagger repeated inserts landing at (roughly) the same spot so they
+  // don't stack exactly on top of one another.
+  const existingCount = body.querySelectorAll('.rt-img-wrap').length;
+  left += (existingCount % 5) * 14;
+  top += (existingCount % 5) * 14;
+  const maxLeft = Math.max(0, body.clientWidth - 260);
+  left = Math.max(0, Math.min(left, maxLeft));
+  top = Math.max(0, top);
   // No inline onmousedown/ondragstart here on purpose — sanitizeRichHtml
   // strips every inline on* attribute as a blanket XSS guard (deliberately,
   // with no exception carved out even for these), so an inline handler
-  // would only work until the very first save/reload. The handle's click
+  // would only work until the very first save/reload. The handles' click
   // behavior and drag prevention are instead wired up via delegated
   // document-level listeners (see near App.startImageResize) that
   // recognize these elements purely by their CSS class, which DOES survive
-  // sanitizing — so resizing keeps working no matter how this HTML ended
+  // sanitizing — so everything keeps working no matter how this HTML ended
   // up on the page (freshly inserted, or loaded back from saved state).
-  const html = '<span class="rt-img-wrap" contenteditable="false" draggable="false" style="display:inline-block;position:relative;max-width:100%;vertical-align:bottom;">' +
+  // data-rt-positioned marks this as already correctly placed, so the
+  // migration pass (migrateImageWrapIfNeeded) leaves it alone.
+  const html = '<span class="rt-img-wrap" contenteditable="false" draggable="false" data-rt-positioned="1" style="position:absolute;left:' + Math.round(left) + 'px;top:' + Math.round(top) + 'px;max-width:100%;">' +
     `<img src="${dataUrl}" draggable="false" style="width:260px;max-width:100%;display:block;border-radius:6px;">` +
     '<span class="rt-img-move-handle" contenteditable="false" draggable="false" title="옮기기">⠿</span>' +
     '<span class="rt-img-delete-handle" contenteditable="false" draggable="false" title="삭제">×</span>' +
     '<span class="rt-img-resize-handle" contenteditable="false" draggable="false"></span>' +
-    '</span>&nbsp;';
-  document.execCommand('insertHTML', false, html);
+    '</span>';
+  body.insertAdjacentHTML('beforeend', html);
+  ensureImageContainerFits(body);
   body.dispatchEvent(new Event('input', {bubbles:true}));
 }
 App.insertRichImage = function(event, bodyId){
@@ -4211,14 +4289,8 @@ App.insertRichImage = function(event, bodyId){
   reader.onload = function(){
     downscaleImageDataUrl(String(reader.result), 1000).then(function(dataUrl){
       const body = document.getElementById(bodyId);
-      if(!body) return;
-      body.focus();
-      const sel = window.getSelection();
-      if(sel){
-        sel.removeAllRanges();
-        if(pendingRichImageRange) sel.addRange(pendingRichImageRange);
-      }
-      insertImageChipAtSelection(bodyId, dataUrl);
+      if(body) body.focus();
+      insertImageChipAtSelection(bodyId, dataUrl, pendingRichImageRange);
       pendingRichImageRange = null;
     });
   };
@@ -4229,11 +4301,12 @@ App.insertRichImage = function(event, bodyId){
    own default paste handling, which drops in a bare <img> with no resize
    handle — same picture, but with no way to resize it, unlike one added
    through the toolbar button. This intercepts an image paste specifically
-   (clipboardData.items) and routes it through the exact same wrap-with-
-   handle + downscale pipeline as the toolbar picker, so both ways of
-   adding a picture end up identical and both stay resizable. A paste that
-   isn't an image (plain text, rich text from another app, etc.) is left
-   completely alone — this only ever intercepts when an image is present. */
+   (clipboardData.items) and routes it through the exact same chip +
+   downscale pipeline as the toolbar picker, so both ways of adding a
+   picture end up identical and both stay resizable/movable/deletable. A
+   paste that isn't an image (plain text, rich text from another app, etc.)
+   is left completely alone — this only ever intercepts when an image is
+   present. */
 App.handleRichBodyPaste = function(event, bodyId){
   const items = event.clipboardData && event.clipboardData.items;
   if(!items) return;
@@ -4246,10 +4319,12 @@ App.handleRichBodyPaste = function(event, bodyId){
   }
   if(!imageFile) return; // not an image paste — let normal paste handling run
   event.preventDefault();
+  const sel = window.getSelection();
+  const anchorRange = (sel && sel.rangeCount>0) ? sel.getRangeAt(0).cloneRange() : null;
   const reader = new FileReader();
   reader.onload = function(){
     downscaleImageDataUrl(String(reader.result), 1000).then(function(dataUrl){
-      insertImageChipAtSelection(bodyId, dataUrl);
+      insertImageChipAtSelection(bodyId, dataUrl, anchorRange);
     });
   };
   reader.readAsDataURL(imageFile);
@@ -4264,33 +4339,32 @@ App.startImageResize = function(e){
   const wrap = e.target.closest('.rt-img-wrap');
   const img = wrap && wrap.querySelector('img');
   if(!img) return;
+  const body = wrap.closest('.rich-body');
   const startX = e.clientX;
   const startWidth = img.getBoundingClientRect().width;
-  const container = wrap.closest('.rich-body') || wrap.parentElement;
+  const container = body || wrap.parentElement;
   const maxWidth = container ? Math.max(container.getBoundingClientRect().width - 8, 60) : 2000;
   function onMove(ev){
     const delta = ev.clientX - startX;
     const newWidth = Math.round(Math.max(60, Math.min(startWidth + delta, maxWidth)));
     img.style.width = newWidth + 'px';
+    if(body) ensureImageContainerFits(body);
   }
   function onUp(){
     document.removeEventListener('mousemove', onMove);
     document.removeEventListener('mouseup', onUp);
-    const body = wrap.closest('.rich-body');
-    if(body) body.dispatchEvent(new Event('input', {bubbles:true}));
+    if(body){ ensureImageContainerFits(body); body.dispatchEvent(new Event('input', {bubbles:true})); }
   }
   document.addEventListener('mousemove', onMove);
   document.addEventListener('mouseup', onUp);
 };
 /* Drag-to-reposition for an inserted image (the small grip handle in its
-   top-left corner). Unlike resizing, which only ever changes the img's
-   own width in place, this physically relocates the whole .rt-img-wrap
-   node to wherever the mouse is released — using caretRangeFromPoint (with
-   a caretPositionFromPoint fallback for browsers that lack it) to find the
-   nearest valid text-insertion point under the pointer at drop time. That
-   means the picture can be moved to an entirely different line/paragraph
-   in the same field without first having to click the blinking text
-   cursor into exactly the right spot by hand. */
+   top-left corner) — a plain pixel-for-pixel drag of the chip's absolute
+   left/top, exactly like moving a photo around on a page: it is never
+   converted into (or read back out of) any text-line/cursor position, so
+   nothing about where the surrounding text wraps or which line is nearby
+   has any effect on where the picture ends up. Only clamped so it can't be
+   dragged left/up off the field entirely. */
 App.startImageMove = function(e){
   e.preventDefault();
   e.stopPropagation();
@@ -4299,35 +4373,25 @@ App.startImageMove = function(e){
   const body = wrap.closest('.rich-body');
   if(!body) return;
   deselectImageWrap();
-  wrap.style.opacity = '0.45';
-  let dropRange = null;
-  function rangeFromPoint(x, y){
-    if(document.caretRangeFromPoint) return document.caretRangeFromPoint(x, y);
-    if(document.caretPositionFromPoint){
-      const pos = document.caretPositionFromPoint(x, y);
-      if(!pos) return null;
-      const r = document.createRange();
-      r.setStart(pos.offsetNode, pos.offset);
-      r.collapse(true);
-      return r;
-    }
-    return null;
-  }
+  const startX = e.clientX, startY = e.clientY;
+  const startLeft = parseFloat(wrap.style.left)||0;
+  const startTop = parseFloat(wrap.style.top)||0;
+  const maxLeft = Math.max(0, body.clientWidth - wrap.offsetWidth);
+  wrap.style.opacity = '0.6';
   function onMove(ev){
-    const range = rangeFromPoint(ev.clientX, ev.clientY);
-    if(range && body.contains(range.startContainer) && !wrap.contains(range.startContainer)){
-      dropRange = range;
-    }
+    const dx = ev.clientX - startX, dy = ev.clientY - startY;
+    const newLeft = Math.min(Math.max(0, startLeft+dx), maxLeft);
+    const newTop = Math.max(0, startTop+dy);
+    wrap.style.left = Math.round(newLeft)+'px';
+    wrap.style.top = Math.round(newTop)+'px';
+    ensureImageContainerFits(body);
   }
   function onUp(){
     document.removeEventListener('mousemove', onMove);
     document.removeEventListener('mouseup', onUp);
     wrap.style.opacity = '';
-    if(dropRange){
-      wrap.remove();
-      dropRange.insertNode(wrap);
-      body.dispatchEvent(new Event('input', {bubbles:true}));
-    }
+    ensureImageContainerFits(body);
+    body.dispatchEvent(new Event('input', {bubbles:true}));
   }
   document.addEventListener('mousemove', onMove);
   document.addEventListener('mouseup', onUp);
@@ -4341,8 +4405,61 @@ App.deleteImageChip = function(wrap){
   const body = wrap.closest('.rich-body');
   if(wrap===selectedImageWrap) selectedImageWrap = null;
   wrap.remove();
-  if(body) body.dispatchEvent(new Event('input', {bubbles:true}));
+  if(body){ ensureImageContainerFits(body); body.dispatchEvent(new Event('input', {bubbles:true})); }
 };
+/* Backward-compatibility + universal display support: any .rt-img-wrap
+   that shows up anywhere in the page — freshly loaded from notes/cards
+   saved before this absolute-positioning rework (which had images inline
+   in the text flow), or shown read-only in a flashcard review box — gets
+   normalized to the same absolute-positioning scheme insertImageChipAt
+   Selection() already uses for new inserts, and its container is grown to
+   fit it (see ensureImageContainerFits). A MutationObserver rather than
+   hooking every single render path individually, since saved rich content
+   gets dropped into the DOM via plain innerHTML/template-string
+   interpolation from many different places (notes, card fronts/backs,
+   sidenotes, output/gap review text, flashcard review, ...). */
+function migrateImageWrapIfNeeded(wrap){
+  const container = wrap.parentElement;
+  if(!container) return;
+  const style = wrap.getAttribute('style')||'';
+  const isAbsolute = /position\s*:\s*absolute/i.test(style);
+  if(!isAbsolute){
+    const containerRect = container.getBoundingClientRect();
+    const wrapRect = wrap.getBoundingClientRect();
+    const left = Math.max(0, Math.round(wrapRect.left - containerRect.left + container.scrollLeft));
+    const top = Math.max(0, Math.round(wrapRect.top - containerRect.top + container.scrollTop));
+    wrap.style.position = 'absolute';
+    wrap.style.left = left+'px';
+    wrap.style.top = top+'px';
+    wrap.style.display = '';
+    wrap.style.verticalAlign = '';
+    // The old inline-flow format appended a trailing "&nbsp;" after each
+    // chip to keep the text cursor from landing inside it — meaningless
+    // now that the chip is out of flow, so drop it if present.
+    const next = wrap.nextSibling;
+    if(next && next.nodeType===3 && /^ +$/.test(next.nodeValue)) next.remove();
+  }
+  ensureImageContainerFits(container);
+}
+const richImageMigrationObserver = new MutationObserver(function(mutations){
+  mutations.forEach(function(m){
+    m.addedNodes.forEach(function(node){
+      if(node.nodeType!==1) return;
+      if(node.classList && node.classList.contains('rt-img-wrap')) migrateImageWrapIfNeeded(node);
+      if(node.querySelectorAll){
+        const nested = node.querySelectorAll('.rt-img-wrap');
+        for(let i=0;i<nested.length;i++) migrateImageWrapIfNeeded(nested[i]);
+      }
+    });
+  });
+});
+if(document.body){
+  richImageMigrationObserver.observe(document.body, {childList:true, subtree:true});
+} else {
+  document.addEventListener('DOMContentLoaded', function(){
+    richImageMigrationObserver.observe(document.body, {childList:true, subtree:true});
+  });
+}
 // Delegated listeners for the resize/move/delete handles, click-to-select,
 // and native-drag prevention — see the comment in
 // insertImageChipAtSelection() for why none of this is wired via inline
@@ -6316,7 +6433,31 @@ App.saveAllNotes = function(){
   }
   flashStatus('notesSaveStatus');
 };
+/* This exported document is a completely standalone HTML file (opened via
+   a Blob URL in a new tab — see openPrintableDoc below), with none of this
+   app's own JavaScript loaded in it. An inserted image's .rt-img-wrap
+   relies on JS (ensureImageContainerFits/the migration observer) to size
+   its container and stay visible — none of which exists over there — so
+   rather than risk a photo landing off in the top-left corner of a blank
+   page, this flattens every image back into normal top-to-bottom document
+   flow (source order) before it's ever embedded in the exported HTML,
+   stripping the now-pointless move/delete/resize handles along with it. */
+function flattenAbsoluteImagesForPrint(html){
+  if(!html || html.indexOf('rt-img-wrap')===-1) return html;
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  div.querySelectorAll('.rt-img-wrap').forEach(function(wrap){
+    wrap.style.position = 'static';
+    wrap.style.left = '';
+    wrap.style.top = '';
+    wrap.style.display = 'block';
+    wrap.style.margin = '10px 0';
+  });
+  div.querySelectorAll('.rt-img-move-handle,.rt-img-delete-handle,.rt-img-resize-handle').forEach(function(el){ el.remove(); });
+  return div.innerHTML;
+}
 function openPrintableDoc(title, bodyHtml){
+  bodyHtml = flattenAbsoluteImagesForPrint(bodyHtml);
   const doc = `<!DOCTYPE html>
 <html lang="${state.settings.language}">
 <head>
