@@ -221,6 +221,7 @@
   .rich-format-btn.bold{font-weight:700;}
   .rich-format-btn.italic{font-style:italic;}
   .rich-format-btn.underline{text-decoration:underline;}
+  .rich-format-btn.image{font-size:13px;}
   .rich-body{
     width:100%;background:var(--surface-2);border:1px solid var(--line);color:var(--ink);
     border-radius:7px;padding:9px 10px;font-size:14px;line-height:1.55;
@@ -230,6 +231,20 @@
   .rich-body:focus{border-color:var(--amber);}
   .rich-body:empty::before{content:attr(data-placeholder);color:var(--ink-dim);}
   .output-pane .rich-body{flex:1;min-height:220px;font-size:14px;line-height:1.6;}
+  /* Inserted images (App.insertRichImage) — the resize handle only ever
+     shows inside an actual editing field (.rich-body), never when the same
+     saved HTML is displayed elsewhere (a flashcard's .flash box, printed/
+     PDF notes, read-only previews), and even there only on hover so it
+     doesn't clutter the note while just reading it. */
+  img, .flash img{max-width:100%;height:auto;}
+  .rt-img-wrap{max-width:100%;}
+  .rt-img-resize-handle{
+    display:none;position:absolute;right:-5px;bottom:-5px;
+    width:13px;height:13px;background:var(--amber);
+    border:2px solid var(--surface-2);border-radius:3px;
+    cursor:nwse-resize;
+  }
+  .rich-body .rt-img-wrap:hover .rt-img-resize-handle{display:block;}
 
   button.btn{
     background:var(--amber);
@@ -1088,7 +1103,7 @@ const LANG = {
       recurringNoneToday:'오늘 해당하는 상주 계획이 없어요.', recurringEmpty:'등록된 상주 계획이 없어요.',
       recurringManageTitle:'전체 상주 계획 관리', recurringNotTodayTag:'오늘 아님'
     },
-    richtext: { colorAria:'글자색 선택', clearAria:'기본색으로', boldAria:'굵게', italicAria:'기울임', underlineAria:'밑줄', bulletAria:'글머리 기호 목록' },
+    richtext: { colorAria:'글자색 선택', clearAria:'기본색으로', boldAria:'굵게', italicAria:'기울임', underlineAria:'밑줄', bulletAria:'글머리 기호 목록', imageAria:'사진 추가' },
     sidenote: {
       title:'메모장', placeholder:'여기에 자유롭게 적어보세요…', saved:'저장됨',
       collapseAria:'메모장 접기', expandAria:'메모장 펼치기', resizeAria:'너비 조절',
@@ -1380,7 +1395,7 @@ const LANG = {
       recurringNoneToday:'No recurring plans scheduled for today.', recurringEmpty:'No recurring plans yet.',
       recurringManageTitle:'Manage all recurring plans', recurringNotTodayTag:'Not today'
     },
-    richtext: { colorAria:'Choose text color', clearAria:'Reset color', boldAria:'Bold', italicAria:'Italic', underlineAria:'Underline', bulletAria:'Bulleted list' },
+    richtext: { colorAria:'Choose text color', clearAria:'Reset color', boldAria:'Bold', italicAria:'Italic', underlineAria:'Underline', bulletAria:'Bulleted list', imageAria:'Add image' },
     sidenote: {
       title:'Notes', placeholder:'Jot down anything here…', saved:'Saved',
       collapseAria:'Collapse notes', expandAria:'Expand notes', resizeAria:'Resize',
@@ -1672,7 +1687,7 @@ const LANG = {
       recurringNoneToday:'Heute ist kein fester Plan vorgesehen.', recurringEmpty:'Noch keine festen Pläne angelegt.',
       recurringManageTitle:'Alle festen Pläne verwalten', recurringNotTodayTag:'Nicht heute'
     },
-    richtext: { colorAria:'Textfarbe wählen', clearAria:'Farbe zurücksetzen', boldAria:'Fett', italicAria:'Kursiv', underlineAria:'Unterstrichen', bulletAria:'Aufzählungsliste' },
+    richtext: { colorAria:'Textfarbe wählen', clearAria:'Farbe zurücksetzen', boldAria:'Fett', italicAria:'Kursiv', underlineAria:'Unterstrichen', bulletAria:'Aufzählungsliste', imageAria:'Bild hinzufügen' },
     sidenote: {
       title:'Notizen', placeholder:'Hier frei notieren…', saved:'Gespeichert',
       collapseAria:'Notizen einklappen', expandAria:'Notizen ausklappen', resizeAria:'Größe ändern',
@@ -3638,6 +3653,28 @@ document.addEventListener('keydown', function(e){
     }
   }
 });
+// The same OS-standard Cmd/Ctrl+B, Cmd/Ctrl+I, Cmd/Ctrl+U shortcuts people
+// already use everywhere else also work inside every rich-text note/card
+// field (any .rich-body contenteditable — notes, subtopic notes, pretest,
+// card front/back, sidenotes, gap edits). This is more than a convenience:
+// without it, the BROWSER'S OWN native Ctrl/Cmd+B handling would run
+// execCommand with whatever styleWithCSS was last left at (e.g. "true"
+// right after using a color swatch — see applyRichColor), producing an
+// inline style-based bold/italic/underline that sanitizeRichHtml silently
+// strips back out the next time the note is saved, silently losing the
+// formatting. Routing the shortcut through App.applyRichFormat (same as
+// clicking the toolbar button) guarantees a real <b>/<i>/<u> tag instead.
+document.addEventListener('keydown', function(e){
+  const mod = e.metaKey || e.ctrlKey;
+  if(!mod) return;
+  const target = e.target;
+  if(!target || !target.classList || !target.classList.contains('rich-body')) return;
+  const key = e.key.toLowerCase();
+  const cmd = key==='b' ? 'bold' : key==='i' ? 'italic' : key==='u' ? 'underline' : null;
+  if(!cmd) return;
+  e.preventDefault();
+  App.applyRichFormat(target.id, cmd);
+});
 
 function celebrate(title, sub){
   const layer = document.getElementById('celebrateLayer');
@@ -3883,14 +3920,35 @@ function sanitizeRichHtml(html){
   const div = document.createElement('div');
   div.innerHTML = html||'';
   div.querySelectorAll('script,style,iframe,object,embed,link,meta').forEach(el=>el.remove());
+  // Images inserted via the rich-text toolbar's image button (see
+  // App.insertRichImage) are the one deliberate exception to the "strip
+  // src/style down to nothing" rule below — an <img> needs its src to be
+  // an image at all, and its wrapper/handle need their sizing style to
+  // keep whatever size the person dragged it to. Only a self-contained
+  // data:image/ URI is ever allowed through — never http(s) or anything
+  // else — so a saved note/card never depends on some external URL
+  // staying alive, and never opens an XSS avenue via a crafted src.
+  div.querySelectorAll('img').forEach(img=>{
+    const src = img.getAttribute('src')||'';
+    if(!/^data:image\//i.test(src)) img.remove();
+  });
   div.querySelectorAll('*').forEach(el=>{
+    const isImgChrome = el.tagName==='IMG' ||
+      (el.classList && (el.classList.contains('rt-img-wrap') || el.classList.contains('rt-img-resize-handle')));
     [...el.attributes].forEach(attr=>{
       const name = attr.name.toLowerCase();
-      if(name.startsWith('on') || name==='href' || name==='src'){
+      if(name==='src'){
+        if(el.tagName!=='IMG') el.removeAttribute(attr.name); // already validated above for <img>
+      } else if(name.startsWith('on') || name==='href'){
         el.removeAttribute(attr.name);
       } else if(name==='style'){
-        const m = attr.value.match(/color\s*:\s*[^;]+/i);
-        if(m) el.setAttribute('style', m[0]); else el.removeAttribute('style');
+        if(isImgChrome){
+          const allowed = attr.value.match(/(?:^|;)\s*(width|max-width|height|display|position|vertical-align|border-radius|top|left|right|bottom)\s*:\s*[^;]+/gi) || [];
+          if(allowed.length) el.setAttribute('style', allowed.map(s=>s.replace(/^;\s*/,'')).join(';')); else el.removeAttribute('style');
+        } else {
+          const m = attr.value.match(/color\s*:\s*[^;]+/i);
+          if(m) el.setAttribute('style', m[0]); else el.removeAttribute('style');
+        }
       }
     });
   });
@@ -3914,7 +3972,17 @@ function richTextToPlain(html){
   const text = div.textContent || '';
   return text.replace(/\n{3,}/g,'\n\n');
 }
-function richIsEmpty(html){ return richTextToPlain(html).trim()===''; }
+// An inserted image carries no text (richTextToPlain reads only
+// div.textContent, which an <img> never contributes to), so a field that
+// holds nothing but a picture must still count as "has content" — otherwise
+// every place that gates on richIsEmpty (App.addCard() saving a basic
+// card, the "이 소주제엔 아직 내용이 없어요" placeholder, etc.) would wrongly
+// treat an image-only note/card side as blank.
+function richIsEmpty(html){
+  if(!html) return true;
+  if(/<img[\s>]/i.test(html)) return false;
+  return richTextToPlain(html).trim()==='';
+}
 /* Flashcard front/back display used to always be centered, single-line
    styling (.flash — see CSS), which reads fine for a short term or cloze
    blank but turns into an unreadable centered wall of text once the back
@@ -3965,9 +4033,17 @@ function richFieldHtml(bodyId, valueHtml, placeholder, minHeight, extraAttrs){
     `<button type="button" class="rich-swatch" style="background:${hex}" onmousedown="event.preventDefault()" onclick="App.applyRichColor('${bodyId}','${hex}')" aria-label="${t('richtext.colorAria')}"></button>`
   ).join('');
   const clearBtn = `<button type="button" class="rich-swatch rich-swatch-clear" onmousedown="event.preventDefault()" onclick="App.applyRichColor('${bodyId}','${getRichClearColor()}')" aria-label="${t('richtext.clearAria')}">A</button>`;
+  // Image button — a hidden native file input does the actual file
+  // picking (accept="image/*" gets the phone/OS camera-roll picker too),
+  // triggered by the visible toolbar button. App.triggerRichImagePicker()
+  // saves the caret position FIRST, before the native file dialog can ever
+  // steal focus/selection away from this field (see its own comment).
+  const imageInputId = bodyId + '_imgInput';
+  const imageBtn = `<input type="file" accept="image/*" id="${imageInputId}" style="display:none" onchange="App.insertRichImage(event,'${bodyId}')">` +
+    `<button type="button" class="rich-format-btn image" onmousedown="event.preventDefault()" onclick="App.triggerRichImagePicker('${bodyId}')" aria-label="${t('richtext.imageAria')}" title="${t('richtext.imageAria')}">🖼️</button>`;
   return `
     <div class="rich-field">
-      <div class="rich-colorbar">${formatBtns}<span class="rich-toolbar-sep"></span>${swatches}${clearBtn}</div>
+      <div class="rich-colorbar">${formatBtns}${imageBtn}<span class="rich-toolbar-sep"></span>${swatches}${clearBtn}</div>
       <div class="rich-body" id="${bodyId}" contenteditable="true" style="min-height:${minHeight||90}px;" data-placeholder="${escapeAttr(placeholder||'')}" ${extraAttrs||''}>${valueHtml||''}</div>
     </div>
   `;
@@ -3996,6 +4072,119 @@ App.applyRichFormat = function(bodyId, cmd){
   document.execCommand('styleWithCSS', false, false);
   document.execCommand(cmd, false, null);
   body.dispatchEvent(new Event('input', {bubbles:true}));
+};
+// Set by App.triggerRichImagePicker() right before it opens the native file
+// dialog, consumed by App.insertRichImage() once a file comes back. Needed
+// because opening that dialog can steal focus/selection away from the
+// contenteditable body, so by the time the chosen image is ready to insert,
+// window.getSelection() may no longer point at where the person's caret
+// actually was — this snapshot is what lets the image land in the right
+// spot instead of always at the end of the field.
+let pendingRichImageRange = null;
+App.triggerRichImagePicker = function(bodyId){
+  const body = document.getElementById(bodyId);
+  if(!body) return;
+  const sel = window.getSelection();
+  if(sel && sel.rangeCount>0 && body.contains(sel.anchorNode)){
+    pendingRichImageRange = sel.getRangeAt(0).cloneRange();
+  } else {
+    const r = document.createRange();
+    r.selectNodeContents(body);
+    r.collapse(false);
+    pendingRichImageRange = r;
+  }
+  const input = document.getElementById(bodyId+'_imgInput');
+  if(input) input.click();
+};
+/* Large photos (a phone camera shot easily runs 3-5MB) would otherwise
+   bloat the single JSON blob this app persists everything into
+   (localStorage, or the Supabase user_state row) — a few of them could
+   push a save past a quota and silently break saving entirely. Downscaling
+   to a reasonable max dimension and re-encoding as JPEG before it's ever
+   inserted keeps notes/cards embeddable and fast without the person having
+   to think about it. Resolves with the original data URL unchanged if the
+   image is already small (nothing to gain by re-encoding it). */
+function downscaleImageDataUrl(dataUrl, maxDim){
+  return new Promise(function(resolve){
+    const img = new Image();
+    img.onload = function(){
+      const w = img.naturalWidth || img.width;
+      const h = img.naturalHeight || img.height;
+      if(!w || !h || (w<=maxDim && h<=maxDim)){ resolve(dataUrl); return; }
+      const scale = maxDim / Math.max(w, h);
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(w*scale));
+      canvas.height = Math.max(1, Math.round(h*scale));
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      try{ resolve(canvas.toDataURL('image/jpeg', 0.85)); }
+      catch(e){ resolve(dataUrl); }
+    };
+    img.onerror = function(){ resolve(dataUrl); };
+    img.src = dataUrl;
+  });
+}
+/* Inserts a picked image directly into the note/card field as a small
+   self-contained "chip": a non-editable wrapper span (contenteditable=
+   false, so the browser treats the whole thing as one atomic unit — a
+   single backspace removes it rather than letting someone edit into the
+   middle of it) holding the <img> itself plus a drag handle
+   (App.startImageResize) for resizing it in place. Both the wrap and the
+   handle are allowlisted by sanitizeRichHtml specifically so this survives
+   being saved. */
+App.insertRichImage = function(event, bodyId){
+  const file = event.target.files && event.target.files[0];
+  event.target.value = ''; // so picking the very same file again still fires 'change'
+  if(!file || !file.type || !file.type.startsWith('image/')) return;
+  const reader = new FileReader();
+  reader.onload = function(){
+    downscaleImageDataUrl(String(reader.result), 1000).then(function(dataUrl){
+      const body = document.getElementById(bodyId);
+      if(!body) return;
+      body.focus();
+      const sel = window.getSelection();
+      if(sel){
+        sel.removeAllRanges();
+        if(pendingRichImageRange) sel.addRange(pendingRichImageRange);
+      }
+      const html = '<span class="rt-img-wrap" contenteditable="false" style="display:inline-block;position:relative;max-width:100%;vertical-align:bottom;">' +
+        `<img src="${dataUrl}" draggable="false" style="width:260px;max-width:100%;display:block;border-radius:6px;">` +
+        '<span class="rt-img-resize-handle" contenteditable="false" onmousedown="App.startImageResize(event)"></span>' +
+        '</span>&nbsp;';
+      document.execCommand('insertHTML', false, html);
+      pendingRichImageRange = null;
+      body.dispatchEvent(new Event('input', {bubbles:true}));
+    });
+  };
+  reader.readAsDataURL(file);
+};
+/* Drag-to-resize for an inserted image (the small handle in its bottom-
+   right corner, see App.insertRichImage). Only the image's CSS width is
+   changed — height stays "auto" via the img's own natural aspect ratio, so
+   it can never get squashed/stretched out of proportion. */
+App.startImageResize = function(e){
+  e.preventDefault();
+  e.stopPropagation();
+  const wrap = e.target.closest('.rt-img-wrap');
+  const img = wrap && wrap.querySelector('img');
+  if(!img) return;
+  const startX = e.clientX;
+  const startWidth = img.getBoundingClientRect().width;
+  const container = wrap.closest('.rich-body') || wrap.parentElement;
+  const maxWidth = container ? Math.max(container.getBoundingClientRect().width - 8, 60) : 2000;
+  function onMove(ev){
+    const delta = ev.clientX - startX;
+    const newWidth = Math.round(Math.max(60, Math.min(startWidth + delta, maxWidth)));
+    img.style.width = newWidth + 'px';
+  }
+  function onUp(){
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+    const body = wrap.closest('.rich-body');
+    if(body) body.dispatchEvent(new Event('input', {bubbles:true}));
+  }
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
 };
 function isMobileSidenote(){
   if(window.matchMedia) return window.matchMedia('(max-width:720px)').matches;
