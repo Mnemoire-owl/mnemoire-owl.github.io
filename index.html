@@ -201,7 +201,28 @@
   .row > *{flex:1;min-width:120px;}
 
   .rich-field{width:100%;}
-  .rich-colorbar{display:flex;gap:6px;margin-bottom:6px;flex-wrap:wrap;}
+  /* Sticks the format/image/color toolbar to the top of the screen while
+     scrolling through a long note or card field, instead of it staying put
+     at the top of the field and scrolling out of view — previously,
+     changing the color of text further down a long note meant selecting
+     it, then scrolling all the way back up to find the color swatch, then
+     scrolling back down again to see it. position:sticky is scoped to this
+     bar's own parent (.rich-field, which wraps the bar together with the
+     field body right below it): the bar stays pinned to the top of the
+     viewport for as long as any part of that field is still on screen, and
+     scrolls away normally once the whole field has been scrolled past —
+     each note/card field's toolbar does this independently, so with
+     several long fields stacked on one page, whichever one you're
+     currently scrolled into is the one that stays pinned. The background +
+     shadow keep it visually solid (not see-through to the text scrolling
+     underneath it) and readable as a floating bar rather than plain part
+     of the page. */
+  .rich-colorbar{
+    display:flex;gap:6px;margin-bottom:6px;flex-wrap:wrap;
+    position:sticky;top:0;z-index:5;
+    background:var(--surface);padding:5px 4px;
+    border-radius:8px;box-shadow:0 2px 6px -2px rgba(0,0,0,.12);
+  }
   .rich-swatch{
     width:20px;height:20px;border-radius:50%;border:1px solid rgba(0,0,0,.15);
     cursor:pointer;padding:0;flex:none;transition:transform .1s;
