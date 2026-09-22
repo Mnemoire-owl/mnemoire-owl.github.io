@@ -253,7 +253,37 @@
     border:2px solid var(--surface-2);border-radius:3px;
     cursor:nwse-resize;-webkit-user-drag:none;user-select:none;
   }
-  .rich-body .rt-img-wrap:hover .rt-img-resize-handle{display:block;}
+  /* Move handle (top-left, App.startImageMove) lets the picture be dragged
+     to a different spot in the text without needing the blinking text
+     cursor placed there first. Delete handle (top-right, App.deleteImageChip)
+     removes the picture on a direct click, no cursor positioning at all.
+     Both are hover-only, same as the resize handle, and only ever shown
+     inside an actual editing field — never in a read-only .flash card or
+     PDF export, even if the saved HTML still carries the class. */
+  .rt-img-move-handle{
+    display:none;position:absolute;left:-6px;top:-6px;
+    width:16px;height:16px;background:var(--surface-2);
+    border:1px solid var(--line);border-radius:4px;
+    cursor:grab;-webkit-user-drag:none;user-select:none;
+    font-size:10px;line-height:14px;text-align:center;color:var(--ink-dim);
+  }
+  .rt-img-delete-handle{
+    display:none;position:absolute;right:-6px;top:-6px;
+    width:16px;height:16px;background:#d9534f;
+    border:2px solid var(--surface-2);border-radius:50%;
+    cursor:pointer;-webkit-user-drag:none;user-select:none;
+    font-size:11px;line-height:12px;text-align:center;color:#fff;font-weight:700;
+  }
+  .rich-body .rt-img-wrap:hover .rt-img-resize-handle,
+  .rich-body .rt-img-wrap:hover .rt-img-move-handle,
+  .rich-body .rt-img-wrap:hover .rt-img-delete-handle{display:block;}
+  /* Selected-for-delete state (clicking directly on the picture — see the
+     delegated mousedown listener near App.startImageResize): a visible
+     outline so it's clear Backspace/Delete will remove it next, without
+     needing the text cursor adjacent to it. Scoped to .rich-body so it can
+     never show up in a saved/read-only view even if the class ends up
+     baked into stored HTML (e.g. saved without deselecting first). */
+  .rich-body .rt-img-wrap.rt-img-selected{outline:2px solid var(--amber);outline-offset:2px;}
 
   button.btn{
     background:var(--amber);
@@ -3943,7 +3973,8 @@ function sanitizeRichHtml(html){
   });
   div.querySelectorAll('*').forEach(el=>{
     const isImgChrome = el.tagName==='IMG' ||
-      (el.classList && (el.classList.contains('rt-img-wrap') || el.classList.contains('rt-img-resize-handle')));
+      (el.classList && (el.classList.contains('rt-img-wrap') || el.classList.contains('rt-img-resize-handle') ||
+        el.classList.contains('rt-img-move-handle') || el.classList.contains('rt-img-delete-handle')));
     [...el.attributes].forEach(attr=>{
       const name = attr.name.toLowerCase();
       if(name==='src'){
@@ -4090,6 +4121,14 @@ App.applyRichFormat = function(bodyId, cmd){
 // actually was — this snapshot is what lets the image land in the right
 // spot instead of always at the end of the field.
 let pendingRichImageRange = null;
+// The image chip currently "selected" by a direct click (see the delegated
+// mousedown/keydown listeners near App.startImageResize) — lets
+// Backspace/Delete remove it without the text cursor being adjacent to it.
+let selectedImageWrap = null;
+function deselectImageWrap(){
+  if(selectedImageWrap) selectedImageWrap.classList.remove('rt-img-selected');
+  selectedImageWrap = null;
+}
 App.triggerRichImagePicker = function(bodyId){
   const body = document.getElementById(bodyId);
   if(!body) return;
@@ -4157,6 +4196,8 @@ function insertImageChipAtSelection(bodyId, dataUrl){
   // up on the page (freshly inserted, or loaded back from saved state).
   const html = '<span class="rt-img-wrap" contenteditable="false" draggable="false" style="display:inline-block;position:relative;max-width:100%;vertical-align:bottom;">' +
     `<img src="${dataUrl}" draggable="false" style="width:260px;max-width:100%;display:block;border-radius:6px;">` +
+    '<span class="rt-img-move-handle" contenteditable="false" draggable="false" title="옮기기">⠿</span>' +
+    '<span class="rt-img-delete-handle" contenteditable="false" draggable="false" title="삭제">×</span>' +
     '<span class="rt-img-resize-handle" contenteditable="false" draggable="false"></span>' +
     '</span>&nbsp;';
   document.execCommand('insertHTML', false, html);
@@ -4241,17 +4282,107 @@ App.startImageResize = function(e){
   document.addEventListener('mousemove', onMove);
   document.addEventListener('mouseup', onUp);
 };
-// Delegated listeners for the resize handle and native-drag prevention —
-// see the comment in insertImageChipAtSelection() for why these are NOT
-// inline onmousedown/ondragstart attributes on the elements themselves
-// (sanitizeRichHtml strips those on every save). Recognizing the handle by
-// its CSS class here means resizing keeps working after any number of
-// save/reload cycles, since the class attribute is never touched by
+/* Drag-to-reposition for an inserted image (the small grip handle in its
+   top-left corner). Unlike resizing, which only ever changes the img's
+   own width in place, this physically relocates the whole .rt-img-wrap
+   node to wherever the mouse is released — using caretRangeFromPoint (with
+   a caretPositionFromPoint fallback for browsers that lack it) to find the
+   nearest valid text-insertion point under the pointer at drop time. That
+   means the picture can be moved to an entirely different line/paragraph
+   in the same field without first having to click the blinking text
+   cursor into exactly the right spot by hand. */
+App.startImageMove = function(e){
+  e.preventDefault();
+  e.stopPropagation();
+  const wrap = e.target.closest('.rt-img-wrap');
+  if(!wrap) return;
+  const body = wrap.closest('.rich-body');
+  if(!body) return;
+  deselectImageWrap();
+  wrap.style.opacity = '0.45';
+  let dropRange = null;
+  function rangeFromPoint(x, y){
+    if(document.caretRangeFromPoint) return document.caretRangeFromPoint(x, y);
+    if(document.caretPositionFromPoint){
+      const pos = document.caretPositionFromPoint(x, y);
+      if(!pos) return null;
+      const r = document.createRange();
+      r.setStart(pos.offsetNode, pos.offset);
+      r.collapse(true);
+      return r;
+    }
+    return null;
+  }
+  function onMove(ev){
+    const range = rangeFromPoint(ev.clientX, ev.clientY);
+    if(range && body.contains(range.startContainer) && !wrap.contains(range.startContainer)){
+      dropRange = range;
+    }
+  }
+  function onUp(){
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+    wrap.style.opacity = '';
+    if(dropRange){
+      wrap.remove();
+      dropRange.insertNode(wrap);
+      body.dispatchEvent(new Event('input', {bubbles:true}));
+    }
+  }
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+};
+// Removes an inserted image chip outright — used by both the hover ✕
+// button and the Backspace/Delete-while-selected flow below, so a picture
+// can be deleted by clicking straight on it instead of needing the text
+// cursor placed exactly next to it first.
+App.deleteImageChip = function(wrap){
+  if(!wrap) return;
+  const body = wrap.closest('.rich-body');
+  if(wrap===selectedImageWrap) selectedImageWrap = null;
+  wrap.remove();
+  if(body) body.dispatchEvent(new Event('input', {bubbles:true}));
+};
+// Delegated listeners for the resize/move/delete handles, click-to-select,
+// and native-drag prevention — see the comment in
+// insertImageChipAtSelection() for why none of this is wired via inline
+// onmousedown/ondragstart attributes on the elements themselves
+// (sanitizeRichHtml strips those on every save). Recognizing elements by
+// their CSS class here means all of this keeps working after any number of
+// save/reload cycles, since class attributes are never touched by
 // sanitizing.
 document.addEventListener('mousedown', function(e){
-  const handle = e.target && e.target.closest && e.target.closest('.rt-img-resize-handle');
-  if(!handle || !handle.closest('.rich-body')) return;
-  App.startImageResize(e);
+  const resizeHandle = e.target && e.target.closest && e.target.closest('.rt-img-resize-handle');
+  if(resizeHandle && resizeHandle.closest('.rich-body')){ App.startImageResize(e); return; }
+  const moveHandle = e.target && e.target.closest && e.target.closest('.rt-img-move-handle');
+  if(moveHandle && moveHandle.closest('.rich-body')){ App.startImageMove(e); return; }
+  const deleteHandle = e.target && e.target.closest && e.target.closest('.rt-img-delete-handle');
+  if(deleteHandle && deleteHandle.closest('.rich-body')){
+    e.preventDefault();
+    e.stopPropagation();
+    App.deleteImageChip(deleteHandle.closest('.rt-img-wrap'));
+    return;
+  }
+  // Clicking directly on the picture itself (not one of its handles)
+  // "selects" it — see the keydown listener below — so Backspace/Delete
+  // removes it right away, without the cursor having to be adjacent to it.
+  const wrap = e.target && e.target.closest && e.target.closest('.rt-img-wrap');
+  if(wrap && wrap.closest('.rich-body')){
+    e.preventDefault();
+    deselectImageWrap();
+    selectedImageWrap = wrap;
+    wrap.classList.add('rt-img-selected');
+    return;
+  }
+  if(selectedImageWrap) deselectImageWrap();
+});
+document.addEventListener('keydown', function(e){
+  if(!selectedImageWrap) return;
+  if(e.key==='Backspace' || e.key==='Delete'){
+    if(!document.body.contains(selectedImageWrap)){ selectedImageWrap = null; return; }
+    e.preventDefault();
+    App.deleteImageChip(selectedImageWrap);
+  }
 });
 document.addEventListener('dragstart', function(e){
   if(e.target && e.target.closest && e.target.closest('.rt-img-wrap')) e.preventDefault();
