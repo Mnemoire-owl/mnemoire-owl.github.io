@@ -237,12 +237,21 @@
      PDF notes, read-only previews), and even there only on hover so it
      doesn't clutter the note while just reading it. */
   img, .flash img{max-width:100%;height:auto;}
-  .rt-img-wrap{max-width:100%;}
+  /* -webkit-user-drag:none + the draggable="false" attribute set on these
+     elements in insertImageChipAtSelection() together stop Chrome's
+     default behavior of treating a contenteditable="false" island inside a
+     contenteditable="true" parent as natively drag-and-droppable — without
+     both, starting a mousedown+move from the resize handle was being
+     hijacked into an OS-level drag of the whole image chip instead of
+     firing the ordinary mousemove events App.startImageResize listens for,
+     so the handle would appear but dragging it did nothing. user-select:
+     none stops the handle itself from ever getting text-selected. */
+  .rt-img-wrap{max-width:100%;-webkit-user-drag:none;user-select:none;}
   .rt-img-resize-handle{
     display:none;position:absolute;right:-5px;bottom:-5px;
     width:13px;height:13px;background:var(--amber);
     border:2px solid var(--surface-2);border-radius:3px;
-    cursor:nwse-resize;
+    cursor:nwse-resize;-webkit-user-drag:none;user-select:none;
   }
   .rich-body .rt-img-wrap:hover .rt-img-resize-handle{display:block;}
 
@@ -4137,9 +4146,18 @@ function downscaleImageDataUrl(dataUrl, maxDim){
 function insertImageChipAtSelection(bodyId, dataUrl){
   const body = document.getElementById(bodyId);
   if(!body) return;
-  const html = '<span class="rt-img-wrap" contenteditable="false" style="display:inline-block;position:relative;max-width:100%;vertical-align:bottom;">' +
+  // No inline onmousedown/ondragstart here on purpose — sanitizeRichHtml
+  // strips every inline on* attribute as a blanket XSS guard (deliberately,
+  // with no exception carved out even for these), so an inline handler
+  // would only work until the very first save/reload. The handle's click
+  // behavior and drag prevention are instead wired up via delegated
+  // document-level listeners (see near App.startImageResize) that
+  // recognize these elements purely by their CSS class, which DOES survive
+  // sanitizing — so resizing keeps working no matter how this HTML ended
+  // up on the page (freshly inserted, or loaded back from saved state).
+  const html = '<span class="rt-img-wrap" contenteditable="false" draggable="false" style="display:inline-block;position:relative;max-width:100%;vertical-align:bottom;">' +
     `<img src="${dataUrl}" draggable="false" style="width:260px;max-width:100%;display:block;border-radius:6px;">` +
-    '<span class="rt-img-resize-handle" contenteditable="false" onmousedown="App.startImageResize(event)"></span>' +
+    '<span class="rt-img-resize-handle" contenteditable="false" draggable="false"></span>' +
     '</span>&nbsp;';
   document.execCommand('insertHTML', false, html);
   body.dispatchEvent(new Event('input', {bubbles:true}));
@@ -4223,6 +4241,21 @@ App.startImageResize = function(e){
   document.addEventListener('mousemove', onMove);
   document.addEventListener('mouseup', onUp);
 };
+// Delegated listeners for the resize handle and native-drag prevention —
+// see the comment in insertImageChipAtSelection() for why these are NOT
+// inline onmousedown/ondragstart attributes on the elements themselves
+// (sanitizeRichHtml strips those on every save). Recognizing the handle by
+// its CSS class here means resizing keeps working after any number of
+// save/reload cycles, since the class attribute is never touched by
+// sanitizing.
+document.addEventListener('mousedown', function(e){
+  const handle = e.target && e.target.closest && e.target.closest('.rt-img-resize-handle');
+  if(!handle || !handle.closest('.rich-body')) return;
+  App.startImageResize(e);
+});
+document.addEventListener('dragstart', function(e){
+  if(e.target && e.target.closest && e.target.closest('.rt-img-wrap')) e.preventDefault();
+});
 function isMobileSidenote(){
   if(window.matchMedia) return window.matchMedia('(max-width:720px)').matches;
   return window.innerWidth <= 720;
