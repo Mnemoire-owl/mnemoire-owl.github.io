@@ -701,6 +701,15 @@
   .sidenote-header{display:flex;align-items:center;gap:6px;padding:12px 12px 8px;flex:none;}
   .sidenote-titlelabel{font-size:11px;font-weight:600;letter-spacing:.03em;color:var(--ink-dim);text-transform:uppercase;flex:1;white-space:nowrap;}
   .sidenote-saved{font-size:10.5px;color:var(--teal);opacity:0;transition:opacity .3s;white-space:nowrap;}
+  .quick-save-toast{
+    position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(10px);
+    background:var(--surface);border:1px solid var(--teal);color:var(--teal);
+    font-size:13px;font-weight:600;padding:8px 16px;border-radius:20px;
+    box-shadow:0 6px 18px rgba(43,39,31,.18);
+    opacity:0;pointer-events:none;z-index:1500;
+    transition:opacity .2s ease, transform .2s ease;
+  }
+  .quick-save-toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
   .sidenote-collapsebtn{
     background:transparent;border:1px solid var(--line);border-radius:6px;
     width:24px;height:24px;flex:none;cursor:pointer;color:var(--ink-dim);
@@ -4042,6 +4051,40 @@ document.addEventListener('keydown', function(e){
   e.preventDefault();
   App.applyRichFormat(target.id, cmd);
 });
+// Cmd/Ctrl+S saves the current topic's notes (same as clicking the Notes
+// tab's "전체 저장" button) instead of triggering the browser's native
+// "Save Page As" dialog, which has no useful meaning inside this
+// single-page app — so the browser default is suppressed everywhere, not
+// just on the Notes tab, since that dialog is never what anyone wants here.
+document.addEventListener('keydown', function(e){
+  const mod = e.metaKey || e.ctrlKey;
+  if(!mod || e.key.toLowerCase()!=='s') return;
+  e.preventDefault();
+  if(state.activeTab==='notes'){
+    saveAllNotes();
+    showQuickSaveToast(t('notes.saved'));
+  }
+});
+// Small, self-dismissing confirmation pill for the Cmd/Ctrl+S shortcut
+// above — reuses a single shared element (created lazily) rather than one
+// per rich-text field, since only ever one save action is in flight at a
+// time.
+let quickSaveToastTimer = null;
+function showQuickSaveToast(text){
+  let el = document.getElementById('quickSaveToast');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'quickSaveToast';
+    el.className = 'quick-save-toast';
+    document.body.appendChild(el);
+  }
+  el.textContent = text;
+  el.classList.remove('show');
+  void el.offsetWidth; // force a reflow so re-adding "show" below always restarts the fade transition, even on rapid repeated Cmd/Ctrl+S
+  el.classList.add('show');
+  clearTimeout(quickSaveToastTimer);
+  quickSaveToastTimer = setTimeout(()=>{ el.classList.remove('show'); }, 1200);
+}
 // Tab, pressed inside a rich-text note/card field, inserts an indent at the
 // caret (the familiar word-processor behavior) instead of the browser's
 // default of moving focus to the next focusable element — which, inside the
@@ -4367,6 +4410,17 @@ function getSidenoteColors(){ return themeAccentColors(); }
    the floating scratchpad rather than pop as category markers. */
 const RICH_COLORS = ['#DC2626','#2563EB','#16A34A','#9333EA','#EA580C'];
 function getRichClearColor(){ return cssThemeVar('--ink'); } /* always matches the active theme's --ink */
+/* Converts a "#RRGGBB" string (every color this app ever hands to
+   execCommand('foreColor', ...) — swatches and getRichClearColor() alike —
+   is always this shape) into the "rgb(r, g, b)" shape Chrome's own
+   document.queryCommandValue('foreColor') reports back, so the two can be
+   compared directly. Anything that isn't a 6-digit hex is returned as-is. */
+function hexToRgbStr(hex){
+  const h = (hex||'').replace('#','');
+  if(h.length!==6) return hex;
+  const r = parseInt(h.slice(0,2),16), g = parseInt(h.slice(2,4),16), b = parseInt(h.slice(4,6),16);
+  return `rgb(${r}, ${g}, ${b})`;
+}
 /* Strips everything from a contenteditable field's innerHTML except plain
    markup and an inline color style, so pasted content (or any future
    markup drift) can never carry scripts/handlers/links into stored state
@@ -4532,12 +4586,24 @@ function richFieldHtml(bodyId, valueHtml, placeholder, minHeight, extraAttrs){
     </div>
   `;
 }
+// Tracks, per rich-text field, the color the person most recently picked
+// from the toolbar (a RICH_COLORS hex, or getRichClearColor()'s hex for the
+// "A" clear button) so newly typed/composed text can be corrected back to
+// it if the browser's own contenteditable "typing style" ever drops it —
+// see the compositionend/input listeners below for why that happens and
+// what "correction" means here. Cleared (deleted) whenever the person does
+// anything that signals they've moved on to typing somewhere else — losing
+// focus, clicking to reposition the caret, or navigating with arrow keys —
+// so this never reaches out and recolors text far away from where the
+// swatch was actually clicked.
+let richActiveColor = {};
 App.applyRichColor = function(bodyId, hex){
   const body = document.getElementById(bodyId);
   if(!body) return;
   body.focus();
   document.execCommand('styleWithCSS', false, true);
   document.execCommand('foreColor', false, hex);
+  richActiveColor[bodyId] = hex;
   body.dispatchEvent(new Event('input', {bubbles:true}));
 };
 App.applyRichFormat = function(bodyId, cmd){
@@ -4557,6 +4623,85 @@ App.applyRichFormat = function(bodyId, cmd){
   document.execCommand(cmd, false, null);
   body.dispatchEvent(new Event('input', {bubbles:true}));
 };
+// Re-colors the `len` characters immediately before the caret to
+// richActiveColor[bodyId], but only if they aren't already that color —
+// the actual fix for "I pick a color, keep typing, and at some point it's
+// back to the old color." That happens because a browser's contenteditable
+// only remembers "keep using this color" as soft, easily-dropped internal
+// state (not something written into the DOM until a character lands), and
+// Korean input in particular composes each syllable through the IME before
+// committing it — composing text is especially prone to landing outside
+// the color span execCommand('foreColor', ...) set up, since the browser
+// keeps rewriting the composing node on every jamo. Rather than trying to
+// out-guess exactly when the browser will drop it, this just checks after
+// every insertion and silently repaints the tail back to the right color
+// on the (common) occasions it didn't stick — a no-op the rest of the time.
+function correctRichColorDrift(bodyId, len){
+  const desiredHex = richActiveColor[bodyId];
+  if(!desiredHex || !len) return;
+  const body = document.getElementById(bodyId);
+  if(!body) return;
+  const sel = window.getSelection();
+  if(!sel || !sel.rangeCount || !sel.isCollapsed) return;
+  const range = sel.getRangeAt(0);
+  const container = range.startContainer;
+  const offset = range.startOffset;
+  // Only handle the straightforward "caret sits inside a text node with at
+  // least `len` characters before it" case — anything less ordinary (caret
+  // landed on an element boundary, composition spanned multiple nodes) is
+  // left alone rather than risk mangling content on a guess.
+  if(container.nodeType!==3 || offset<len || !body.contains(container)) return;
+  const checkRange = document.createRange();
+  checkRange.setStart(container, offset-len);
+  checkRange.setEnd(container, offset);
+  sel.removeAllRanges();
+  sel.addRange(checkRange);
+  const currentVal = (document.queryCommandValue('foreColor')||'').trim().toLowerCase();
+  const desiredVal = hexToRgbStr(desiredHex).toLowerCase();
+  if(currentVal !== desiredVal){
+    document.execCommand('styleWithCSS', false, true);
+    document.execCommand('foreColor', false, desiredHex);
+  }
+  // Collapse back to the end of whatever we just checked/fixed, via the
+  // LIVE selection rather than the (possibly now-stale, if foreColor just
+  // restructured the DOM around it) container/offset captured above.
+  const live = window.getSelection();
+  if(live && live.rangeCount) live.collapseToEnd();
+}
+document.addEventListener('compositionend', function(e){
+  const target = e.target;
+  if(!target || !target.classList || !target.classList.contains('rich-body')) return;
+  if(!richActiveColor[target.id]) return;
+  correctRichColorDrift(target.id, (e.data||'').length);
+});
+document.addEventListener('input', function(e){
+  // Only plain, non-IME character insertion here — composed IME text is
+  // handled by compositionend above, since inputType 'insertCompositionText'
+  // fires repeatedly mid-composition with a constantly-revised e.data and
+  // trying to correct on every one of those would fight the IME itself.
+  if(e.inputType !== 'insertText' || !e.data) return;
+  const target = e.target;
+  if(!target || !target.classList || !target.classList.contains('rich-body')) return;
+  if(!richActiveColor[target.id]) return;
+  correctRichColorDrift(target.id, e.data.length);
+});
+// Anything that signals the person is done with this typing burst and has
+// moved (or is about to move) the caret elsewhere invalidates the sticky
+// color, so it never reaches out and recolors unrelated text they click
+// into or arrow-navigate to.
+document.addEventListener('focusout', function(e){
+  const target = e.target;
+  if(target && target.classList && target.classList.contains('rich-body')) delete richActiveColor[target.id];
+});
+document.addEventListener('mousedown', function(e){
+  const target = e.target && e.target.closest && e.target.closest('.rich-body');
+  if(target) delete richActiveColor[target.id];
+});
+document.addEventListener('keydown', function(e){
+  const target = e.target;
+  if(!target || !target.classList || !target.classList.contains('rich-body')) return;
+  if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End','PageUp','PageDown'].includes(e.key)) delete richActiveColor[target.id];
+});
 // Set by App.triggerRichImagePicker() right before it opens the native file
 // dialog, consumed by App.insertRichImage() once a file comes back. Needed
 // because opening that dialog can steal focus/selection away from the
