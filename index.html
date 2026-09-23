@@ -663,14 +663,14 @@
     transition:top .25s ease,left .25s ease,width .25s ease,height .25s ease;
   }
   .tutorial-tooltip{
-    position:fixed;z-index:9002;max-width:320px;width:calc(100% - 20px);
+    position:fixed;z-index:9002;max-width:380px;width:calc(100% - 20px);
     background:var(--surface);border:1px solid var(--line);border-radius:12px;
     box-shadow:0 10px 30px rgba(43,39,31,.28);padding:16px 18px;pointer-events:auto;
-    animation:toastPop .18s ease;
+    animation:toastPop .18s ease;max-height:min(72vh,560px);display:flex;flex-direction:column;
   }
-  .tutorial-tooltip .tt-title{font-family:'Fraunces',serif;font-weight:600;font-size:15.5px;margin-bottom:7px;}
-  .tutorial-tooltip .tt-body{font-size:13px;line-height:1.55;margin-bottom:14px;color:var(--ink);}
-  .tutorial-tooltip .tt-footer{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;}
+  .tutorial-tooltip .tt-title{font-family:'Fraunces',serif;font-weight:600;font-size:15.5px;margin-bottom:7px;flex:none;}
+  .tutorial-tooltip .tt-body{font-size:13px;line-height:1.55;margin-bottom:14px;color:var(--ink);overflow-y:auto;flex:1 1 auto;min-height:0;}
+  .tutorial-tooltip .tt-footer{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;flex:none;}
   .tutorial-tooltip .tt-counter{font-size:11px;color:var(--ink-dim);font-family:'IBM Plex Mono',monospace;}
 
   @media (prefers-reduced-motion: reduce){
@@ -916,19 +916,20 @@ const LANG = {
     },
     tutorial: {
       next:'다음', prev:'이전', skip:'건너뛰기', done:'완료',
-      welcomeTitle:'Mnemoire에 오신 걸 환영해요 👋', welcomeBody:'몇 단계만 따라오면 핵심 기능을 직접 눌러보면서 익힐 수 있어요. 이 안내창은 화면을 가리지 않으니, 언제든 뒤에 있는 실제 화면을 자유롭게 눌러보면서 진행해도 돼요. "다음"을 눌러 시작해 볼까요?',
-      subjectsTitle:'① 과목 관리 — 뼈대 만들기', subjectsBody:'가장 먼저 할 일이에요. 여기에 과목 이름(예: 생리학)을 입력하고 "+ 과목 추가"를 눌러보세요. 지금 바로 해봐도 좋아요!',
-      notesTitle:'② 노트 — 내용 채우기', notesBody:'과목 안의 주제마다 자유롭게 정리할 수 있는 공간이에요. 검색창으로 예전에 써둔 노트를 빠르게 찾을 수도 있어요. 바로 위쪽을 펼치면 과목·주제 관리도 여기서 할 수 있어요.',
-      cycleTitle:'③ 회독 진행 — 반복해서 읽기', cycleBody:'과목 관리에서 정한 횟수만큼, 주제를 다시 읽을 때마다 원을 눌러 통과 표시를 남겨요. 복습이 시급한 주제엔 ⏰ 표시가 떠요.',
-      drawTitle:'④ 랜덤 뽑기 — 무작위로 테스트', drawBody:'과목(과 카테고리)을 고르고 뽑으면 무작위 주제 하나가 나와요. 스스로 떠올려본 다음 확인해보세요 — 약한 부분을 더 자주 보여주는 모드도 있어요.',
-      outputTitle:'⑤ 아웃풋 — 능동 회상 연습', outputBody:'답을 보지 않고 직접 떠올려 적어보는 연습 공간이에요. 순차 모드나 시험 모드로 실전처럼 연습할 수 있어요.',
-      gapsTitle:'⑥ 오답노트 — 틀린 것 기록하기', gapsBody:'틀렸거나 헷갈렸던 내용을 따로 모아두는 곳이에요. 해결하면 표시해서 다시 안 봐도 되게 정리할 수 있어요.',
-      cardsTitle:'⑦ 암기카드 — 간격반복', cardsBody:'플래시카드를 만들고 SM-2 간격반복 알고리즘에 따라 복습 시점을 자동으로 추천받아요.',
-      focusTitle:'⑧ 집중 세션 — 뽀모도로 + 스톱워치', focusBody:'화면 위에 항상 떠 있는 이 타이머는 뽀모도로와 실제 공부시간 스톱워치를 버튼 하나로 같이 움직여요. 집중 세션 탭에서 더 자세한 설정과 통계를 볼 수 있어요.',
-      dashboardTitle:'⑨ 대시보드 — 한눈에 보기', dashboardBody:'레벨·XP·연속학습일수, 그리고 이 달력에서 날짜별 공부시간과 일정을 한눈에 볼 수 있어요. 날짜를 눌러 상세 내용도 확인해보세요.',
-      planTitle:'⑩ 계획 — 오늘 할 일 정하기', planBody:'오늘 할 일을 자유롭게 적어두거나, 여기서처럼 특정 요일마다 반복되는 상주 계획을 만들 수 있어요.',
-      rewardsTitle:'⑪ 보상 — 스스로에게 선물하기', rewardsBody:'집중 사이클을 채우면 미리 정해둔 보상을 받을 수 있어요. 나만의 보상을 등록해서 동기부여로 써보세요.',
-      closingTitle:'준비 끝! 🎉', closingBody:'이제 직접 자유롭게 둘러보세요. 궁금한 게 생기면 언제든 상단의 "🎓 튜토리얼" 버튼을 다시 눌러서 처음부터 볼 수 있고, "사용법" 탭에는 더 자세한 설명이 담겨 있어요.'
+      welcomeTitle:'Mnemoire에 오신 걸 환영해요 👋', welcomeBody:'왼쪽부터 오른쪽으로 배치된 탭 순서 그대로, 공부를 시작하기 위해 거치면 좋을 순서대로 하나씩 안내할게요. 버튼만 봐서는 바로 알아채기 어려운 기능들도 실제로 어떻게 쓰는지까지 자세히 짚어드릴게요. 이 안내창은 화면을 가리지 않으니, 언제든 뒤에 있는 실제 화면을 자유롭게 눌러보면서 진행해도 돼요. "다음"을 눌러 시작해 볼까요?',
+      guideTitle:'① 사용법 — 언제든 다시 확인하기', guideBody:'이 튜토리얼에서 설명하는 내용은 전부 이 "사용법" 탭에도 글로 정리돼 있어요. 지금은 건너뛰고 나중에 특정 기능만 다시 찾아보고 싶을 때, 또는 이 튜토리얼을 처음부터 다시 보고 싶을 때 여기와 상단의 "🎓 튜토리얼" 버튼을 이용하세요.',
+      dashboardTitle:'② 대시보드 — 한눈에 보기', dashboardBody:'레벨·XP(최대 300레벨)·연속 학습일수를 한눈에 볼 수 있어요.<br><br>"🧠 예상 기억 유지율" 카드는 에빙하우스 망각곡선과 각 카드의 간격반복(SM-2) 기록을 함께 써서 지금 얼마나 기억하고 있는지 추정해줘요 — 점수가 낮은 카드부터 보여줘요.<br><br>"오늘의 노트 복습"은 노트를 만든 뒤 1·4·7·14·28일째(과목 관리에서 과목마다 원하는 간격으로 바꿀 수 있어요)에 자동으로 다시 보라고 알려줘요.<br><br>달력에서 날짜를 누르면 그날 과목별 공부시간과 등록된 일정을 자세히 볼 수 있고, "오늘의 퀘스트"를 다 채우면 보너스 XP도 받을 수 있어요.',
+      planTitle:'③ 계획 — 오늘 할 일 정하기', planBody:'오늘 공부할 주제를 아래 목록에서 체크하거나 직접 텍스트로 추가하세요.<br><br>항목 왼쪽의 <strong>⠿을 드래그</strong>하면 우선순위 순서를 바꿀 수 있어요(맨 위 = 최우선). 그날 다 못 끝낸 항목은 다음 날로 자동 이월돼요.<br><br>"상주 계획"은 특정 요일마다(예: 월~금만) 반복해서 나타나는 할 일이에요 — 체크해도 사라지지 않고, 다음 해당 요일이 오면 다시 미완료 상태로 나타나요.<br><br>맨 위 "장기 목표"에서 목표와 목표일을 정해두면, 그날이 될 때까지는 수정할 수 없어요 — 목표일이 지나면 달성 여부를 스스로 체크할 수 있어요.',
+      focusTitle:'④ 집중 세션 — 뽀모도로 + 스톱워치', focusBody:'화면 위에 항상 떠 있는 타이머 바는 버튼 하나로 뽀모도로 사이클과 실제 공부시간 스톱워치를 동시에 움직여요.<br><br>설정한 집중 시간이 다 되면 알람만 울리고 <strong>자동으로 쉬는 시간으로 바뀌지 않아요</strong> — 계속 앉아있으면 "초과 시간"으로 흘러가고, 그 시간도 그대로 실제 공부시간에 포함돼요. 준비됐을 때 직접 "휴식 시작"을 눌러야 쉬는 시간이 시작되고, 끝나면 다음 집중 구간으로 자동으로 돌아가요.<br><br>스톱워치를 3번 이상 쓰면 실제 집중 패턴에 맞춘 "맞춤 뽀모도로 추천"도 받아볼 수 있어요. 날짜가 바뀌는 순간 스톱워치만 자동으로 0으로 리셋되고(그 전까지 쌓인 시간은 전날 기록으로 정확히 남아요), 뽀모도로는 끊기지 않고 계속 흘러가요. 집중 세션 탭에서 백색소음 같은 배경음도 켤 수 있어요.',
+      rewardsTitle:'⑤ 보상 — 스스로에게 선물하기', rewardsBody:'본격적으로 공부를 시작하기 전에, 원하는 보상(보고 싶은 영상, 간식, 짧은 게임 등)과 뽀모도로 몇 사이클을 채워야 풀리는지 미리 등록해두세요.<br><br>뽀모도로 집중 구간을 하나 끝낼 때마다 오늘의 사이클 수가 올라가고, 조건을 채운 보상은 알림과 함께 자동으로 잠금 해제돼요. 보상을 받으면 미리 정해둔 시간만큼 쉬는 타이머도 같이 시작돼요. 사이클 수는 매일 밤 초기화되지만, 등록해둔 보상 목록은 그대로 남아있어요.',
+      subjectsTitle:'⑥ 과목 관리 — 뼈대 만들기', subjectsBody:'여기부터 실제로 시작해요. 과목 이름(예: 생리학)과 회독 횟수를 정하고 "+ 과목 추가"를 눌러보세요 — 지금 바로 해봐도 좋아요! 이 회독 횟수가 "회독 진행" 탭의 동그라미 개수를 정해요.<br><br>바로 아래 "복습 일정" 칸에서 노트를 만든 뒤 며칠 뒤에 대시보드 복습 알림이 뜰지 과목별로 정할 수 있어요(비워두면 기본값 1·4·7·14·28일).<br><br>과목을 클릭하면 상세 패널이 열리고, 색깔별 카테고리도 만들 수 있어요(이 색은 대시보드 달력에서도 그대로 쓰여요).',
+      notesTitle:'⑦ 노트 — 내용 채우기', notesBody:'과목과 주제를 고르고 자유롭게 정리하세요. 처음 여는 빈 주제엔 <strong>사전테스트</strong> 칸이 먼저 떠요 — 아직 배우기 전에 아는 대로 적어보는 칸인데, 먼저 인출을 시도한 뒤 학습하면 더 오래 기억에 남아요.<br><br>서식 도구모음의 색깔 버튼(빨강·파랑·초록·보라·주황)으로 하이라이트하고 "A"로 되돌릴 수 있어요. Cmd/Ctrl+B·I·U 단축키도 바로 먹히고, 이 도구모음은 노트가 길어져 스크롤해도 화면 위쪽에 계속 붙어있어요. 사진은 🖼️ 버튼이나 그냥 붙여넣기(Cmd/Ctrl+V)로 넣고, 마우스를 올리면 나오는 ⠿(옮기기)·×(삭제)·크기조절 손잡이로 텍스트 줄과 상관없이 종이에 스티커 붙이듯 자유롭게 배치할 수 있어요. 칸 안에서 <strong>Tab</strong>을 누르면 다음 칸으로 넘어가지 않고 워드처럼 들여쓰기가 생겨요(Shift+Tab으로 되돌리기).<br><br>★ <strong>가장 유용한 기능 하나</strong>: 한 줄 전체를 <strong>굵게</strong> 쓰고 그 아래에 내용을 적은 다음 <strong>엔터를 두 번</strong> 쳐서 빈 줄을 두 개 띄우면, 저장할 때 그 굵은 줄이 자동으로 "소주제"로 인식돼요 — 따로 "소주제 추가" 버튼을 누를 필요가 없어요! 이렇게 자동 인식된 소주제들은 맨 아래 <strong>"소주제로 카드 만들기"</strong> 버튼 한 번으로 전부 한꺼번에 카드가 돼요(카드의 "소주제" 태그는 이 소제목이 아니라 지금 이 "주제" 이름으로 자동으로 붙어요).<br><br>중요한 문장은 <strong>빨간색 + 굵게</strong>를 같이 적용해두세요 — 이런 표시가 있는 주제·소주제는 뒤에 나올 랜덤 뽑기의 "약점 우선" 모드에서 더 자주 뽑혀요. 😰🤔😎 자신감 버튼도 마찬가지로 그 모드에 반영돼요. 다 쓰면 맨 아래 "전체 저장"을 누르세요.',
+      cycleTitle:'⑧ 회독 진행 — 반복해서 읽기', cycleBody:'과목 관리에서 정한 횟수만큼, 주제를 다시 읽을 때마다 원을 눌러 통과 표시를 남겨요. 주제 이름을 누르면 펼쳐져서 그 자리에서 바로 노트 내용을 읽을 수 있어요. 복습이 시급한 주제엔 이름 옆에 ⏰ 표시가 떠요. 통과 표시는 주제 단위로만 매겨지고, 소주제는 따로 체크 표시가 없어요.',
+      drawTitle:'⑨ 랜덤 뽑기 — 무작위로 테스트', drawBody:'상단에서 <strong>균등 확률</strong>과 <strong>약점 우선</strong> 중 고를 수 있어요. 약점 우선은 오답노트가 많거나, 회독이 덜 끝났거나, 복습이 시급하거나, 자신감이 낮거나, 노트에 <strong>빨간색+굵게</strong>로 표시해둔 부분이 있는 주제일수록 더 자주 뽑히는 모드예요 — 앱이 알아서 약한 부분을 더 자주 보여줘요.<br><br>과목(과 카테고리)을 고르고 뽑으면 무작위 주제가 나와요. "소주제도 포함해서 뽑기"를 켜면 소주제도 뽑기 대상이 돼요. 위쪽의 "뽑을 대상"을 "암기카드"로 바꾸면 노트 주제 대신 카드를 무작위로 뽑아 연습할 수도 있어요.',
+      outputTitle:'⑩ 아웃풋 — 능동 회상 연습', outputBody:'답을 보지 않고 직접 떠올려 적어보는 연습 공간이에요. <strong>순차</strong> 모드는 주제를 하나씩 골라 연습하고, <strong>모의고사</strong> 모드는 문제별 제한시간을 두고 여러 문제를 실전처럼 이어서 풀 수 있어요(다른 탭으로 이동하면 타이머가 자동으로 일시정지돼요). 확인한 뒤 놓친 부분은 바로 오답노트에 저장할 수 있어요.',
+      gapsTitle:'⑪ 오답노트 — 틀린 것 기록하기', gapsBody:'아웃풋에서 저장한 내용이 여기 모여요. 과목이나 해결 상태로 필터링할 수 있고, 완전히 익혔으면 "해결됨으로 표시"를 눌러 목록에서 접어둘 수 있어요(나중에 다시 펼치거나 되돌릴 수 있어요). PDF로 내보내기도 가능해요.',
+      cardsTitle:'⑫ 암기카드 — 간격반복', cardsBody:'<strong>Basic</strong>(앞/뒤 질문-답)과 <strong>Cloze</strong>([[ ]]로 감싼 빈칸 채우기) 두 형식으로 만들 수 있어요. 만든 카드는 SM-2 간격반복 알고리즘에 따라 복습 시점이 자동으로 계산돼요 — 카드를 넘기고 Again(다시)/Good(적당)/Easy(쉬움)로 평가하면 다음 복습일이 알아서 정해져요. 카드 암기 모드에서는 <strong>← →</strong>로 이전/다음 카드, <strong>Enter</strong>로 답 확인이 가능해요.',
+      closingTitle:'준비 끝! 🎉', closingBody:'이제 직접 자유롭게 둘러보세요. 궁금한 게 생기면 언제든 상단의 "🎓 튜토리얼" 버튼을 다시 눌러서 처음부터 볼 수 있고, "사용법" 탭에는 지금 본 내용이 전부 글로도 정리돼 있어요.'
     },
     confirm: {
       deleteSubject:"'{name}' 과목을 삭제하면 그 안의 모든 주제·노트·카드·오답노트가 함께 삭제돼요. 계속할까요?",
@@ -4164,8 +4165,17 @@ function renderChrome(){
    type in a field, or click a tab exactly as the tooltip describes it,
    without first closing the tour — "차근차근 직접해볼수있는" (step by step,
    hands-on) taken literally rather than as a passive slideshow. */
+// Step order matches the tab bar's own left-to-right order (see TAB_IDS) —
+// per the user's request, the tab order already reflects the sequence a
+// person should move through to start studying, so the tutorial just walks
+// it in that same order instead of an independently-chosen order.
 const TUTORIAL_STEPS = [
   {key:'welcome', tab:null, target:null},
+  {key:'guide', tab:'guide', target:"#tabs button[onclick=\"App.setTab('guide')\"]"},
+  {key:'dashboard', tab:'dashboard', target:'.cal-grid'},
+  {key:'plan', tab:'plan', target:'#newRecurringLabel'},
+  {key:'focus', tab:'focus', target:'#timerBar'},
+  {key:'rewards', tab:'rewards', target:"#tabs button[onclick=\"App.setTab('rewards')\"]"},
   {key:'subjects', tab:'subjects', target:'#newSubjectName'},
   {key:'notes', tab:'notes', target:'#notesSearchInput'},
   {key:'cycle', tab:'cycle', target:"#tabs button[onclick=\"App.setTab('cycle')\"]"},
@@ -4173,10 +4183,6 @@ const TUTORIAL_STEPS = [
   {key:'output', tab:'output', target:"#tabs button[onclick=\"App.setTab('output')\"]"},
   {key:'gaps', tab:'gaps', target:"#tabs button[onclick=\"App.setTab('gaps')\"]"},
   {key:'cards', tab:'cards', target:"#tabs button[onclick=\"App.setTab('cards')\"]"},
-  {key:'focus', tab:'focus', target:'#timerBar'},
-  {key:'dashboard', tab:'dashboard', target:'.cal-grid'},
-  {key:'plan', tab:'plan', target:'#newRecurringLabel'},
-  {key:'rewards', tab:'rewards', target:"#tabs button[onclick=\"App.setTab('rewards')\"]"},
   {key:'closing', tab:null, target:null},
 ];
 function removeTutorialOverlayEls(){
