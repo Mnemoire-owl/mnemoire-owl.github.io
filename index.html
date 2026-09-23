@@ -1019,7 +1019,7 @@ const LANG = {
       noNotes:'등록된 메모가 없어요.', reveal:'확인하기', drawBtn:'🎲 주제 뽑기',
       emptyPool:'이 카테고리에 등록된 주제가 없어요.', includeSubtopics:'소주제도 포함해서 뽑기',
       modeLabel:'뽑기 방식', modeEqual:'균등 확률', modeWeighted:'약점 우선',
-      weightedHint:'오답노트가 많거나, 회독이 덜 끝났거나, 복습이 시급하거나, 자신감이 낮은 주제일수록 더 자주 뽑혀요.',
+      weightedHint:'오답노트가 많거나, 회독이 덜 끝났거나, 복습이 시급하거나, 자신감이 낮거나, 노트에 굵게+빨간색으로 표시한 부분이 있는 주제일수록 더 자주 뽑혀요.',
       itemTypeLabel:'뽑을 대상', itemTypeTopic:'노트 뽑기', itemTypeCard:'암기카드 뽑기',
       cardIdle:'뽑기 버튼을 눌러 카드를 뽑아보세요.', drawnCardLabel:'뽑힌 카드',
       drawCardBtn:'🎲 카드 뽑기', emptyCardPool:'이 조건에 맞는 카드가 없어요.'
@@ -1137,9 +1137,9 @@ const LANG = {
       sections:[
         {title:'0. 시작하기 전에 — 데이터 저장', body:'이 사이트에서 입력한 내용(과목, 노트, 카드, 진도 등)은 <strong>이 브라우저에 자동으로 저장</strong>돼요(localStorage 사용). 새로고침하거나 다시 들어와도 데이터가 그대로 남아있지만, <strong>다른 브라우저나 기기, 시크릿 모드에서는 보이지 않고</strong>, 브라우저 데이터를 지우면 함께 사라질 수 있어요. 걱정되면 헤더의 "내보내기" 버튼으로 언제든 백업을 받아둘 수 있어요 (12번 참고).'},
         {title:'1. 과목 관리 — 뼈대 만들기', body:'가장 먼저 할 일이에요. <br>① 과목 이름을 입력하고(예: 생리학, 토익, 자격증 시험) 회독 횟수를 정한 뒤 "+ 과목 추가"를 눌러요 (회독 횟수는 나중에 "회독 진행" 탭에서 몇 번 반복해서 읽을지를 정하는 숫자예요, 기본 4). 바로 아래 "복습 주기" 칸에서는 대시보드의 "오늘의 노트 복습" 알림이 며칠 뒤에 뜰지 과목별로 직접 정할 수 있어요(예: 0,3,7 — 비워두면 기본값인 1,4,7,14,28일).<br>② 과목을 클릭하면 오른쪽에 상세 화면이 떠요. 여기서 카테고리(색상 있는 분류표)를 추가할 수 있어요.<br>③ 주제 이름을 입력하고 카테고리를 지정한 뒤 "추가"를 누르면 그 과목의 주제 목록에 들어가요.<br>이 탭에서는 구조(이름, 분류)만 만들고, 실제 내용은 "노트" 탭에서 채워요.'},
-        {title:'2. 노트 — 내용 정리하기', body:'① 과목과 주제를 드롭다운에서 선택해요.<br>② 처음 이 주제를 열었을 때 노트가 비어있으면 <strong>사전테스트</strong> 상자가 먼저 떠요 — 아직 배우기 전에 아는 대로 먼저 적어보는 칸인데, 틀려도 괜찮고 오히려 먼저 인출을 시도한 뒤 학습하면 나중에 더 오래 기억에 남는다는 연구(사전테스트 효과)에 기반한 기능이에요. 나중에 노트가 채워지면 이 사전테스트 답안은 "내가 처음 썼던 사전테스트 답안 보기"로 접어서 다시 볼 수 있어요.<br>③ "주제 메모" 칸에 자유롭게 정리해서 저장하세요. 칸 위의 색상 버튼(빨강·파랑·초록·보라·주황)으로 원하는 부분에 색을 입힐 수 있고, "A" 버튼으로 기본색으로 되돌릴 수 있어요 — 아웃풋 리콜, 오답노트, 암기카드(Basic)에서도 똑같이 쓸 수 있어요.<br>④ 이 도구모음엔 버튼 말고도 몇 가지가 더 있어요, 알아두면 편해요 — 굵게·기울임·밑줄은 버튼 대신 <strong>Cmd/Ctrl+B, I, U</strong> 단축키로 바로 적용돼요. 🖼️ 버튼을 누르거나 사진을 <strong>그냥 붙여넣기(Cmd/Ctrl+V)</strong>해도 바로 삽입되고, 삽입된 사진에 마우스를 올리면 왼쪽 위 <strong>⠿(옮기기)</strong>, 오른쪽 위 <strong>×(삭제)</strong>, 오른쪽 아래 <strong>크기조절</strong> 손잡이 세 개가 나타나요 — ⠿을 드래그하면 텍스트 줄이나 커서와 상관없이 종이에 스티커 붙이듯 원하는 자리로 자유롭게 옮길 수 있고, 사진을 클릭해서 선택한 뒤 Delete·Backspace 키를 눌러도 지워져요. 그리고 노트가 길어져서 아래로 스크롤해도 이 도구모음은 화면 위쪽에 계속 붙어있어서, 멀리 있는 글자를 선택해도 다시 위로 스크롤할 필요 없이 바로 서식을 바꿀 수 있어요.<br>⑤ 노트 아래에 😰🤔😎 <strong>자신감</strong> 버튼으로 이 주제를 얼마나 잘 아는지 스스로 표시할 수 있어요 (이 값은 4번 랜덤 뽑기의 "약점 우선" 모드에서 활용돼요).<br>⑥ "소주제"를 추가해서 더 잘게 쪼갤 수 있어요. 소주제 안에 또 소주제를 넣는 것도 가능해서, 원하는 만큼 깊게 나눠서 정리할 수 있어요.<br>⑦ 다 쓰셨으면 맨 아래 <strong>"전체 저장"</strong> 버튼 하나로 주제 메모 + 모든 소주제 메모가 한 번에 저장돼요.<br>⑧ 소주제 옆 "카드로 만들기"를 누르면 그 소주제 내용으로 카드 한 장의 초안이 만들어지고, 맨 아래 "소주제로 카드 만들기"를 누르면 이 주제 안의 모든 소주제(굵게 쓴 제목으로 자동 인식된 것 포함)를 한 번에 각각 카드로 만들어요 — 둘 중 어느 쪽으로 만들어도 카드의 "소주제" 태그에는 노트 안에서 쓴 소제목이 아니라 <strong>과목 관리에서 정한 이 "주제" 이름</strong>이 자동으로 붙어요 (암기카드 탭에서 "소주제"로 필터링할 때 노트의 세부 제목이 아니라 이 주제 단위로 묶어보기 위함이에요). "PDF로" 버튼으로 인쇄용 문서를 만들 수도 있어요.<br>⑨ 상단의 <strong>노트 검색창</strong>으로 모든 과목의 노트를 한 번에 검색할 수 있어요 — 결과를 누르면 바로 그 노트로 이동해요.<br>⑩ 검색창 바로 아래 "📚 과목 · 주제 관리"를 펼치면, 탭을 옮기지 않고도 이 자리에서 바로 새 과목·주제를 추가할 수 있어요 (과목 관리 탭과 완전히 같은 기능이에요 — 평소엔 접혀있다가 필요할 때만 펼쳐서 써요).'},
+        {title:'2. 노트 — 내용 정리하기', body:'① 과목과 주제를 드롭다운에서 선택해요.<br>② 처음 이 주제를 열었을 때 노트가 비어있으면 <strong>사전테스트</strong> 상자가 먼저 떠요 — 아직 배우기 전에 아는 대로 먼저 적어보는 칸인데, 틀려도 괜찮고 오히려 먼저 인출을 시도한 뒤 학습하면 나중에 더 오래 기억에 남는다는 연구(사전테스트 효과)에 기반한 기능이에요. 나중에 노트가 채워지면 이 사전테스트 답안은 "내가 처음 썼던 사전테스트 답안 보기"로 접어서 다시 볼 수 있어요.<br>③ "주제 메모" 칸에 자유롭게 정리해서 저장하세요. 칸 위의 색상 버튼(빨강·파랑·초록·보라·주황)으로 원하는 부분에 색을 입힐 수 있고, "A" 버튼으로 기본색으로 되돌릴 수 있어요 — 아웃풋 리콜, 오답노트, 암기카드(Basic)에서도 똑같이 쓸 수 있어요.<br>④ 이 도구모음엔 버튼 말고도 몇 가지가 더 있어요, 알아두면 편해요 — 굵게·기울임·밑줄은 버튼 대신 <strong>Cmd/Ctrl+B, I, U</strong> 단축키로 바로 적용돼요. 🖼️ 버튼을 누르거나 사진을 <strong>그냥 붙여넣기(Cmd/Ctrl+V)</strong>해도 바로 삽입되고, 삽입된 사진에 마우스를 올리면 왼쪽 위 <strong>⠿(옮기기)</strong>, 오른쪽 위 <strong>×(삭제)</strong>, 오른쪽 아래 <strong>크기조절</strong> 손잡이 세 개가 나타나요 — ⠿을 드래그하면 텍스트 줄이나 커서와 상관없이 종이에 스티커 붙이듯 원하는 자리로 자유롭게 옮길 수 있고, 사진을 클릭해서 선택한 뒤 Delete·Backspace 키를 눌러도 지워져요. 그리고 노트가 길어져서 아래로 스크롤해도 이 도구모음은 화면 위쪽에 계속 붙어있어서, 멀리 있는 글자를 선택해도 다시 위로 스크롤할 필요 없이 바로 서식을 바꿀 수 있어요.<br>⑤ 노트 아래에 😰🤔😎 <strong>자신감</strong> 버튼으로 이 주제를 얼마나 잘 아는지 스스로 표시할 수 있어요 (이 값은 4번 랜덤 뽑기의 "약점 우선" 모드에서 활용돼요).<br>⑥ "소주제"를 추가해서 더 잘게 쪼갤 수 있어요. 소주제 안에 또 소주제를 넣는 것도 가능해서, 원하는 만큼 깊게 나눠서 정리할 수 있어요.<br>⑦ 다 쓰셨으면 맨 아래 <strong>"전체 저장"</strong> 버튼 하나로 주제 메모 + 모든 소주제 메모가 한 번에 저장돼요.<br>⑧ 소주제 옆 "카드로 만들기"를 누르면 그 소주제 내용으로 카드 한 장의 초안이 만들어지고, 맨 아래 "소주제로 카드 만들기"를 누르면 이 주제 안의 모든 소주제(굵게 쓴 제목으로 자동 인식된 것 포함)를 한 번에 각각 카드로 만들어요 — 둘 중 어느 쪽으로 만들어도 카드의 "소주제" 태그에는 노트 안에서 쓴 소제목이 아니라 <strong>과목 관리에서 정한 이 "주제" 이름</strong>이 자동으로 붙어요 (암기카드 탭에서 "소주제"로 필터링할 때 노트의 세부 제목이 아니라 이 주제 단위로 묶어보기 위함이에요). "PDF로" 버튼으로 인쇄용 문서를 만들 수도 있어요.<br>⑨ 상단의 <strong>노트 검색창</strong>으로 모든 과목의 노트를 한 번에 검색할 수 있어요 — 결과를 누르면 바로 그 노트로 이동해요.<br>⑩ 검색창 바로 아래 "📚 과목 · 주제 관리"를 펼치면, 탭을 옮기지 않고도 이 자리에서 바로 새 과목·주제를 추가할 수 있어요 (과목 관리 탭과 완전히 같은 기능이에요 — 평소엔 접혀있다가 필요할 때만 펼쳐서 써요).<br>⑪ 메모 칸 안에서 <strong>Tab</strong> 키를 누르면 다음 소주제 칸으로 넘어가지 않고, 워드 프로그램처럼 그 자리에 들여쓰기가 생겨요 (Shift+Tab으로 다시 빼기도 가능해요).<br>⑫ 중요한 부분은 <strong>빨간색 + 굵게</strong>로 같이 표시해두세요 — 이렇게 표시된 문장이 있는 주제·소주제는 4번 랜덤 뽑기의 "약점 우선" 모드에서 자동으로 더 자주 뽑혀요, 오답노트가 많거나 자신감이 낮은 주제와 똑같은 취급이에요.'},
         {title:'3. 회독 진행 — 반복해서 읽기', body:'과목 관리에서 만든 주제들이 카테고리별로 나열돼요. 각 주제 옆에 회독 횟수만큼 원이 있는데, 한 번 읽고 나면 원을 눌러 통과 표시를 남기세요. 주제 이름을 누르면 펼쳐지면서 노트 탭에 적어둔 내용(소주제 포함)이 그대로 나와서, 읽으면서 바로 체크할 수 있어요. 주제 이름 옆에 ⏰가 보이면 복습이 시급하다는 뜻이에요 (13번 참고). 회독 체크는 <strong>주제 단위로만</strong> 되고, 소주제는 별도 체크가 없어요 (메모만 같이 보여요).'},
-        {title:'4. 랜덤 뽑기 — 무작위로 테스트', body:'상단에서 <strong>균등 확률</strong>과 <strong>약점 우선</strong> 두 방식 중 고를 수 있어요. 균등 확률은 모든 주제가 똑같은 확률로 뽑히고, 약점 우선은 오답노트가 많거나, 회독이 덜 끝났거나, 복습이 시급하거나, 자신감이 낮게 표시된 주제일수록 더 자주 뽑혀요 — 시간이 지날수록 앱이 알아서 약한 부분을 더 노출시켜줘요. 과목과(선택적으로) 카테고리를 고르고 "주제 뽑기"를 누르면 그 안에서 하나가 나와요. "소주제도 포함해서 뽑기"를 켜면 소주제(중첩된 것까지)도 뽑기 대상이 돼요. 뽑힌 이름을 보고 스스로 떠올려본 다음 "확인하기"를 눌러 적어둔 메모가 맞는지 확인하세요.'},
+        {title:'4. 랜덤 뽑기 — 무작위로 테스트', body:'상단에서 <strong>균등 확률</strong>과 <strong>약점 우선</strong> 두 방식 중 고를 수 있어요. 균등 확률은 모든 주제가 똑같은 확률로 뽑히고, 약점 우선은 오답노트가 많거나, 회독이 덜 끝났거나, 복습이 시급하거나, 자신감이 낮게 표시된 주제일수록, 그리고 노트에 <strong>빨간색+굵게</strong>로 표시해둔 부분이 있는 주제일수록 더 자주 뽑혀요(2번 참고) — 시간이 지날수록 앱이 알아서 약한 부분을 더 노출시켜줘요. 과목과(선택적으로) 카테고리를 고르고 "주제 뽑기"를 누르면 그 안에서 하나가 나와요. "소주제도 포함해서 뽑기"를 켜면 소주제(중첩된 것까지)도 뽑기 대상이 돼요. 뽑힌 이름을 보고 스스로 떠올려본 다음 "확인하기"를 눌러 적어둔 메모가 맞는지 확인하세요.'},
         {title:'5. 아웃풋 — 백지 복습(액티브 리콜)', body:'상단에서 <strong>순서대로</strong>와 <strong>모의고사</strong> 두 모드 중 고를 수 있어요.<br><strong>순서대로</strong>: ① 과목 → 주제 → 연습 대상(주제 전체 또는 특정 소주제)을 선택해요.<br>② 왼쪽 빈 칸에 아는 대로 자유롭게 적어보세요 — 보지 않고 먼저 써보는 게 기억에 훨씬 오래 남아요.<br>③ 오른쪽 "정답 보기"를 누르면 그 주제에 적어둔 모든 노트가 나와요.<br>④ 놓치거나 헷갈린 부분을 아래 칸에 적은 뒤 "오답노트에 저장"을 누르고, "다음 문제로"로 계속 연습하세요.<br><strong>모의고사</strong>: 과목·카테고리·소주제 포함 여부·문항당 제한 시간(30/60/90/120초 또는 무제한)을 정하고 시작하면, 해당 범위의 주제·소주제가 한 번 무작위로 섞여서 순서대로 출제돼요. 문항마다 타이머 바가 줄어들고, 시간이 다 되면 자동으로 정답이 열려요. 오답노트 저장도 그대로 가능하고, 다 풀면 완료 화면에서 다시 시작하거나 설정으로 돌아갈 수 있어요. 탭을 벗어나면 타이머가 자동으로 멈췄다가 돌아오면 이어져요.'},
         {title:'6. 오답노트 — 약점만 따로 관리', body:'아웃풋(순서대로·모의고사 둘 다)에서 저장한 항목들이 여기 쌓여요. 과목별·해결상태별로 필터링해서 볼 수 있고, 다 이해했다 싶으면 "해결로 표시"를 눌러 목록에서 정리하세요 (완전히 사라지는 게 아니라 접힌 목록으로 옮겨가고, 필요하면 다시 되돌릴 수 있어요). "카드로 만들기"로 암기카드로 전환하거나, "PDF로 저장"으로 인쇄해서 볼 수도 있어요. 삭제 버튼을 누르면 확인 창이 한 번 더 떠서 실수로 지워지는 걸 막아줘요.'},
         {title:'7. 암기카드 — 간격반복 복습', body:'두 가지 형식이 있어요: <strong>Basic</strong>(앞면 질문 / 뒷면 답), <strong>Cloze</strong>(문장 중 가릴 부분을 [[ ]]로 감싸면 빈칸 문제가 돼요). 카드를 만들면 오늘부터 복습 대기열에 들어가고, 매일 이 탭을 열면 오늘 복습할 카드가 자동으로 떠요. 카드를 눌러 답을 확인한 뒤 "다시/좋음/쉬움"으로 평가하면, 평가에 따라 다음 복습일이 자동으로 계산돼요. 이 복습 기록은 대시보드의 <strong>예상 기억 유지율</strong>(9번) 계산에도 그대로 쓰여요.'},
@@ -1311,7 +1311,7 @@ const LANG = {
       noNotes:'No notes yet.', reveal:'Reveal', drawBtn:'🎲 Draw a topic',
       emptyPool:'No topics in this category.', includeSubtopics:'Include subtopics in the draw',
       modeLabel:'Draw mode', modeEqual:'Equal probability', modeWeighted:'Weak spots first',
-      weightedHint:'Topics with more gap-notebook entries, unfinished passes, overdue review, or low confidence come up more often.',
+      weightedHint:'Topics with more gap-notebook entries, unfinished passes, overdue review, low confidence, or text marked bold + red in their notes come up more often.',
       itemTypeLabel:'Draw from', itemTypeTopic:'Draw topics', itemTypeCard:'Draw flashcards',
       cardIdle:'Press draw to pull a random card.', drawnCardLabel:'Drawn card',
       drawCardBtn:'🎲 Draw a card', emptyCardPool:'No cards match this filter.'
@@ -1603,7 +1603,7 @@ const LANG = {
       noNotes:'Noch keine Notizen.', reveal:'Aufdecken', drawBtn:'🎲 Thema ziehen',
       emptyPool:'Keine Themen in dieser Kategorie.', includeSubtopics:'Unterthemen einbeziehen',
       modeLabel:'Ziehmodus', modeEqual:'Gleiche Wahrscheinlichkeit', modeWeighted:'Schwachstellen zuerst',
-      weightedHint:'Themen mit mehr Fehlernotizen, unvollständigen Durchgängen, überfälliger Wiederholung oder geringer Sicherheit kommen häufiger dran.',
+      weightedHint:'Themen mit mehr Fehlernotizen, unvollständigen Durchgängen, überfälliger Wiederholung, geringer Sicherheit oder fett + rot markiertem Text in den Notizen kommen häufiger dran.',
       itemTypeLabel:'Ziehen aus', itemTypeTopic:'Themen ziehen', itemTypeCard:'Karten ziehen',
       cardIdle:'Drücke „Ziehen", um eine zufällige Karte zu erhalten.', drawnCardLabel:'Gezogene Karte',
       drawCardBtn:'🎲 Karte ziehen', emptyCardPool:'Keine Karten für diesen Filter.'
@@ -1895,7 +1895,7 @@ const LANG = {
       noNotes:"Aucune note pour l'instant.", reveal:'Révéler', drawBtn:'🎲 Tirer un sujet',
       emptyPool:'Aucun sujet dans cette catégorie.', includeSubtopics:'Inclure les sous-sujets dans le tirage',
       modeLabel:'Mode de tirage', modeEqual:'Probabilité égale', modeWeighted:'Points faibles en priorité',
-      weightedHint:"Les sujets avec plus d'entrées au registre des ombres, de passages inachevés, de révisions en retard ou de faible confiance reviennent plus souvent.",
+      weightedHint:"Les sujets avec plus d'entrées au registre des ombres, de passages inachevés, de révisions en retard, de faible confiance, ou du texte marqué en gras + rouge dans leurs notes reviennent plus souvent.",
       itemTypeLabel:'Tirer parmi', itemTypeTopic:'Tirer des sujets', itemTypeCard:'Tirer des cartes',
       cardIdle:'Appuyez sur tirer pour piocher une carte au hasard.', drawnCardLabel:'Carte tirée',
       drawCardBtn:'🎲 Tirer une carte', emptyCardPool:'Aucune carte ne correspond à ce filtre.'
@@ -4037,6 +4037,42 @@ document.addEventListener('keydown', function(e){
   e.preventDefault();
   App.applyRichFormat(target.id, cmd);
 });
+// Tab, pressed inside a rich-text note/card field, inserts an indent at the
+// caret (the familiar word-processor behavior) instead of the browser's
+// default of moving focus to the next focusable element — which, inside the
+// Notes tab, happened to be the next subtopic field, so typing a simple
+// indent while taking notes unexpectedly jumped you out of what you were
+// writing. A fixed run of non-breaking spaces is used (rather than a literal
+// "\t" character) because plain tabs collapse to a single space under normal
+// CSS white-space handling, so they wouldn't actually look like an indent.
+// Shift+Tab removes one such indent unit immediately before the caret, as a
+// lightweight outdent, when one is there to remove.
+const RICH_INDENT = '    ';
+document.addEventListener('keydown', function(e){
+  if(e.key !== 'Tab') return;
+  const target = e.target;
+  if(!target || !target.classList || !target.classList.contains('rich-body')) return;
+  e.preventDefault();
+  if(e.shiftKey){
+    const sel = window.getSelection();
+    if(sel && sel.rangeCount){
+      const range = sel.getRangeAt(0);
+      if(range.collapsed && range.startContainer.nodeType===3){
+        const text = range.startContainer.textContent;
+        const pos = range.startOffset;
+        if(text.slice(Math.max(0,pos-4), pos) === RICH_INDENT){
+          const outdentRange = document.createRange();
+          outdentRange.setStart(range.startContainer, pos-4);
+          outdentRange.setEnd(range.startContainer, pos);
+          outdentRange.deleteContents();
+        }
+      }
+    }
+  } else {
+    document.execCommand('insertText', false, RICH_INDENT);
+  }
+  target.dispatchEvent(new Event('input', {bubbles:true}));
+});
 
 function celebrate(title, sub){
   const layer = document.getElementById('celebrateLayer');
@@ -4345,6 +4381,34 @@ function richIsEmpty(html){
   if(!html) return true;
   if(/<img[\s>]/i.test(html)) return false;
   return richTextToPlain(html).trim()==='';
+}
+// Detects the "mark this important" convention: text that is both bold AND
+// colored with the red swatch (RICH_COLORS[0] / #DC2626). App.applyRichColor
+// + App.applyRichFormat serialize that combination one of two ways depending
+// on which was applied first — `<span style="color:rgb(220,38,38)"><b>...`
+// or `<b style="color:rgb(220,38,38)">...` — so this checks a <b> (or
+// <strong>) element itself, and every ancestor up to the root, for that
+// color. Used to give importance-marked notes/subtopics extra weight in
+// Random Draw's "weak spots first" mode (see drawItemWeight below) — the
+// same treatment as a real gap-notebook entry or low confidence rating.
+function noteHasImportantMark(html){
+  if(!html) return false;
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  const isRed = (styleColor) => {
+    if(!styleColor) return false;
+    const c = styleColor.replace(/\s+/g,'').toLowerCase();
+    return c === 'rgb(220,38,38)' || c === '#dc2626';
+  };
+  const bolds = div.querySelectorAll('b,strong');
+  for(const b of bolds){
+    let node = b;
+    while(node && node !== div){
+      if(node.style && isRed(node.style.color)) return true;
+      node = node.parentElement;
+    }
+  }
+  return false;
 }
 /* Flashcard front/back display used to always be centered, single-line
    styling (.flash — see CSS), which reads fine for a short term or cloze
@@ -7305,6 +7369,12 @@ function drawItemWeight(s, item){
     if(tp.confidence==='low') weight += 3;
     else if(tp.confidence==='mid') weight += 1;
   }
+  // Notes/subtopics the person marked "important" (bold + red text — see
+  // noteHasImportantMark) get a flat weight bump so they surface more often
+  // under "Weak spots first," on top of whatever the gap/pass/confidence
+  // signals above already contribute — on par with a low-confidence rating.
+  const notesHtml = item.subId ? (findSubtopicNode(tp.subtopics, item.subId)||{}).notes : tp.notes;
+  if(noteHasImportantMark(notesHtml)) weight += 4;
   return weight;
 }
 App.drawTopic = function(){
