@@ -843,6 +843,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
         <option value="ko">한국어</option>
         <option value="en">English</option>
         <option value="de">Deutsch</option>
+        <option value="fr">Français</option>
       </select>
       <div class="header-io" id="headerIo">
         <button class="btn ghost small" onclick="App.exportData()" id="exportBtn"></button>
@@ -1766,7 +1767,300 @@ const LANG = {
       collapseAria:'Notizen 2 einklappen', expandAria:'Notizen 2 ausklappen', resizeAria:'Größe ändern',
       colorAria:'Textfarbe wählen'
     }
-  }
+  },
+  fr: {
+    tagline: "Un grimoire qui n'oublie rien · lecture multi-passages · répétition espacée · séances de protection",
+    tabs: {
+      guide:'Abécédaire', dashboard:'Tour', plan:'Rite du jour', subjects:'Étagère', notes:'Inscriptions', cycle:'Pèlerinage',
+      draw:'Tirage du destin', output:'Invocation', gaps:'Registre des ombres', cards:'Sortilèges', focus:'Rempart', rewards:'Reliques',
+      guideHint:"Découvrez comment utiliser l'application", dashboardHint:'Voyez votre niveau, votre série et votre progression globale', planHint:"Planifiez ce qu'il faut étudier aujourd'hui",
+      subjectsHint:'Ajoutez et gérez vos matières et sujets', notesHint:'Rédigez et enregistrez des notes par sujet', cycleHint:'Relisez vos notes et cochez vos passages',
+      drawHint:'Tirez un sujet au hasard pour vous tester', outputHint:"Rappelez-vous ce que vous avez appris à partir d'une page blanche", gapsHint:'Rassemblez ce que vous avez manqué ou mal compris',
+      cardsHint:'Révisez vos cartes avec la répétition espacée', focusHint:'Suivez votre temps de concentration avec un minuteur', rewardsHint:'Dépensez vos points en pauses et récompenses'
+    },
+    status: {loading:'Chargement…', saved:'Enregistré', saveFailed:"Échec de l'enregistrement — veuillez réessayer"},
+    common: {ok:'OK'},
+    theme: {
+      wizardLabel:'🧙 Mode magicien', classicLabel:'📜 Mode classique', hospitalLabel:'🏥 Mode hôpital', lawLabel:'⚖️ Mode droit', labLabel:'🧪 Mode laboratoire'
+    },
+    header: {
+      export:'Exporter', import:'Importer',
+      importConfirm:"L'importation remplacera toutes les données actuellement enregistrées par le contenu de ce fichier. Continuer ?",
+      importSuccess:'Données importées.',
+      importError:"Impossible de lire ce fichier. Vérifiez qu'il s'agit d'un fichier de sauvegarde valide.",
+      tutorialBtn:'🎓 Tutoriel'
+    },
+    tutorial: {
+      next:'Suivant', prev:'Retour', skip:'Passer', done:'Terminé',
+      welcomeTitle:'Bienvenue dans Mnemoire 👋', welcomeBody:"Quelques étapes rapides vous feront découvrir les fonctionnalités essentielles, en pratique. Ce guide ne bloque jamais l'écran, alors n'hésitez pas à cliquer sur la vraie page derrière lui pendant que vous avancez. Cliquez sur « Suivant » pour commencer.",
+      subjectsTitle:'① Matières — construisez la structure', subjectsBody:'Commencez ici. Tapez un nom de matière (ex. Physiologie) et cliquez sur « + Ajouter une matière » — essayez tout de suite !',
+      notesTitle:'② Notes — remplissez-les', notesBody:"C'est ici que vous écrivez librement pour chaque sujet d'une matière. La barre de recherche retrouve tout ce que vous avez déjà écrit, et déplier la section juste au-dessus permet aussi de gérer matières/sujets sans quitter cet onglet.",
+      cycleTitle:'③ Pèlerinage — répétez et cochez', cycleBody:"Chaque fois que vous relisez un sujet, touchez un cercle pour marquer ce passage comme fait, jusqu'au nombre de passages défini dans la Gestion des matières. Un ⏰ apparaît sur les sujets à réviser.",
+      drawTitle:'④ Tirage au hasard — testez-vous', drawBody:"Choisissez une matière (et éventuellement une catégorie), puis tirez un sujet au hasard. Essayez de vous en souvenir avant de vérifier — il existe aussi un mode qui fait ressortir plus souvent vos points faibles.",
+      outputTitle:'⑤ Invocation — pratique du rappel actif', outputBody:"Un espace pour écrire ce dont vous vous souvenez avant de vérifier la réponse. Les modes séquentiel et examen blanc vous permettent de vous entraîner dans des conditions plus réalistes.",
+      gapsTitle:'⑥ Registre des ombres — suivez ce que vous avez manqué', gapsBody:"Rassemblez en un seul endroit tout ce que vous avez mal compris ou trouvé confus, et marquez-le comme résolu une fois la lacune comblée.",
+      cardsTitle:'⑦ Cartes — répétition espacée', cardsBody:"Créez des cartes et bénéficiez d'une planification de révision automatique basée sur l'algorithme de répétition espacée SM-2.",
+      focusTitle:'⑧ Concentration — pomodoro + chronomètre', focusBody:"Cette barre de minuteur, épinglée en haut de chaque onglet, fait tourner ensemble un cycle pomodoro et un vrai chronomètre d'étude avec un seul bouton. L'onglet Concentration propose des réglages et statistiques plus détaillés.",
+      dashboardTitle:"⑨ Tableau de bord — tout en un coup d'œil", dashboardBody:"Consultez votre niveau, votre XP et votre série d'étude, ainsi que ce calendrier qui montre le temps d'étude et les événements par jour. Cliquez sur une date pour voir ses détails.",
+      planTitle:"⑩ Plan — décidez quoi faire aujourd'hui", planBody:"Notez librement vos tâches du jour, ou configurez des tâches récurrentes — comme celles-ci — qui se répètent certains jours de la semaine.",
+      rewardsTitle:'⑪ Récompenses — faites-vous plaisir', rewardsBody:"Terminez des cycles de concentration pour débloquer des récompenses que vous avez configurées à l'avance. Enregistrez vos propres récompenses pour vous motiver.",
+      closingTitle:"Vous êtes prêt(e) ! 🎉", closingBody:"N'hésitez pas à explorer par vous-même maintenant. Cliquez sur le bouton « 🎓 Tutoriel » en haut à tout moment pour recommencer, et l'onglet Abécédaire contient des explications plus détaillées."
+    },
+    confirm: {
+      deleteSubject:"Supprimer « {name} » ? Tous ses sujets, notes, cartes et entrées du registre des ombres seront aussi supprimés. Cette action est irréversible.",
+      deleteTopic:"Supprimer « {name} » ? Ses notes et sous-sujets seront aussi supprimés. Cette action est irréversible.",
+      deleteSubtopic:"Supprimer « {name} » ?",
+      deleteCard:'Supprimer cette carte ?',
+      deleteGap:'Supprimer cette entrée du registre des ombres ?',
+      deleteOutputAttempt:'Supprimer cette invocation enregistrée ?',
+      deleteCategory:"Supprimer la catégorie « {name} » ? Les sujets qu'elle contient deviendront non classés.",
+      deleteReward:"Supprimer la récompense « {name} » ?",
+      deletePlanItem:'Supprimer cet élément du plan ?',
+      resetPomodoro:"Réinitialiser le minuteur pomodoro ? Votre temps d'étude réel total reste inchangé.",
+      resetStopwatch:"Remettre le temps d'étude réel à 0 ? Le temps déjà enregistré reste conservé — seul l'affichage du chronomètre est réinitialisé.",
+      deleteFocusEntry:"Supprimer cette entrée ? Une fois supprimée, ce temps sera exclu du temps de concentration du jour, des objectifs quotidiens et des autres statistiques, et l'XP associée sera ajustée en conséquence.",
+      revertCheckpoint:"Revenir à ce cristal temporel ? Le temps de concentration, le mana et les cycles pomodoro enregistrés naturellement après ce point seront annulés, et le minuteur sera mis en pause. (Les corrections ajoutées manuellement sont conservées.)",
+      deleteGoal:"Abandonner l'objectif à long terme « {name} » ? Sa progression sera perdue, mais vous pourrez toujours en fixer un nouveau.",
+      deleteEvent:"Supprimer l'événement « {name} » ?",
+      deleteRecurringPlan:"Supprimer le plan récurrent « {name} » ? Son historique d'accomplissement sera aussi perdu."
+    },
+    calendar: {
+      title:'📅 Calendrier', weekdays:['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'],
+      monthNames:['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'],
+      monthYearFormat:'{month} {year}', todayBtn:"Aujourd'hui", prevMonthAria:'Mois précédent', nextMonthAria:'Mois suivant',
+      noStudyThatDay:"Aucun temps de concentration enregistré ce jour-là.", studyBreakdownTitle:'Temps de concentration par matière', totalStudyLabel:"Temps d'étude total",
+      untaggedLabel:'Non étiqueté', eventsTitle:'Événements', noEvents:'Aucun événement enregistré.',
+      eventTitleLabel:"Titre de l'événement", eventTitlePh:'ex. Examen partiel, rendez-vous chez le dentiste',
+      eventTimeLabel:'Heure', eventTypeLabel:'Type',
+      typeExam:'Examen', typeAppointment:'Rendez-vous', typeOther:'Autre',
+      addEventBtn:'Ajouter un événement', deleteEventLabel:'Supprimer',
+      upcomingTitle:'⏳ Événements à venir', noUpcoming:'Aucun événement à venir.',
+      ddayToday:'Jour J', hoursLeftFormat:'{h}h {m}min restantes', hoursPastFormat:'il y a {h}h {m}min'
+    },
+    dash: {progressTitle:'Progression par matière · sujets enregistrés', overallProgress:'Progression globale des passages', dueToday:"Cartes à réviser aujourd'hui", todayFocus:"Temps de concentration aujourd'hui", minutesUnit:'min', hoursUnit:'h', secondsUnit:'s',
+      totalTimeTitle:'Cristal de temps total', totalTimeSubtitle:"Chaque heure que vous avez jamais étudiée est condensée en un seul cristal",
+      crystalTierNames:['Premier cristal','Cristal en croissance','Cristal brillant','Cristal résonnant','Cristal profond','Cristal éternel','Cristal primordial','Cristal infini'],
+      crystalNextIn:"{hours}h jusqu'au prochain cristal", crystalInfinite:'Un cristal qui ne cesse jamais de croître', collectedCrystals:'Cristaux collectés',
+      milestoneLabel:'Étape {n}/{total}', milestoneNextIn:"{hours}h jusqu'à la prochaine étape", milestoneInfinite:'Un record qui ne cesse jamais de croître',
+      noSubjects:"Aucune matière pour l'instant. Commencez dans « Matières ».",
+      retentionTitle:'🧠 Rétention prévue', retentionAvgLabel:'Rétention moyenne sur toutes les cartes',
+      retentionHint:"Estimée à partir de la courbe de l'oubli d'Ebbinghaus combinée à l'historique de répétition espacée (SM-2) de chaque carte. La rétention chute rapidement avec le temps, révisez donc d'abord les cartes les moins bien notées.",
+      reviewTitle:'Révisions de notes du jour', reviewEmpty:"Aucune note à réviser aujourd'hui.", reviewGoTo:'Ouvrir la note', reviewDoneBtn:'Marquer comme révisée',
+      reviewStageLabel:'Révision du jour {days}'},
+    subjects: {
+      listTitle:'Matières', noSubjects:"Aucune matière pour l'instant. Ajoutez la première ci-dessous.",
+      delete:'Supprimer', newNameLabel:'Nom de la nouvelle matière', newNamePh:'ex. Physiologie, TOEFL, un examen de certification',
+      passesLabel:'Nombre de passages (4 par défaut)', addSubject:'+ Ajouter une matière',
+      selectPrompt:'Sélectionnez une matière à gauche pour<br>gérer ses catégories et sujets.',
+      categoryLabel:'Catégories', noCategory:'Aucune catégorie', catNamePh:'Nom de la catégorie',
+      colorYellow:'Jaune', colorGreen:'Vert', colorRed:'Rouge', addCategory:'Ajouter',
+      topicListLabel:'Sujets', noTopics:"Aucun sujet pour l'instant.", newTopicPh:'Nom du nouveau sujet', addTopic:'Ajouter',
+      edit:'Modifier', save:'Enregistrer', cancel:'Annuler',
+      editNameLabel:'Nom de la matière', editPassesLabel:'Nombre de passages',
+      editTopicNameLabel:'Nom du sujet', editTopicCategoryLabel:'Catégorie',
+      colorLabel:'Couleur du calendrier',
+      reviewOffsetsLabel:'Calendrier de révision (jours, séparés par des virgules)', reviewOffsetsHint:"Définissez, pour cette matière, combien de jours après la création d'un sujet chaque rappel de révision doit se déclencher, un nombre par tour (ex. 0,3,7 → même jour · 3 jours plus tard · 7 jours plus tard). N'importe quel nombre de tours convient, et ils n'ont pas besoin d'être dans l'ordre ni uniques. Laissez vide pour utiliser la valeur par défaut (1,4,7,14,28).",
+      editReviewOffsetsLabel:'Calendrier de révision (jours, séparés par des virgules)'
+    },
+    notes: {
+      needSubjects:"Ajoutez d'abord une matière et des sujets dans « Matières ».",
+      subjectSelect:'Matière', title:'Notes · relisez tout ce que vous avez organisé',
+      uncategorized:'Non classé', noTopics:"Aucun sujet pour l'instant.",
+      topicNotesLabel:'Notes du sujet', notesPh:'Écrivez librement sur ce sujet…',
+      subtopicsLabel:'Sous-sujets', addSubtopicPh:'Nom du nouveau sous-sujet', addSubtopic:'+ Ajouter un sous-sujet', addSubSubtopicPh:'Ajouter un sous-sous-sujet sous celui-ci',
+      subtopicNotesPh:'Notes pour ce sous-sujet…', makeCard:'Créer une carte', delete:'Supprimer',
+      makeSubtopicCards:'Créer des cartes à partir des sous-sujets', noSubtopicContentForCards:"Aucun contenu de sous-sujet à transformer en cartes pour l'instant. Essayez d'écrire un titre en gras dans la note, ou ajoutez un sous-sujet.",
+      subtopicCardsResult:'{created} carte(s) de sous-sujet créée(s), {updated} mise(s) à jour.',
+      edit:'Modifier', cancel:'Annuler', editSubtopicNameLabel:'Nom du sous-sujet',
+      topicSelect:'Sujet', save:'Enregistrer', saveAll:'Tout enregistrer', saved:'Enregistré', noSubtopicsYet:"Aucun sous-sujet pour l'instant. Ajoutez-en un ci-dessous.",
+      nextTopicBtn:'Sujet suivant',
+      exportTopicPdf:'Exporter ce sujet en PDF', exportSubjectPdf:'Exporter toute la matière en PDF', exportEmpty:'(aucune note)',
+      searchLabel:'Rechercher dans les notes', searchPh:'Rechercher dans les notes de toutes les matières…', searchNoResults:'Aucun résultat trouvé.',
+      pretestLabel:'Pré-test', pretestHint:"Vous n'avez pas encore appris ceci — écrivez librement ce que vous savez déjà. Il n'y a aucun problème à se tromper ; tenter de se souvenir avant d'étudier améliore la rétention à long terme.",
+      pretestPh:'Notez ce que vous savez déjà sur ce sujet…', pretestViewToggle:'Voir ma réponse originale au pré-test',
+      confidenceLabel:'Confiance', confidenceLow:'😰 Encore fragile', confidenceMid:'🤔 À peu près acquis', confidenceHigh:'😎 Solide',
+      reviewBanner:'Mode révision · {current}/{total}', reviewNextBtn:'Sujet suivant à réviser →', reviewEndBtn:'Terminer la révision',
+      subjectMgmtTitle:'📚 Matières et sujets (ajoutez-en un ici même)'
+    },
+    cycle: {
+      needSubjects:"Ajoutez d'abord une matière et des sujets dans « Matières ».",
+      subjectSelect:'Matière', title:'Progression de lecture · touchez un cercle pour marquer un passage',
+      uncategorized:'Non classé', noTopics:"Aucun sujet dans cette matière pour l'instant.",
+      staleTooltip:'À réviser'
+    },
+    draw: {
+      needSubjects:"Ajoutez d'abord une matière et des sujets dans « Matières ».",
+      subjectLabel:'Matière', categoryLabel:'Catégorie', allCategories:'Toutes les catégories',
+      idle:'Appuyez sur tirer pour piocher un sujet au hasard.', drawnLabel:'Sujet tiré', notesLabel:'Notes / corrigé',
+      noNotes:"Aucune note pour l'instant.", reveal:'Révéler', drawBtn:'🎲 Tirer un sujet',
+      emptyPool:'Aucun sujet dans cette catégorie.', includeSubtopics:'Inclure les sous-sujets dans le tirage',
+      modeLabel:'Mode de tirage', modeEqual:'Probabilité égale', modeWeighted:'Points faibles en priorité',
+      weightedHint:"Les sujets avec plus d'entrées au registre des ombres, de passages inachevés, de révisions en retard ou de faible confiance reviennent plus souvent.",
+      itemTypeLabel:'Tirer parmi', itemTypeTopic:'Tirer des sujets', itemTypeCard:'Tirer des cartes',
+      cardIdle:'Appuyez sur tirer pour piocher une carte au hasard.', drawnCardLabel:'Carte tirée',
+      drawCardBtn:'🎲 Tirer une carte', emptyCardPool:'Aucune carte ne correspond à ce filtre.'
+    },
+    output: {
+      targetLabel:"Cible de l'invocation", targetTopicOption:'Toutes les notes du sujet',
+      recallLabel:'Invoquez ce dont vous vous souvenez', recallPh:'Écrivez librement à mesure que cela vous revient — laissez le souvenir émerger…',
+      referenceLabel:'Page originale du grimoire', revealBtn:'Briser le sceau', revealHint:"Invoquez d'abord le plus possible, puis brisez le sceau.",
+      noReference:"Aucune inscription écrite pour l'instant. Ajoutez-en d'abord dans l'onglet Inscriptions.",
+      gapLabel:'Ce que les ombres ont caché', gapPh:"Notez ce que vous avez manqué ou confondu, pour l'enregistrer dans le registre des ombres…",
+      saveGap:'Enregistrer dans le registre des ombres', gapSaved:'Enregistré', hideBtn:'Sceller à nouveau', nextBtn:'Élément suivant',
+      saveAttempt:'Enregistrer cette invocation', attemptsTitle:'Registre des invocations', attemptLabel:'Invocation n° {n}',
+      noAttempts:'Aucune invocation enregistrée pour l’instant. Écrivez ci-dessus et cliquez sur « Enregistrer cette invocation ».',
+      attemptRecallLabel:'Ce que vous avez invoqué', attemptGapLabel:'Ce que les ombres ont caché ce jour-là', attemptReferenceLabel:'La page du grimoire à ce moment-là',
+      modeSequential:'Séquentiel', modeExam:'Épreuve du jugement',
+      exam: {
+        setupTitle:"Configuration de l'épreuve", timeLimitLabel:'Temps limite par question', timeLimitNone:'Aucune limite', timeLimitUnit:'s',
+        startBtn:"🎯 Commencer l'épreuve", emptyPool:'Aucune question ne correspond à ces réglages.',
+        questionProgress:'Question {current} / {total}', timeUpNotice:'⏰ Temps écoulé — brisez le sceau.',
+        endBtn:"Terminer l'épreuve", nextBtn:'Question suivante →',
+        finishTitle:'Épreuve terminée !', finishSummary:'Vous avez travaillé sur {count} questions.',
+        restartBtn:'Recommencer', exitBtn:'Retour à la configuration'
+      }
+    },
+    gaps: {
+      title:'Registre des ombres', filterLabel:'Filtrer par matière', allSubjects:'Toutes les matières',
+      noGaps:"Aucune ombre projetée pour l'instant. Enregistrez ce que vous avez manqué depuis l'onglet Invocation.",
+      markResolved:"Dissiper l'ombre", unresolve:"Renvoyer dans l'ombre", resolvedTitle:'Entrées dissipées', exportPdf:'Exporter en PDF'
+    },
+    cards: {
+      todayTitle:'Révision des sortilèges du jour', noneToday:"Aucun sortilège à réviser aujourd'hui 🎉",
+      browseTitle:'Parcourir le grimoire de sortilèges', noneAll:'Aucun sortilège ne correspond à ce filtre.',
+      modeDue:'Révision du jour', modeAll:'Parcourir tous les sortilèges', browseSubjectLabel:'Filtrer par matière', allSubjectsOpt:'Toutes les matières',
+      subtopicFilterLabel:'Filtrer par sous-sujet', allSubtopicsOpt:'Tous les sous-sujets', noSubtopicOpt:'Aucun sous-sujet',
+      remaining:"Sortilèges restants aujourd'hui", flipHint:'Cliquez sur le sortilège pour briser son sceau.',
+      again:'Encore', good:'Bien', easy:'Facile',
+      createTitle:'Inscrire un sortilège', subjectLabel:'Matière', typeLabel:'Type',
+      subtopicLabel:'Sous-sujet', subtopicPh:'ex. Globules rouges (facultatif)',
+      basicOpt:'Sortilège simple (recto/verso)', clozeOpt:'Sortilège scellé (texte à trous)',
+      frontLabel:'Nom du sortilège (question)', backLabel:'Effet du sortilège (réponse)',
+      clozeBodyLabel:'Texte — entourez la partie cachée avec [[ ]]',
+      clozePh:'ex. La fréquence cardiaque de repos est de [[60-100 bpm]].',
+      addCard:'+ Ajouter un sortilège', noCards:"Aucun sortilège inscrit pour l'instant.", delete:'Supprimer',
+      chooseSubjectFirst:"Veuillez d'abord ajouter une matière.", clozeRequired:'Entourez la partie cachée avec [[ ]].',
+      edit:'Modifier', editTitle:'Modifier le sortilège', saveEdit:'Enregistrer', cancelEdit:'Annuler',
+      prevBtn:'← Précédent', nextBtn:'Suivant →', navHint:'Utilisez ← → pour naviguer, Entrée pour retourner',
+      progressLabel:'{current}/{total}',
+      memorizeBtn:'🧠 Mémoriser', memorizeTitle:'Mémoriser les sortilèges', exitMemorize:'Fermer'
+    },
+    focus: {
+      workMode:'Temps de concentration', breakMode:'Temps de pause', start:'Démarrer', pause:'Pause', reset:'Réinitialiser',
+      noSubjectOpt:'Aucune matière', workLabel:'Concentration (min)', breakLabel:'Pause (min)',
+      todayTitle:"Temps de concentration aujourd'hui", last7:'7 derniers jours', noSessions:"Aucune session enregistrée pour l'instant.", deleteEntry:'Supprimer cette entrée',
+      checkpointsTitle:'Cristaux de temps', checkpointsHint:"Le temps se cristallise automatiquement toutes les 5 minutes. Si du temps s'est accumulé par erreur pendant votre absence, vous pouvez revenir à un cristal antérieur.",
+      checkpointsEmpty:"Aucun cristal de temps pour l'instant.", saveCheckpointNow:'Cristalliser maintenant', saveCheckpointHint:"Cristalliser le temps d'étude réel actuel en un cristal de temps.",
+      revertCheckpointBtn:'Revenir en arrière',
+      pomodoroLabel:'Pomodoro', stopwatchLabel:"Chronomètre d'étude", settingsTitle:'Réglages',
+      subjectTagLabel:'Matière à associer aux sessions pomodoro', sourcePomodoro:'Pomodoro', sourceStopwatch:'Chronomètre',
+      recTitle:'Recommandation pomodoro personnalisée', recSessionLabel:'Concentration récente en une séance (médiane)',
+      recDailyLabel:'Moyenne quotidienne sur 7 jours', recWeeklyLabel:'Moyenne hebdomadaire sur 4 semaines',
+      recSuggested:'Concentration / pause suggérées', recApply:'Appliquer',
+      recConfidence:{low:'Peu de données', medium:'Modéré', high:'Confiance élevée'},
+      recNotEnough:"Utilisez le chronomètre pendant au moins 3 sessions et nous vous recommanderons une durée de pomodoro basée sur votre capacité d'attention réelle.",
+      recExplain:"Basé sur la durée médiane de vos sessions de chronomètre, réglé un peu plus court pour que vous puissiez terminer l'intervalle complet de façon fiable et prendre de l'élan. Plus vous enregistrez de sessions, plus cette estimation devient précise.",
+      lastSitting:'Vous venez de vous concentrer pendant', pausedBreak:'en pause pour la pause',
+      linkedNote:"⏱ / ⏳ Un seul bouton de démarrage en haut fait tourner les deux. Une fois le temps de concentration écoulé, une alarme sonne mais ne passe pas automatiquement en pause — rester assis maintient le minuteur en marche en « heures supplémentaires », et ce temps compte toujours comme du temps d'étude réel. Appuyez sur « Démarrer la pause » quand vous êtes prêt(e), et cela reviendra automatiquement au prochain intervalle de concentration une fois la pause terminée.",
+      soundTitle:'Bruit blanc · Ambiance', soundSubtitle:"Jouez un son de fond pour vous aider à vous concentrer. Il est généré en direct dans votre navigateur, aucun fichier audio nécessaire.",
+      soundNone:'Désactivé', soundWhite:'Bruit blanc', soundRain:'Pluie', soundFire:'Feu de camp', soundAirplane:"Cabine d'avion", soundOcean:"Vagues de l'océan",
+      soundVolumeLabel:'Volume', soundPlaying:'En cours', soundStopped:'Arrêté',
+      overtimeMode:'Heures supplémentaires', startBreak:'Démarrer la pause', startBreakHint:"Une alarme sonne une fois votre durée de concentration définie écoulée, et chaque seconde suivante compte toujours comme du temps d'étude réel. Cliquez quand vous êtes prêt(e) à commencer votre pause.",
+      skipBreak:'Passer la pause', skipBreakHint:"Passez la pause et enchaînez directement sur le prochain intervalle de concentration. Le cycle déjà terminé compte toujours.",
+      resetPomodoro:'⏱ Réinitialiser', resetPomodoroHint:"Réinitialise uniquement le minuteur pomodoro. Le temps d'étude réel (chronomètre) n'est pas affecté.",
+      resetStopwatch:'⏳ Réinitialiser', resetStopwatchHint:"Réinitialise uniquement le temps d'étude réel (chronomètre) à 0. Le minuteur pomodoro n'est pas affecté.",
+      editStopwatchHint:"Cliquez pour corriger manuellement le temps d'étude réel (utile si vous avez oublié de mettre en pause)",
+      editStopwatchLabel:"Modifier le temps d'étude réel (min)", sourceAdjustment:'Modification manuelle',
+      dayRolloverAlert:"La date a changé, le chronomètre du temps d'étude réel a donc été réinitialisé. Le minuteur pomodoro n'a pas été interrompu et continue de tourner."
+    },
+    game: {
+      levelLabel:'Rang', xpLabel:'Mana', streakLabel:'Série de protection', streakDays:'jours',
+      badgesLabel:'Reliques', levelUpTitle:'Rang supérieur !', levelUpSub:'Vous avez atteint le rang {level}',
+      badgeUnlockTitle:'Relique trouvée !', maxLevelLabel:"🏆 Rang d'archimage (Niv.300) atteint !",
+      badges:{
+        first_pass:'Premier pèlerinage terminé', streak_3:'Protection de 3 jours', streak_7:'Protection de 7 jours', streak_30:'Protection de 30 jours',
+        cards_100:'100 sortilèges révisés', subject_complete:'Grimoire complété', focus_300:'300 minutes de protection',
+        gap_master:'5 ombres dissipées', output_10:'10 invocations pratiquées', notes_20:'20 inscriptions enregistrées'
+      },
+      tiers:['Apprenti','Adepte','Sage','Archimage'],
+      dailyQuestsLabel:'Épreuves du jour', dailyQuestTitle:'Épreuves quotidiennes terminées !', dailyQuestSub:'Bonus de +30 mana',
+      questFocus:'Se concentrer 10+ minutes', questCards:'Réviser 3+ cartes', questPass:'Terminer 1+ passage'
+    },
+    rewards: {
+      title:'Récompenses', subtitle:"Définissez vos propres récompenses liées aux cycles pomodoro. Elles se débloquent automatiquement une fois l'objectif atteint.",
+      cyclesToday:"Cycles pomodoro terminés aujourd'hui",
+      titlePh:'Nom de la récompense (ex. une vidéo YouTube que vous voulez regarder)', urlPh:'Lien (facultatif, ex. une URL YouTube)', cyclesLabel:'Cycles requis',
+      restMinutesLabel:'Temps de détente (min)', restMinutesHint:'Lorsque vous réclamez cette récompense, un minuteur de cette durée démarre en haut du site pour que vous puissiez vous reposer.',
+      addBtn:'+ Ajouter une récompense', deleteLabel:'Supprimer',
+      lockedHint:'{n} cycle(s) supplémentaire(s) requis', watchBtn:'▶ Regarder', claimBtn:'Réclamer', claimedLabel:'✓ Fait',
+      noRewards:"Aucune récompense pour l'instant. Configurez-en avant de commencer à étudier.",
+      unlockedTitle:'Récompense débloquée !', dashWidgetTitle:'Prochaine récompense', dashNoRewards:"Aucune récompense configurée pour l'instant.",
+      dashAllClaimed:"Vous avez réclamé toutes les récompenses aujourd'hui ! 🎉",
+      restTimerLabel:'Minuteur de pause récompense', restTimerDone:'Terminé !', restTimerDismiss:'Fermer'
+    },
+    goals: {
+      title:'Objectifs à long terme', subtitle:"Fixez un objectif et une date cible. Une fois définis, ni l'un ni l'autre ne peuvent être modifiés avant que cette date n'arrive.",
+      titlePh:'Objectif (ex. Obtenir 900+ au TOEIC)', dateLabel:'Date cible', addBtn:'+ Fixer un objectif',
+      empty:"Aucun objectif à long terme défini pour l'instant.", dateHint:"Une fois défini, ceci ne peut pas être modifié avant la date cible.",
+      statusActive:'En cours', daysLeft:'J-{n}', dueToday:"Aujourd'hui est la date cible",
+      overdueHint:"La date cible est arrivée. L'avez-vous atteint ?", achievedBtn:'✅ Atteint', notAchievedBtn:'Pas encore',
+      statusAchieved:'Atteint', statusFailed:'Non atteint', achievedOn:'Atteint le {date}', failedOn:'Marqué non atteint le {date}',
+      createdOn:'Défini le {date}', giveUp:'Abandonner'
+    },
+    guide: {
+      title:'Abécédaire',
+      intro:"Mnemoire est une application d'étude indépendante de la matière qui vous aide à organiser, répéter et vous tester sur n'importe quel sujet. Touchez une section ci-dessous pour la déplier. Si c'est votre première fois, lisez de haut en bas. Vous préférez apprendre en pratiquant plutôt qu'en lisant ? Le bouton « 🎓 Tutoriel » en haut de l'écran vous guide pas à pas dans la vraie interface.",
+      sections:[
+        {title:'0. Avant de commencer — stockage des données', body:"Tout ce que vous saisissez (matières, notes, cartes, progression) <strong>s'enregistre automatiquement dans ce navigateur</strong> (via localStorage). Cela persiste après un rechargement et lors de vos prochaines visites, mais <strong>ce n'est pas visible dans un autre navigateur, un autre appareil, ou une fenêtre de navigation privée</strong>, et cela peut être perdu si vous effacez les données de ce navigateur. Si cela vous inquiète, vous pouvez toujours faire une sauvegarde avec le bouton « Exporter » dans l'en-tête (voir #12)."},
+        {title:'1. Matières — construisez la structure', body:"Commencez ici. <br>① Entrez un nom de matière (ex. Physiologie, un examen) et définissez le nombre de passages de lecture souhaité, puis appuyez sur « + Ajouter une matière » (ce nombre de passages contrôle l'onglet Pèlerinage). Juste en dessous, le champ « Calendrier de révision » vous permet de définir, par matière, combien de jours après la création les rappels « Révisions de notes du jour » du tableau de bord se déclenchent (ex. 0,3,7 — laissez vide pour la valeur par défaut 1,4,7,14,28).<br>② Cliquez sur une matière pour ouvrir son panneau de détails, où vous pouvez ajouter des catégories codées par couleur.<br>③ Tapez un nom de sujet, choisissez une catégorie, et ajoutez-le à la liste des sujets de cette matière.<br>Cet onglet ne sert qu'à la structure — le contenu réel se trouve dans l'onglet Notes."},
+        {title:'2. Notes — rédigez le contenu', body:"① Choisissez une matière et un sujet dans les menus déroulants.<br>② La première fois que vous ouvrez un sujet dont les notes sont vides, une case <strong>pré-test</strong> apparaît — écrivez ce que vous savez déjà avant de l'apprendre. Il n'y a aucun problème à se tromper ; tenter de se souvenir avant d'étudier améliore la rétention à long terme (effet de pré-test). Une fois les notes remplies, ce pré-test se replie dans un bouton « Voir ma réponse originale au pré-test ».<br>③ Écrivez librement dans la case de notes du sujet et enregistrez. Les boutons de couleur au-dessus de la case (rouge, bleu, vert, violet, orange) vous permettent de surligner n'importe quelle partie du texte, et le bouton « A » réinitialise à la couleur par défaut — la même palette fonctionne dans le rappel d'invocation, le registre des ombres et les cartes Simples.<br>④ Cette barre d'outils cache aussi quelques astuces utiles : gras, italique et souligné s'appliquent directement avec les raccourcis <strong>Cmd/Ctrl+B, I, U</strong>, sans passer par les boutons. Le bouton 🖼️ insère une image, tout comme le simple <strong>collage (Cmd/Ctrl+V)</strong> d'une image copiée. Une fois l'image insérée, survolez-la pour faire apparaître trois poignées — <strong>⠿ (déplacer)</strong> en haut à gauche, <strong>× (supprimer)</strong> en haut à droite, et une poignée de <strong>redimensionnement</strong> en bas à droite : faites glisser ⠿ pour la déplacer librement où vous voulez, comme on colle un autocollant sur du papier, sans dépendre des lignes de texte ni du curseur ; vous pouvez aussi la sélectionner d'un clic puis appuyer sur Suppr/Retour arrière pour la supprimer. Et lorsque la note s'allonge et que vous faites défiler vers le bas, cette barre d'outils reste épinglée en haut de l'écran, pour que vous puissiez changer la mise en forme d'un texte lointain sans avoir à remonter.<br>⑤ Sous les notes, utilisez les boutons de <strong>confiance</strong> 😰🤔😎 pour indiquer à quel point vous maîtrisez ce sujet (utilisé par le mode de tirage « Points faibles en priorité » du #4).<br>⑥ Ajoutez des « sous-sujets » pour découper davantage — imbriqués aussi profondément que vous le souhaitez.<br>⑦ Un seul bouton <strong>« Tout enregistrer »</strong> en bas enregistre en une fois les notes du sujet et tous les sous-sujets.<br>⑧ « Créer une carte » à côté d'un sous-sujet transforme son contenu en brouillon de carte, tandis que « Créer des cartes à partir des sous-sujets » en bas transforme d'un coup tous les sous-sujets de ce sujet (y compris les titres en gras automatiquement reconnus comme tels) chacun en une carte — dans les deux cas, l'étiquette « sous-sujet » de la carte reprend automatiquement non pas le sous-titre écrit dans la note, mais <strong>le nom de ce « sujet » tel que défini dans la Gestion des matières</strong> (afin de pouvoir regrouper par ce sujet plutôt que par sous-titre détaillé lors du filtrage « sous-sujet » dans l'onglet Cartes). Le bouton « PDF » permet aussi de créer un document prêt à imprimer.<br>⑨ La <strong>barre de recherche</strong> en haut recherche dans les notes de toutes les matières à la fois — cliquez sur un résultat pour y accéder directement.<br>⑩ Juste sous la barre de recherche, dépliez « 📚 Matières et sujets » pour ajouter une nouvelle matière ou un nouveau sujet ici même, sans changer d'onglet (c'est exactement la même interface que la Gestion des matières — repliée par défaut, à déplier seulement quand vous en avez besoin)."},
+        {title:'3. Pèlerinage — répétez vos lectures', body:"Vos sujets apparaissent groupés par catégorie, chacun avec une rangée de cercles correspondant à son nombre de passages. Touchez un cercle après chaque relecture pour la marquer comme faite. Touchez le nom du sujet pour le déplier et relire directement le même contenu que dans Notes. Un ⏰ à côté d'un nom de sujet signifie qu'il est en retard pour révision (voir #13). Le suivi des passages se fait <strong>uniquement au niveau du sujet</strong> — les sous-sujets affichent leurs notes mais n'ont pas de coches séparées."},
+        {title:'4. Tirage au hasard — testez-vous aléatoirement', body:"Choisissez entre <strong>Probabilité égale</strong> et <strong>Points faibles en priorité</strong> en haut. Probabilité égale tire chaque sujet avec les mêmes chances ; Points faibles en priorité privilégie les sujets ayant plus d'entrées au registre des ombres, de passages inachevés, de révisions en retard, ou une faible confiance — l'application fait ainsi naturellement ressortir ce qui a le plus besoin d'attention. Choisissez une matière et (facultativement) une catégorie, puis appuyez sur « Tirer un sujet ». Activez « Inclure les sous-sujets » pour piocher aussi parmi eux. Essayez de vous en souvenir, puis appuyez sur « Révéler » pour vérifier vos notes."},
+        {title:'5. Invocation — pratique du rappel actif', body:"Choisissez entre <strong>Séquentiel</strong> et <strong>Examen blanc</strong> en haut.<br><strong>Séquentiel</strong> : ① Choisissez matière → sujet → cible de pratique.<br>② Écrivez à gauche ce dont vous vous souvenez — se rappeler avant de vérifier construit une mémoire bien plus solide.<br>③ Appuyez sur « Révéler la référence » pour comparer.<br>④ Notez ci-dessous ce que vous avez manqué et enregistrez-le dans le registre des ombres, puis « Élément suivant » pour continuer.<br><strong>Examen blanc</strong> : choisissez une matière, une catégorie, si les sous-sujets sont inclus, et une limite de temps par question (30/60/90/120s ou aucune), puis démarrez — les sujets/sous-sujets correspondants sont mélangés une fois et présentés dans l'ordre. Une barre de minuteur décompte chaque question et révèle automatiquement la réponse une fois le temps écoulé. Vous pouvez toujours enregistrer des lacunes, et un écran de fin vous permet de recommencer ou de revenir à la configuration. Le minuteur se met automatiquement en pause si vous changez d'onglet et reprend à votre retour."},
+        {title:'6. Registre des ombres — suivez vos points faibles', body:"Tout ce que vous enregistrez depuis Invocation (les deux modes) atterrit ici. Filtrez par matière et par statut, et une fois qu'un point est maîtrisé, cliquez sur « Dissiper l'ombre » pour le sortir de la liste active (il se replie dans une section qui peut être rouverte ou annulée). Les entrées peuvent aussi devenir des cartes ou être exportées en PDF. La suppression demande d'abord une confirmation, pour que rien ne soit supprimé par accident."},
+        {title:'7. Cartes — répétition espacée', body:"Deux formats : <strong>Simple</strong> (question au recto / réponse au verso) et <strong>Texte à trous</strong> (entourez la partie cachée d'une phrase avec [[ ]] pour créer un texte à compléter). Les nouvelles cartes entrent dans la file de révision dès aujourd'hui, et cet onglet affiche automatiquement ce qui est dû chaque jour. Retournez une carte, vérifiez la réponse, puis notez-la Encore/Bien/Facile — la prochaine date de révision est calculée automatiquement. Cet historique de révision alimente aussi la section <strong>rétention prévue</strong> du tableau de bord (#9)."},
+        {title:"8. Concentration — pomodoro + chronomètre d'étude réel", body:"La barre de minuteur épinglée en haut a <strong>un seul bouton de démarrage qui fait tourner ensemble un cycle pomodoro et un vrai chronomètre d'étude</strong>. Une fois votre durée de concentration définie écoulée, un carillon sonne mais le minuteur continue de tourner en <strong>heures supplémentaires</strong> — chaque seconde en plus compte toujours comme du temps d'étude réel — jusqu'à ce que vous appuyiez vous-même sur <strong>« Démarrer la pause »</strong>. Une fois cela fait, la pause dure la durée définie puis revient automatiquement à un nouvel intervalle de concentration. Pause et réinitialisation contrôlent les deux minuteurs à la fois. L'onglet Concentration propose lui-même des réglages de durée travail/pause, des statistiques quotidiennes et hebdomadaires, et une <strong>recommandation pomodoro personnalisée</strong> basée sur vos sessions de chronomètre réellement enregistrées (au moins 3 sessions requises). Le chronomètre d'étude réel se remet automatiquement à 0 au moment où la date change, et le temps accumulé jusqu'à ce moment est correctement enregistré sous le jour précédent. Si un minuteur tournait activement à ce moment-là, une fenêtre vous informe qu'il vient de se réinitialiser, et le <strong>pomodoro continue de tourner sans interruption</strong> — seul le chronomètre est réinitialisé."},
+        {title:'9. Tableau de bord — tout en un coup d’œil', body:"En haut se trouvent le niveau, l'XP et la série d'étude — la montée de niveau suit une courbe de type RPG où chaque niveau demande plus d'XP que le précédent, jusqu'à un maximum de niveau 300. La carte « 🧠 Rétention prévue » utilise la courbe de l'oubli d'Ebbinghaus combinée à l'historique de répétition espacée de chaque carte pour estimer ce dont vous vous souvenez actuellement, en listant d'abord les cartes les moins bien notées. « Révisions de notes du jour » vous rappelle selon un calendrier de jours après création (1, 4, 7, 14 et 28 par défaut — personnalisable par matière dans la Gestion des matières). « Épreuves du jour » donne un bonus une fois trois objectifs quotidiens atteints. Le widget « Prochaine récompense » se connecte au #11. Presque toutes les activités rapportent de l'XP."},
+        {title:'10. Changer de langue', body:"Utilisez le menu déroulant en haut à droite pour basculer instantanément toute l'application — noms d'onglets, boutons et instructions — entre le coréen, l'anglais, l'allemand et le français. Tout ce que vous saisissez manuellement (noms de matières, notes, contenu des cartes) reste exactement tel quel, dans la langue où il a été saisi."},
+        {title:'11. Récompenses — de petites victoires en chemin', body:"Avant de commencer à étudier, enregistrez tout ce que vous voulez comme récompense — une vidéo YouTube, une collation, une courte pause jeu, tout ce qui vous motive — et choisissez le nombre de cycles pomodoro nécessaires pour la débloquer (ex. débloquée après 2 cycles). Chaque fois que vous terminez un intervalle de concentration pomodoro, le compteur de cycles du jour augmente, et toute récompense dont la condition est remplie se débloque automatiquement avec une notification. Le compteur de cycles se réinitialise chaque nuit, mais votre liste de récompenses enregistrées reste."},
+        {title:'12. Sauvegarde — exporter / importer', body:"L'en-tête contient les boutons « Exporter » et « Importer ». <strong>Exporter</strong> télécharge tout (matières, notes, cartes, lacunes, niveau, etc.) sous forme de fichier JSON. <strong>Importer</strong> vous permet de recharger ce fichier, en remplaçant toutes les données actuellement enregistrées (une boîte de dialogue de confirmation apparaît d'abord, car cette action est irréversible). Exporter régulièrement est une bonne habitude — cela vous protège d'une perte de données accidentelle."},
+        {title:'13. Confiance · urgence de révision · mode révision', body:"Indépendamment de la note de confiance que vous définissez dans Notes, l'application suit automatiquement le retard de révision de chaque sujet — enregistrer des notes, ou révéler une réponse dans Tirage au hasard ou Invocation, actualisent tous sa date de « dernière révision », et l'intervalle avant la prochaine vérification s'allonge à mesure que vous terminez plus de passages de lecture (3→7→14→30 jours). Une fois cette fenêtre dépassée, un ⏰ apparaît dans Pèlerinage et le sujet est compté dans « Quoi réviser aujourd'hui » de l'onglet Plan. Cliquer sur « Réviser maintenant » démarre un <strong>mode révision</strong> qui vous fait parcourir les sujets en retard un par un — l'onglet Notes affiche votre progression (ex. 1/3), avec « Sujet suivant à réviser » pour continuer ou « Terminer la révision » pour arrêter à tout moment."},
+        {title:'14. Objectifs à long terme — se fixer un objectif sur la durée', body:"En haut de l'onglet Plan, vous pouvez définir un objectif à long terme : un titre plus la date à laquelle vous l'atteindrez. Une fois définis, ni l'un ni l'autre ne peuvent être modifiés avant que cette date n'arrive (si vous avez fait une erreur ou changé d'avis, « Abandonner » le supprime pour que vous puissiez recommencer). À la date cible ou après, des boutons « Atteint » / « Pas encore » apparaissent pour que vous puissiez le cocher vous-même — le marquer comme atteint accorde un bonus d'XP et laisse une marque de réussite avec une icône correspondant à votre thème actuel (🔮/🏅/🎗️/⚖️/🧪)."},
+        {title:"15. Calendrier — journal d'étude et événements en un coup d’œil", body:"Le tableau de bord inclut désormais un calendrier. Chaque case de jour affiche une barre de couleur pour le temps de concentration du chronomètre enregistré ce jour-là, réparti par matière, pour que vous puissiez voir en un coup d'œil quelles matières vous avez étudiées et dans quelle proportion (choisissez la couleur de chaque matière lors de son ajout ou modification dans la Gestion des matières). Cliquez sur une date pour voir la répartition par matière de ce jour et tout événement enregistré, en détail, en dessous. Enregistrez des événements comme des examens ou rendez-vous avec une date (et éventuellement une heure), et ils s'afficheront en compte à rebours jour J dans la carte « Événements à venir » au-dessus du calendrier — une fois qu'un événement est à moins d'un jour et a une heure définie, le compte à rebours passe à « Nh Nmin restantes »."},
+        {title:'16. Plans récurrents — configurez des plans qui se répètent chaque jour', body:"Sous « Plan du jour » dans l'onglet Plan se trouve une carte « Plans récurrents ». Tout ce que vous y ajoutez ne disparaît pas une fois coché ce jour-là — cela revient décoché la prochaine fois que son jour de la semaine programmé revient (l'accomplissement de chaque jour est suivi séparément). Lors de l'ajout, choisissez les jours de la semaine où il se répète ; il n'apparaît dans la liste du plan que ces jours-là — par exemple, ne cocher que Lun-Ven signifie qu'il apparaît en semaine et reste caché le week-end. Ne cocher aucun jour signifie qu'il apparaît tous les jours. Les plans récurrents non programmés pour aujourd'hui restent accessibles en dépliant « Gérer tous les plans récurrents », pour que vous puissiez changer leurs jours ou les supprimer à tout moment."}
+      ]
+    },
+    plan: {
+      goalTitle:"Objectif d'étude du jour", goalLabel:'Objectif (min)', startBtn:'Démarrer une session de concentration',
+      todayPlanTitle:'Plan du jour', noPlanYet:'Aucun sujet ajouté au plan pour l’instant. Choisissez-en dans la liste ci-dessous.',
+      dragPriorityHint:'⠿ Faites glisser les éléments pour définir leur ordre de priorité (le haut = priorité la plus élevée).',
+      reviewTitle:"Quoi réviser aujourd'hui", noReviews:"Aucune révision de note due aujourd'hui.",
+      cardsDue:'Cartes dues', gapsOpen:'Lacunes ouvertes', staleTopics:'Sujets à réviser', reviewStaleBtn:'🔁 Réviser maintenant', goToCards:'Aller aux cartes', goToGaps:'Aller au registre des ombres',
+      pickTitle:"Choisissez les sujets à étudier aujourd'hui", pickHint:"Cocher un sujet l'ajoute à la liste du plan ci-dessus. Décochez-les un par un au fur et à mesure pour suivre votre progression.",
+      pickSearchPh:'Rechercher par nom de sujet...', pickEmptyHint:'Recherchez un nom de sujet pour l’ajouter à votre plan.', pickNoResults:'Aucun sujet correspondant.',
+      customPh:"ex. écrire 3 notes de sujet aujourd'hui, réviser seulement, etc — écrivez le vôtre", customAdd:'+ Ajouter au plan',
+      editItemLabel:"Texte de l'élément",
+      historyTitle:'Plans passés', noHistory:'Aucun plan passé pour l’instant. Une fois qu’une journée est passée, ce plan est archivé ici automatiquement.',
+      noItemsThatDay:"Aucun élément n'était planifié ce jour-là.",
+      carriedOverLabel:'Reporté', carriedOverTitle:'Planifié le {date} mais non terminé, donc reporté à aujourd’hui.',
+      recurringTitle:'🔂 Plans récurrents', recurringHint:"Une fois ajoutés, ils ne disparaissent pas quand vous les cochez — ils réapparaissent chaque jour où vous les avez programmés.",
+      recurringLabelPh:'ex. Révision de vocabulaire, récap du matin', recurringWeekdaysLabel:'Se répète le', recurringAddBtn:'+ Ajouter un plan récurrent',
+      recurringNoneToday:'Aucun plan récurrent programmé pour aujourd’hui.', recurringEmpty:'Aucun plan récurrent pour l’instant.',
+      recurringManageTitle:'Gérer tous les plans récurrents', recurringNotTodayTag:'Pas aujourd’hui'
+    },
+    richtext: { colorAria:'Choisir la couleur du texte', clearAria:'Réinitialiser la couleur', boldAria:'Gras', italicAria:'Italique', underlineAria:'Souligné', bulletAria:'Liste à puces', imageAria:'Ajouter une image' },
+    sidenote: {
+      title:'Notes', placeholder:'Notez quelque chose ici…', saved:'Enregistré',
+      collapseAria:'Réduire les notes', expandAria:'Développer les notes', resizeAria:'Redimensionner',
+      colorAria:'Choisir la couleur du texte'
+    },
+    sidenoteLeft: {
+      title:'Notes 2', placeholder:'Notez quelque chose ici…', saved:'Enregistré',
+      collapseAria:'Réduire les notes 2', expandAria:'Développer les notes 2', resizeAria:'Redimensionner',
+      colorAria:'Choisir la couleur du texte'
+    }
+  },
+
 };
 /* CLASSIC_TERMS holds the pre-wizard wording for the handful of keys that
    were reworded when the wizard theme was introduced, so the person can
@@ -6503,7 +6797,7 @@ function openPrintableDoc(title, bodyHtml){
 </style>
 </head>
 <body>
-<div class="print-bar"><button onclick="window.print()">🖨 ${state.settings.language==='ko'?'인쇄 / PDF로 저장':state.settings.language==='de'?'Drucken / Als PDF':'Print / Save as PDF'}</button></div>
+<div class="print-bar"><button onclick="window.print()">🖨 ${state.settings.language==='ko'?'인쇄 / PDF로 저장':state.settings.language==='de'?'Drucken / Als PDF':state.settings.language==='fr'?'Imprimer / Enregistrer en PDF':'Print / Save as PDF'}</button></div>
 <h1>${escapeHtml(title)}</h1>
 ${bodyHtml}
 </body>
