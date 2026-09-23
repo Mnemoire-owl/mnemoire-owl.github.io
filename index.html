@@ -660,7 +660,11 @@
   .tutorial-highlight{
     position:fixed;z-index:9001;pointer-events:none;border-radius:10px;
     border:2px solid var(--amber);box-shadow:0 0 0 9999px rgba(30,26,20,.5);
-    transition:top .25s ease,left .25s ease,width .25s ease,height .25s ease;
+    /* No transition here on purpose: the highlight box is now repositioned in
+       place (not recreated) on every scroll tick via positionTutorialOverlay(),
+       and a transition on top/left/width/height would make it visibly lag
+       behind the actual scroll position (a rubber-band effect) instead of
+       tracking it instantly. */
   }
   .tutorial-tooltip{
     position:fixed;z-index:9002;max-width:380px;width:calc(100% - 20px);
@@ -4177,7 +4181,7 @@ const TUTORIAL_STEPS = [
   {key:'focus', tab:'focus', target:'#timerBar'},
   {key:'rewards', tab:'rewards', target:"#tabs button[onclick=\"App.setTab('rewards')\"]"},
   {key:'subjects', tab:'subjects', target:'#newSubjectName'},
-  {key:'notes', tab:'notes', target:'#notesSearchInput'},
+  {key:'notes', tab:'notes', target:'#topicNotesArea'},
   {key:'cycle', tab:'cycle', target:"#tabs button[onclick=\"App.setTab('cycle')\"]"},
   {key:'draw', tab:'draw', target:"#tabs button[onclick=\"App.setTab('draw')\"]"},
   {key:'output', tab:'output', target:"#tabs button[onclick=\"App.setTab('output')\"]"},
@@ -4192,45 +4196,25 @@ function removeTutorialOverlayEls(){
   });
 }
 /* Rebuilds the three overlay elements (dim layer, highlight box, tooltip)
-   from scratch against the CURRENT DOM every time it's called — safe (and
-   necessary) to call after any re-render, since renderAll() rebuilds the
-   whole #panel innerHTML and any previously-highlighted element reference
-   would otherwise go stale. If the step's target selector doesn't resolve
-   to a visible element (e.g. content that only renders in certain data
-   states), falls back to a centered tooltip with a plain dim background
-   instead of leaving a broken/invisible highlight box. */
+   from scratch — used only when the step's actual CONTENT needs to change
+   (a new step, or the overlay isn't showing yet). Re-querying the target
+   via document.querySelector every time (see positionTutorialOverlay below)
+   means a stale element reference is never a concern, even after
+   renderAll() rebuilds #panel's innerHTML — so this no longer needs to run
+   on every render, only on a real step change (see syncTutorialOverlay). */
 function renderTutorialOverlay(){
   removeTutorialOverlayEls();
   if(!state.tutorialActive) return;
   const step = TUTORIAL_STEPS[state.tutorialStep];
   if(!step){ App.closeTutorial(); return; }
 
-  let rect = null;
-  if(step.target){
-    const el = document.querySelector(step.target);
-    if(el){
-      const r = el.getBoundingClientRect();
-      if(r.width>0 && r.height>0) rect = r;
-    }
-  }
-
   const dim = document.createElement('div');
-  dim.className = 'tutorial-dim' + (rect ? '' : ' centered');
   dim.id = 'tutorialDim';
   document.body.appendChild(dim);
 
   const hl = document.createElement('div');
   hl.id = 'tutorialHighlight';
   hl.className = 'tutorial-highlight';
-  if(rect){
-    const pad = 6;
-    hl.style.top = (rect.top-pad)+'px';
-    hl.style.left = (rect.left-pad)+'px';
-    hl.style.width = (rect.width+pad*2)+'px';
-    hl.style.height = (rect.height+pad*2)+'px';
-  } else {
-    hl.style.display = 'none';
-  }
   document.body.appendChild(hl);
 
   const total = TUTORIAL_STEPS.length;
@@ -4239,6 +4223,7 @@ function renderTutorialOverlay(){
   const tip = document.createElement('div');
   tip.id = 'tutorialTooltip';
   tip.className = 'tutorial-tooltip';
+  tip.dataset.step = String(state.tutorialStep); // lets syncTutorialOverlay tell "same step" from "new step"
   tip.innerHTML = `
     <div class="tt-title">${t('tutorial.'+step.key+'Title')}</div>
     <div class="tt-body">${t('tutorial.'+step.key+'Body')}</div>
@@ -4252,9 +4237,49 @@ function renderTutorialOverlay(){
     </div>
   `;
   document.body.appendChild(tip);
+  positionTutorialOverlay();
+}
+/* Repositions the ALREADY-BUILT overlay elements against the target's
+   current on-screen position, without touching their content or recreating
+   them. Used for every scroll/resize tick, and for any renderAll() that
+   happens to fire mid-step (e.g. the header timer ticking once a second
+   while the tutorial is open) — previously ALL of those fully tore down
+   and rebuilt the tooltip, which replayed its pop-in CSS animation
+   (.tutorial-tooltip's `animation: toastPop`) every single time and made
+   it visibly jump/bounce, most noticeably while scrolling (many 'scroll'
+   events fire in quick succession). A no-op if the overlay isn't currently
+   showing, or hasn't been built yet for this step. */
+function positionTutorialOverlay(){
+  if(!state.tutorialActive) return;
+  const step = TUTORIAL_STEPS[state.tutorialStep];
+  if(!step) return;
+  const dim = document.getElementById('tutorialDim');
+  const hl = document.getElementById('tutorialHighlight');
+  const tip = document.getElementById('tutorialTooltip');
+  if(!dim || !hl || !tip) return;
 
-  // Positioned after insertion so tip.getBoundingClientRect() reflects its
-  // actual rendered size (depends on the step's text length).
+  let rect = null;
+  if(step.target){
+    const el = document.querySelector(step.target);
+    if(el){
+      const r = el.getBoundingClientRect();
+      if(r.width>0 && r.height>0) rect = r;
+    }
+  }
+
+  dim.className = 'tutorial-dim' + (rect ? '' : ' centered');
+
+  if(rect){
+    const pad = 6;
+    hl.style.display = '';
+    hl.style.top = (rect.top-pad)+'px';
+    hl.style.left = (rect.left-pad)+'px';
+    hl.style.width = (rect.width+pad*2)+'px';
+    hl.style.height = (rect.height+pad*2)+'px';
+  } else {
+    hl.style.display = 'none';
+  }
+
   const tipRect = tip.getBoundingClientRect();
   if(rect){
     let top = rect.bottom + 14;
@@ -4262,12 +4287,28 @@ function renderTutorialOverlay(){
     if(top + tipRect.height > window.innerHeight - 10) top = Math.max(10, rect.top - tipRect.height - 14);
     if(left + tipRect.width > window.innerWidth - 10) left = window.innerWidth - tipRect.width - 10;
     if(left < 10) left = 10;
+    tip.style.transform = ''; // clear any leftover centering transform from a previous no-target step
     tip.style.top = top+'px';
     tip.style.left = left+'px';
   } else {
     tip.style.top = '50%';
     tip.style.left = '50%';
     tip.style.transform = 'translate(-50%,-50%)';
+  }
+}
+/* Single entry point for "make the overlay match current state," called
+   from renderAll(). Only does the expensive full rebuild (see
+   renderTutorialOverlay) when the step actually changed or the overlay
+   isn't built yet; otherwise just repositions the existing elements. This
+   is what stops routine re-renders (e.g. the timer bar ticking) from
+   replaying the tooltip's pop-in animation on every single one. */
+function syncTutorialOverlay(){
+  if(!state.tutorialActive){ removeTutorialOverlayEls(); return; }
+  const tip = document.getElementById('tutorialTooltip');
+  if(!tip || tip.dataset.step !== String(state.tutorialStep)){
+    renderTutorialOverlay();
+  } else {
+    positionTutorialOverlay();
   }
 }
 function goToTutorialStep(idx){
@@ -4300,8 +4341,18 @@ App.closeTutorial = function(){
 // Keep the highlight box glued to its target across resizes/scrolls (the
 // page is a single scrolling column, and the highlight uses viewport-
 // relative coordinates via position:fixed + getBoundingClientRect).
-window.addEventListener('resize', ()=>{ if(state.tutorialActive) renderTutorialOverlay(); });
-window.addEventListener('scroll', ()=>{ if(state.tutorialActive) renderTutorialOverlay(); }, true);
+// Only repositions the existing overlay elements (never rebuilds them), and
+// is rAF-throttled since 'scroll' can fire many times per frame — rebuilding
+// (or even repositioning) on every single event previously replayed the
+// tooltip's pop-in animation and made it visibly jump while scrolling.
+let _tutorialRafPending = false;
+function _scheduleTutorialReposition(){
+  if(!state.tutorialActive || _tutorialRafPending) return;
+  _tutorialRafPending = true;
+  requestAnimationFrame(()=>{ _tutorialRafPending = false; if(state.tutorialActive) positionTutorialOverlay(); });
+}
+window.addEventListener('resize', _scheduleTutorialReposition);
+window.addEventListener('scroll', _scheduleTutorialReposition, true);
 
 /* ============ SIDENOTE (persistent side memo) ============ */
 /* Returns the current --teal/--amber/--berry/--ink values so the sidenote
@@ -5212,7 +5263,7 @@ function renderAll(){
     case 'focus': panel.innerHTML = renderFocus(); break;
     case 'rewards': panel.innerHTML = renderRewards(); break;
   }
-  if(state.tutorialActive) renderTutorialOverlay(); else removeTutorialOverlayEls();
+  syncTutorialOverlay();
   renderCardMemorizeOverlayIfNeeded();
 }
 
