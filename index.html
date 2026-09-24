@@ -570,6 +570,24 @@
   }
   .timer-mode{text-align:center;font-size:12px;letter-spacing:0.1em;text-transform:uppercase;color:var(--ink-dim);}
 
+  /* Persistent (no auto-hide) warning bar for a cloud save that keeps
+     failing — see attemptSaveState()'s own comment for why this exists:
+     the header's small status word is easy to read past mid-typing, and a
+     save that silently never reaches the cloud is exactly the kind of
+     failure that must NOT be easy to miss, since the person has no other
+     way of knowing their latest edits (an inserted photo, in the case that
+     prompted this) aren't actually backed up yet. */
+  .save-fail-banner{
+    display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;
+    background:#dc2626;color:#fff;font-size:13px;font-weight:600;line-height:1.4;
+    padding:9px 16px;text-align:center;border-radius:8px;margin-bottom:12px;
+  }
+  .save-fail-banner-btn{
+    background:#fff;color:#dc2626;border:none;border-radius:6px;
+    font-family:inherit;font-size:12.5px;font-weight:700;padding:5px 12px;cursor:pointer;flex:none;
+  }
+  .save-fail-banner-btn:hover{opacity:0.85;}
+  #headerStatus.status-error{color:#dc2626;font-weight:700;}
   .timer-bar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;}
   .timer-widget{
     display:flex;align-items:center;gap:14px;flex:1;min-width:320px;flex-wrap:wrap;
@@ -923,6 +941,10 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     </div>
   </header>
 
+  <div class="save-fail-banner" id="saveFailBanner" hidden>
+    <span id="saveFailBannerText"></span>
+    <button type="button" class="save-fail-banner-btn" id="saveFailBannerBtn" onclick="App.retrySaveNow()"></button>
+  </div>
   <div class="timer-bar" id="timerBar"></div>
   <div class="reward-timer-bar" id="rewardTimerBar"></div>
   <div class="soundscape-bar" id="soundscapeBar"></div>
@@ -970,7 +992,7 @@ const LANG = {
       drawHint:'무작위로 주제를 뽑아 스스로 테스트해요', outputHint:'백지에서 배운 내용을 직접 떠올려 써봐요', gapsHint:'놓치거나 틀린 부분을 따로 모아둬요',
       cardsHint:'간격 반복으로 암기카드를 복습해요', focusHint:'타이머로 집중 학습 시간을 기록해요', rewardsHint:'모은 포인트로 쉬는 시간이나 보상을 받아요'
     },
-    status: {loading:'불러오는 중…', saved:'저장됨', saveFailed:'저장 실패 — 다시 시도해 주세요'},
+    status: {loading:'불러오는 중…', saved:'저장됨', saveFailed:'저장 실패 — 다시 시도해 주세요', saveFailBanner:'클라우드 저장에 계속 실패하고 있어요 — 지금 새로고침하거나 다른 기기에서 열면 최근 변경사항을 잃을 수 있어요.', saveFailRetry:'다시 시도', loadFailedWarning:'저장된 데이터를 불러오는 데 실패했어요. 인터넷 연결을 확인하고 새로고침해주세요 — 이 상태로 계속 사용하면 최근 저장 내용이 덮어써질 수 있어요.'},
     common: {ok:'확인'},
     theme: {
       wizardLabel:'🧙 마법사 모드', classicLabel:'📜 클래식 모드', hospitalLabel:'🏥 병원 모드', lawLabel:'⚖️ 법조 모드', labLabel:'🧪 연구실 모드'
@@ -1264,7 +1286,7 @@ const LANG = {
       drawHint:'Pull a random topic to test yourself', outputHint:'Recall what you learned from a blank page', gapsHint:'Collect things you missed or got wrong',
       cardsHint:'Review flashcards with spaced repetition', focusHint:'Track focused study time with a timer', rewardsHint:'Spend points on breaks and rewards'
     },
-    status: {loading:'Loading…', saved:'Saved', saveFailed:'Save failed — please try again'},
+    status: {loading:'Loading…', saved:'Saved', saveFailed:'Save failed — please try again', saveFailBanner:'Cloud save keeps failing — refreshing or opening on another device now could lose recent changes.', saveFailRetry:'Retry', loadFailedWarning:'Failed to load your saved data. Check your connection and refresh — continuing now risks overwriting your recent saves.'},
     common: {ok:'OK'},
     theme: {
       wizardLabel:'🧙 Wizard mode', classicLabel:'📜 Classic mode', hospitalLabel:'🏥 Hospital mode', lawLabel:'⚖️ Law mode', labLabel:'🧪 Lab mode'
@@ -1557,7 +1579,7 @@ const LANG = {
       drawHint:'Zufällig ein Thema ziehen und sich selbst testen', outputHint:'Gelerntes aus dem Gedächtnis aufschreiben', gapsHint:'Verpasstes oder Falsches sammeln',
       cardsHint:'Karteikarten mit Spaced Repetition wiederholen', focusHint:'Fokussierte Lernzeit mit Timer erfassen', rewardsHint:'Gesammelte Punkte gegen Pausen und Belohnungen eintauschen'
     },
-    status: {loading:'Wird geladen…', saved:'Gespeichert', saveFailed:'Speichern fehlgeschlagen — bitte erneut versuchen'},
+    status: {loading:'Wird geladen…', saved:'Gespeichert', saveFailed:'Speichern fehlgeschlagen — bitte erneut versuchen', saveFailBanner:'Cloud-Speicherung schlägt weiterhin fehl — ein Neuladen oder Öffnen auf einem anderen Gerät könnte jetzt kürzliche Änderungen verlieren.', saveFailRetry:'Erneut versuchen', loadFailedWarning:'Deine gespeicherten Daten konnten nicht geladen werden. Prüfe deine Verbindung und lade neu — sonst könnten kürzliche Speicherungen überschrieben werden.'},
     common: {ok:'OK'},
     theme: {
       wizardLabel:'🧙 Magiermodus', classicLabel:'📜 Klassischer Modus', hospitalLabel:'🏥 Krankenhausmodus', lawLabel:'⚖️ Gerichtsmodus', labLabel:'🧪 Labormodus'
@@ -1850,7 +1872,7 @@ const LANG = {
       drawHint:'Tirez un sujet au hasard pour vous tester', outputHint:"Rappelez-vous ce que vous avez appris à partir d'une page blanche", gapsHint:'Rassemblez ce que vous avez manqué ou mal compris',
       cardsHint:'Révisez vos cartes avec la répétition espacée', focusHint:'Suivez votre temps de concentration avec un minuteur', rewardsHint:'Dépensez vos points en pauses et récompenses'
     },
-    status: {loading:'Chargement…', saved:'Enregistré', saveFailed:"Échec de l'enregistrement — veuillez réessayer"},
+    status: {loading:'Chargement…', saved:'Enregistré', saveFailed:"Échec de l'enregistrement — veuillez réessayer", saveFailBanner:"L'enregistrement dans le cloud échoue toujours — actualiser ou ouvrir sur un autre appareil maintenant pourrait faire perdre les modifications récentes.", saveFailRetry:'Réessayer', loadFailedWarning:"Échec du chargement de vos données enregistrées. Vérifiez votre connexion et actualisez — continuer maintenant risque d'écraser vos enregistrements récents."},
     common: {ok:'OK'},
     theme: {
       wizardLabel:'🧙 Mode magicien', classicLabel:'📜 Mode classique', hospitalLabel:'🏥 Mode hôpital', lawLabel:'⚖️ Mode droit', labLabel:'🧪 Mode laboratoire'
@@ -2739,6 +2761,14 @@ const sbClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let currentUserId = null;
 
 window.storage = {
+  // `error: true` on the result marks a genuine fetch failure (network,
+  // Supabase down, RLS problem, ...) as distinct from "no row exists yet"
+  // (a brand new account, `!data` with no `error`) — both used to collapse
+  // into the same plain `{value: undefined}`, which loadState() could not
+  // tell apart from a legitimately empty new account. See loadState()'s
+  // own comment for why that distinction matters: silently treating a
+  // failed load as "nothing saved yet" risks the next autosave overwriting
+  // real cloud data with an empty local state.
   async get(key /*, isShared */){
     if(!currentUserId) return { value: undefined };
     try{
@@ -2747,10 +2777,11 @@ window.storage = {
         .select('state')
         .eq('id', currentUserId)
         .maybeSingle();
-      if(error || !data) return { value: undefined };
+      if(error) return { value: undefined, error: true };
+      if(!data) return { value: undefined };
       return { value: JSON.stringify(data.state) };
     }catch(e){
-      return { value: undefined };
+      return { value: undefined, error: true };
     }
   },
   async set(key, value /*, isShared */){
@@ -2865,6 +2896,11 @@ async function startAppAfterAuth(userId){
   renderTabs();
   renderAll();
   initSidenote();
+  // See loadState()'s own comment: cloudLoadFailed means the cloud fetch
+  // itself failed (not "nothing saved yet"), so whatever just rendered may
+  // be missing real data — warn clearly rather than let the person start
+  // working (and autosaving) on top of what could be a blank slate.
+  if(cloudLoadFailed) showAlert(t('status.loadFailedWarning'));
 }
 sbClient.auth.onAuthStateChange((event, session)=>{
   if(session){
@@ -3631,33 +3667,105 @@ function normalizeState(){
     state.settings.richTextMigratedV1 = true;
   }
 }
+// Set when the initial cloud load genuinely failed (network/Supabase error —
+// see window.storage.get's own comment on how that's now told apart from
+// "brand new account, nothing saved yet"), so startAppAfterAuth can warn
+// loudly instead of silently opening what looks like an empty account.
+let cloudLoadFailed = false;
 async function loadState(){
+  cloudLoadFailed = false;
   try{
     const res = await window.storage.get(STORAGE_KEY, false);
     if(res && res.value){
       const parsed = JSON.parse(res.value);
       state = Object.assign(defaultState(), parsed);
       normalizeState();
+    }else if(res && res.error){
+      cloudLoadFailed = true;
     }
   }catch(e){
-    // no existing data yet
+    cloudLoadFailed = true;
   }
 }
+/* saveState()/attemptSaveState() — this used to trust window.storage.set()'s
+   own internal try/catch to signal failure by THROWING, and only then would
+   the header show "저장 실패". But window.storage.set() (see its own def
+   above) never actually throws — every failure path inside it, including a
+   Supabase upsert error (wrong network, RLS, or a payload too large for the
+   cloud to accept — see downscaleImageDataUrl's own comment on how an
+   image can cause exactly that), is already caught INSIDE that function and
+   turned into a normal `{success:false}` return value. So the `await
+   ...; setStatus(saved)` line right after it ran UNCONDITIONALLY on every
+   save, success or failure — the app was telling the person "저장됨" even
+   when nothing had actually reached the cloud. That's the real story
+   behind "이미지 넣고 전체 저장 눌렀는데 이미지가 다 사라졌어": the local copy was
+   fine at that exact moment (everything here works off the in-memory
+   `state` object first), but the save the person just watched succeed had
+   silently failed underneath, and the next time this device (or another
+   one) loaded state from the cloud, it got back the older, image-less
+   version instead. Now the actual `success` flag is checked, a failure
+   retries a few times on its own (typical for a brief network blip) before
+   asking for help, and — critically — repeated failure surfaces as an
+   impossible-to-miss red banner (see showSaveFailBanner), not just a small
+   header word that's easy to read past mid-typing. */
 let saveTimeout = null;
+let saveRetryTimer = null;
+let saveRetryCount = 0;
 function saveState(){
   clearTimeout(saveTimeout);
-  saveTimeout = setTimeout(async ()=>{
-    try{
-      await window.storage.set(STORAGE_KEY, JSON.stringify(state), false);
-      setStatus(t('status.saved'));
-    }catch(e){
-      setStatus(t('status.saveFailed'));
-    }
-  }, 250);
+  saveTimeout = setTimeout(()=>{ attemptSaveState(); }, 250);
 }
-function setStatus(msg){
+async function attemptSaveState(){
+  clearTimeout(saveRetryTimer);
+  let result;
+  try{
+    result = await window.storage.set(STORAGE_KEY, JSON.stringify(state), false);
+  }catch(e){
+    result = { success:false };
+  }
+  if(result && result.success){
+    saveRetryCount = 0;
+    setStatus(t('status.saved'), false);
+    hideSaveFailBanner();
+  }else{
+    setStatus(t('status.saveFailed'), true);
+    // A brief network blip usually clears up on its own — retry a handful
+    // of times with backoff before leaning on the person to notice and act.
+    // Anything still failing after that is treated as persistent: the
+    // banner goes up and stays up (through App.retrySaveNow, or the next
+    // successful autosave from any edit) rather than retrying forever
+    // silently in the background.
+    if(saveRetryCount < 5){
+      saveRetryCount++;
+      const delay = Math.min(30000, 1000 * Math.pow(2, saveRetryCount));
+      saveRetryTimer = setTimeout(()=>{ attemptSaveState(); }, delay);
+    }else{
+      showSaveFailBanner();
+    }
+  }
+}
+App.retrySaveNow = function(){
+  saveRetryCount = 0;
+  attemptSaveState();
+};
+function showSaveFailBanner(){
+  const el = document.getElementById('saveFailBanner');
+  if(!el) return;
+  const textEl = document.getElementById('saveFailBannerText');
+  if(textEl) textEl.textContent = t('status.saveFailBanner');
+  const btnEl = document.getElementById('saveFailBannerBtn');
+  if(btnEl) btnEl.textContent = t('status.saveFailRetry');
+  el.hidden = false;
+}
+function hideSaveFailBanner(){
+  const el = document.getElementById('saveFailBanner');
+  if(el) el.hidden = true;
+}
+function setStatus(msg, isError){
   const el = document.getElementById('headerStatus');
-  if(el) el.textContent = msg;
+  if(!el) return;
+  el.textContent = msg;
+  el.classList.toggle('status-error', !!isError);
 }
 
 /* ============ BACKUP: EXPORT / IMPORT ============ */
@@ -5050,25 +5158,46 @@ App.triggerRichImagePicker = function(bodyId){
 /* Large photos (a phone camera shot easily runs 3-5MB) would otherwise
    bloat the single JSON blob this app persists everything into
    (localStorage, or the Supabase user_state row) — a few of them could
-   push a save past a quota and silently break saving entirely. Downscaling
-   to a reasonable max dimension and re-encoding as JPEG before it's ever
-   inserted keeps notes/cards embeddable and fast without the person having
-   to think about it. Resolves with the original data URL unchanged if the
-   image is already small (nothing to gain by re-encoding it). */
+   push a save past a quota/payload-size limit and silently break saving
+   entirely (this is exactly the failure mode behind "이미지 넣고 전체 저장 눌렀는데
+   이미지가 다 사라졌어" — the LOCAL copy looked fine right after saving, since
+   nothing here ever blocks on the cloud round-trip succeeding, but the
+   image was too big to actually reach Supabase; the next time this device
+   (or any other) loaded state from the cloud, it silently loaded the
+   older, image-less version instead — see saveState()'s own comment for
+   the other half of this fix, which makes THAT failure loud instead of a
+   barely-visible header flicker). Downscaling to a reasonable max
+   dimension and re-encoding as JPEG before it's ever inserted keeps notes/
+   cards embeddable and fast without the person having to think about it.
+   This USED to skip re-encoding entirely whenever the image's PIXEL
+   dimensions were already under maxDim — but pixel size and byte size
+   aren't the same thing: a screenshot or a complex, noisy PNG can easily
+   be several MB despite being, say, 900×600, and that case slipped through
+   this function completely untouched. Now it always re-encodes as JPEG
+   (whatever the original dimensions), and only keeps the ORIGINAL bytes if
+   they somehow end up smaller than the re-encoded version (a plain white
+   background is drawn first, since re-encoding a transparent PNG as JPEG —
+   which has no alpha channel — would otherwise turn every transparent
+   pixel solid black). */
 function downscaleImageDataUrl(dataUrl, maxDim){
   return new Promise(function(resolve){
     const img = new Image();
     img.onload = function(){
       const w = img.naturalWidth || img.width;
       const h = img.naturalHeight || img.height;
-      if(!w || !h || (w<=maxDim && h<=maxDim)){ resolve(dataUrl); return; }
-      const scale = maxDim / Math.max(w, h);
+      if(!w || !h){ resolve(dataUrl); return; }
+      const scale = Math.min(1, maxDim / Math.max(w, h));
       const canvas = document.createElement('canvas');
       canvas.width = Math.max(1, Math.round(w*scale));
       canvas.height = Math.max(1, Math.round(h*scale));
       const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      try{ resolve(canvas.toDataURL('image/jpeg', 0.85)); }
+      try{
+        const recompressed = canvas.toDataURL('image/jpeg', 0.85);
+        resolve(recompressed.length < dataUrl.length ? recompressed : dataUrl);
+      }
       catch(e){ resolve(dataUrl); }
     };
     img.onerror = function(){ resolve(dataUrl); };
