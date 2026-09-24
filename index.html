@@ -7452,22 +7452,23 @@ App.saveAllNotes = function(){
    a Blob URL in a new tab — see openPrintableDoc below), with none of this
    app's own JavaScript loaded in it. An inserted image's .rt-img-wrap
    relies on JS (ensureImageContainerFits/the migration observer) to size
-   its container and stay visible — none of which exists over there — so
-   rather than risk a photo landing off in the top-left corner of a blank
-   page, this flattens every image back into normal top-to-bottom document
-   flow (source order) before it's ever embedded in the exported HTML,
-   stripping the now-pointless move/delete/resize handles along with it. */
+   its container and stay visible — none of which exists over there.
+   This USED to flatten every image back into normal top-to-bottom document
+   flow (source order) to sidestep that, but that silently discarded
+   whatever spot the person had actually dragged each photo to — so the PDF
+   ended up looking nothing like the note it came from (reported directly:
+   "이미지의 위치가 이상해져... 노트의 이미지랑 최대한 비슷하게"). Now it keeps the
+   saved position:absolute/left/top exactly as the note has it — only
+   stripping the now-pointless move/delete/resize handles, which don't do
+   anything without the app's JS anyway — and openPrintableDoc's own inline
+   script (see its comment) recreates just enough of
+   ensureImageContainerFits' sizing/clamping logic, standalone, so the
+   images still stay inside their container and visible instead of
+   overflowing or getting clipped. */
 function flattenAbsoluteImagesForPrint(html){
   if(!html || html.indexOf('rt-img-wrap')===-1) return html;
   const div = document.createElement('div');
   div.innerHTML = html;
-  div.querySelectorAll('.rt-img-wrap').forEach(function(wrap){
-    wrap.style.position = 'static';
-    wrap.style.left = '';
-    wrap.style.top = '';
-    wrap.style.display = 'block';
-    wrap.style.margin = '10px 0';
-  });
   div.querySelectorAll('.rt-img-move-handle,.rt-img-delete-handle,.rt-img-resize-handle').forEach(function(el){ el.remove(); });
   return div.innerHTML;
 }
@@ -7488,7 +7489,7 @@ function openPrintableDoc(title, bodyHtml){
   h3{font-size:14px;margin:0 0 3px;}
   .pdf-topic{page-break-inside:avoid;margin-bottom:26px;}
   .pdf-meta{font-size:11px;color:#6b6152;margin-bottom:10px;font-family:'IBM Plex Mono',monospace;}
-  .pdf-body{font-size:13.5px;line-height:1.7;margin-bottom:10px;}
+  .pdf-body{font-size:13.5px;line-height:1.7;margin-bottom:10px;position:relative;}
   .pdf-empty{color:#9a917f;font-style:italic;}
   .pdf-subtopic{margin:12px 0 12px 16px;padding-left:12px;border-left:2px solid #ddd4bf;}
   .print-bar{display:flex;justify-content:flex-end;margin-bottom:16px;}
@@ -7500,6 +7501,50 @@ function openPrintableDoc(title, bodyHtml){
 <div class="print-bar"><button onclick="window.print()">🖨 ${state.settings.language==='ko'?'인쇄 / PDF로 저장':state.settings.language==='de'?'Drucken / Als PDF':state.settings.language==='fr'?'Imprimer / Enregistrer en PDF':'Print / Save as PDF'}</button></div>
 <h1>${escapeHtml(title)}</h1>
 ${bodyHtml}
+<script>
+// Standalone stand-in for the live app's ensureImageContainerFits()/
+// App.startImageMove() clamping — this document has none of the app's own
+// JS loaded, so a note's freely-dragged photos (position:absolute left/top,
+// preserved as-is from the note — see flattenAbsoluteImagesForPrint's own
+// comment) need this to actually stay visible: a position:absolute image
+// contributes nothing to its parent's height on its own, and a photo
+// positioned further right than THIS document's (narrower, fixed-width)
+// page could otherwise sit off the printable area. Runs on window 'load'
+// (not just DOMContentLoaded) so every embedded data: image has already
+// decoded and has a real offsetHeight/offsetWidth to measure.
+(function(){
+  function fitImages(){
+    document.querySelectorAll('.pdf-body').forEach(function(container){
+      var maxBottom = 0;
+      container.querySelectorAll(':scope > .rt-img-wrap').forEach(function(wrap){
+        // A position:absolute box with only "left" set (no explicit width,
+        // no "right") shrink-to-fits within (containing-block width minus
+        // left) — when "left" alone already exceeds the container's width
+        // (a photo dragged around in a much wider editor than this fixed-
+        // width printed page), that available space goes negative and the
+        // browser collapses the box to 0 width, which would otherwise make
+        // every measurement/clamp below meaningless. Giving the wrap an
+        // explicit width up front (matching its own <img>, which always
+        // carries a real inline width — see insertImageChipAtSelection/
+        // App.startImageResize) sidesteps that shrink-to-fit edge case
+        // entirely, so clamping below always has a real width to work with.
+        var img = wrap.querySelector('img');
+        var imgWidth = img ? (parseFloat(img.style.width) || img.getBoundingClientRect().width || img.naturalWidth || 0) : 0;
+        if(imgWidth > 0) wrap.style.width = imgWidth + 'px';
+        var maxLeft = Math.max(0, container.clientWidth - wrap.offsetWidth);
+        var left = parseFloat(wrap.style.left) || 0;
+        if(left > maxLeft) wrap.style.left = maxLeft + 'px';
+        var top = parseFloat(wrap.style.top) || 0;
+        var bottom = top + (wrap.offsetHeight || 0);
+        if(bottom > maxBottom) maxBottom = bottom;
+      });
+      if(maxBottom > 0) container.style.minHeight = (maxBottom + 16) + 'px';
+    });
+  }
+  if(document.readyState==='complete') fitImages();
+  else window.addEventListener('load', fitImages);
+})();
+<\/script>
 </body>
 </html>`;
   const blob = new Blob([doc], {type:'text/html'});
