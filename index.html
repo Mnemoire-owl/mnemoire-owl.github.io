@@ -10231,11 +10231,17 @@ App.cancelStopwatchEdit = function(){
    badges/quest bonus all apply, same as any other earned minute); correcting
    downward just deducts XP directly, floored at 0, without touching streak/
    badges — deleting real study time isn't a "study session" to celebrate,
-   it's an accounting fix. */
+   it's an accounting fix.
+   Also calls adjustTodayFocusSessions() with the raw seconds-level delta
+   (not the rounded deltaMinutes used for focusLog/XP) so the dashboard
+   calendar — which is built entirely from state.focusSessions, never
+   focusLog — picks up the same correction instead of continuing to show
+   today's old, uncorrected total. */
 App.saveStopwatchEdit = function(){
   const minEl = document.getElementById('editStopwatchMin');
   const secEl = document.getElementById('editStopwatchSec');
   if(!minEl) return;
+  const oldElapsedSeconds = state.stopwatch.elapsedSeconds;
   const newMinutesPart = Math.max(0, Math.round(parseFloat(minEl.value)||0));
   const newSecondsPart = secEl ? Math.min(59, Math.max(0, Math.round(parseFloat(secEl.value)||0))) : 0;
   commitStopwatch(true);
@@ -10249,6 +10255,7 @@ App.saveStopwatchEdit = function(){
       state.gamification.xp = Math.max(0, state.gamification.xp + deltaMinutes*2);
     }
   }
+  adjustTodayFocusSessions(newSeconds - oldElapsedSeconds);
   state.stopwatch.elapsedSeconds = newSeconds;
   state.stopwatch.committedSeconds = newSeconds;
   state.stopwatch.subElapsed = 0;
@@ -10492,6 +10499,45 @@ App.deleteFocusEntry = function(id, kind){
     renderAll();
   }, t('focus.deleteEntry'));
 };
+/* Keeps state.focusSessions in sync with a manual stopwatch time correction
+   (App.saveStopwatchEdit) — focusSessions is the ONLY source the dashboard
+   calendar's per-day/per-subject breakdown reads (see dayStudyBreakdown /
+   the comment on logSitting's cap below); focusLog is a separate ledger
+   that only feeds today's headline total/goals/streak. Without this, editing
+   the stopwatch time down (e.g. "삭제") corrected the header number and
+   today's total but left the calendar bar for that day showing the old,
+   uncorrected amount, since nothing had ever touched focusSessions.
+   deltaSeconds>0 (correcting time upward): adds one new session row, tagged
+   to whichever subject the timer is currently linked to — same shape
+   logSitting() itself creates, so it shows up in the calendar exactly like
+   a normal recorded sitting would.
+   deltaSeconds<0 (correcting time downward): removes that many seconds from
+   the day's stopwatch-sourced sessions, most-recent-first, trimming a row's
+   seconds or deleting it outright as needed — the same "erase from the most
+   recent sitting backward" approach App.deleteFocusEntry uses for a single
+   row, generalized here to a partial/multi-row amount since the correction
+   isn't tied to any one specific sitting. */
+function adjustTodayFocusSessions(deltaSeconds){
+  if(!deltaSeconds) return;
+  const day = state.stopwatch.day || sessionToday();
+  if(deltaSeconds > 0){
+    state.focusSessions.push({id:uid(), date:day, seconds:deltaSeconds, subjectId:state.timer.subjectId||null, source:'stopwatch', t:Date.now()});
+    if(state.focusSessions.length>3000) state.focusSessions = state.focusSessions.slice(-3000);
+    return;
+  }
+  let remaining = -deltaSeconds;
+  for(let i=state.focusSessions.length-1; i>=0 && remaining>0; i--){
+    const f = state.focusSessions[i];
+    if(f.date!==day || f.source!=='stopwatch') continue;
+    if(f.seconds<=remaining){
+      remaining -= f.seconds;
+      state.focusSessions.splice(i,1);
+    } else {
+      f.seconds -= remaining;
+      remaining = 0;
+    }
+  }
+}
 function logSitting(dateOverride){
   const sw = state.stopwatch;
   const seconds = sw.subElapsed;
