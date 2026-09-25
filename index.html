@@ -4598,6 +4598,114 @@ function hexToRgbStr(hex){
   const r = parseInt(h.slice(0,2),16), g = parseInt(h.slice(2,4),16), b = parseInt(h.slice(4,6),16);
   return `rgb(${r}, ${g}, ${b})`;
 }
+/* Rebuilds a LIVE, attached rich-text field's color/bold/italic/underline
+   markup from each text run's actual COMPUTED (i.e. rendered-on-screen)
+   style, discarding whatever nested/overlapping <span>/<b>/<i>/<u> the
+   browser's own execCommand calls (plus IME composition, which rewrites
+   the composing node on every jamo for Korean input) happened to leave
+   behind. This is the fix for "색을 검은색으로 되돌려서 타이핑하면 화면에는
+   맞게 보이는데, 저장하거나 다른 탭에 갔다 오면 도로 빨간색으로 바뀌어 있다" —
+   the reactive per-keystroke correction in correctRichStyleDrift/
+   primeRichTypingStyle keeps the LIVE screen looking right (which is why
+   the person sees it typed correctly), but a soft, easily-dropped browser
+   "typing style" hint can still leave the underlying DOM structure
+   inconsistent with what's actually rendered — and that inconsistent DOM
+   is what silently got persisted before this existed. Calling this right
+   before sanitizeRichHtml(), instead of just reading .innerHTML directly,
+   means the save always captures the WYSIWYG truth instead of whatever
+   markup mess produced it, regardless of which exact browser/IME quirk
+   caused the mess.
+   Only text's color/bold/italic/underline is touched — block/line
+   structure (div/p), lists (ul/ol/li), images (.rt-img-wrap) and tag
+   annotations (.rich-tag, whose own wrapper is kept exactly as-is; only
+   its TEXT inside is normalized) all pass through unchanged. A text run
+   whose computed color matches the field's own inherited default (no
+   override at all) is left with NO explicit color, specifically so
+   ordinary un-colored text keeps following the active theme's ink color
+   dynamically instead of freezing to whatever that color happens to
+   resolve to today. */
+function normalizeRichColorBold(root){
+  if(!root || !root.isConnected) return root ? root.innerHTML : '';
+  const defaultColor = getComputedStyle(root).color;
+  function isImageWrap(el){ return !!(el.classList && el.classList.contains('rt-img-wrap')); }
+  function isRichTag(el){ return !!(el.classList && el.classList.contains('rich-tag')); }
+  function styleKeyFor(node){
+    const el = node.nodeType===3 ? node.parentElement : node;
+    if(!el) return defaultColor+'|false|false|false';
+    const cs = getComputedStyle(el);
+    return cs.color+'|'+(parseInt(cs.fontWeight,10)>=600)+'|'+(cs.fontStyle==='italic')+'|'+(cs.textDecorationLine.indexOf('underline')!==-1);
+  }
+  function wrapRun(text, key){
+    if(!text) return '';
+    const parts = key.split('|');
+    const color = parts[0], bold = parts[1]==='true', italic = parts[2]==='true', underline = parts[3]==='true';
+    let html = escapeHtml(text);
+    if(underline) html = '<u>'+html+'</u>';
+    if(italic) html = '<i>'+html+'</i>';
+    if(bold) html = '<b>'+html+'</b>';
+    if(color!==defaultColor) html = '<span style="color:'+color+'">'+html+'</span>';
+    return html;
+  }
+  function runsToHtml(runs){
+    let html = '', i = 0;
+    while(i<runs.length){
+      if(runs[i].opaque!==undefined){ html += runs[i].opaque; i++; continue; }
+      let text = runs[i].text; const key = runs[i].key; i++;
+      while(i<runs.length && runs[i].opaque===undefined && runs[i].key===key){ text += runs[i].text; i++; }
+      html += wrapRun(text, key);
+    }
+    return html;
+  }
+  function processInline(node){
+    let out = [];
+    node.childNodes.forEach(function(child){
+      if(child.nodeType===3){
+        if(child.nodeValue) out.push({text: child.nodeValue, key: styleKeyFor(child)});
+      } else if(child.nodeType===1){
+        if(child.tagName==='BR'){
+          out.push({opaque:'<br>'});
+        } else if(isImageWrap(child)){
+          out.push({opaque: child.outerHTML});
+        } else if(isRichTag(child)){
+          const tagVal = child.getAttribute('data-tag')||'';
+          out.push({opaque: '<span class="rich-tag" data-tag="'+escapeAttr(tagVal)+'">'+runsToHtml(processInline(child))+'</span>'});
+        } else {
+          // Any other inline wrapper (span/b/i/u/strong/em/font/...) is
+          // flattened away here — its visual effect on descendant text was
+          // already captured via getComputedStyle in styleKeyFor above, so
+          // keeping the original tag too would only risk re-introducing the
+          // exact nested/overlapping structure this function exists to
+          // clean up.
+          out = out.concat(processInline(child));
+        }
+      }
+    });
+    return out;
+  }
+  function processBlock(el){ return runsToHtml(processInline(el)); }
+  let html = '';
+  root.childNodes.forEach(function(child){
+    if(child.nodeType===3){
+      if(child.nodeValue) html += wrapRun(child.nodeValue, styleKeyFor(child));
+    } else if(child.nodeType===1){
+      if(child.tagName==='BR'){
+        html += '<br>';
+      } else if(isImageWrap(child)){
+        html += child.outerHTML;
+      } else if(child.tagName==='UL' || child.tagName==='OL'){
+        const tag = child.tagName.toLowerCase();
+        const items = Array.from(child.children).map(function(li){ return '<li>'+processBlock(li)+'</li>'; }).join('');
+        html += '<'+tag+'>'+items+'</'+tag+'>';
+      } else if(child.tagName==='DIV' || child.tagName==='P'){
+        const tag = child.tagName.toLowerCase();
+        html += '<'+tag+'>'+processBlock(child)+'</'+tag+'>';
+      } else {
+        html += processBlock(child);
+      }
+    }
+  });
+  return html;
+}
 /* Strips everything from a contenteditable field's innerHTML except plain
    markup and an inline color style, so pasted content (or any future
    markup drift) can never carry scripts/handlers/links into stored state
@@ -5648,7 +5756,7 @@ function commitSidenoteContent(side){
   const body = document.getElementById(ids.body);
   if(!body) return;
   const sn = sidenoteState(side);
-  sn.content = sanitizeRichHtml(body.innerHTML);
+  sn.content = sanitizeRichHtml(normalizeRichColorBold(body));
   saveState();
   const savedEl = document.getElementById(ids.saved);
   if(savedEl){
@@ -7636,15 +7744,15 @@ function saveAllNotes(){
   const topicArea = document.getElementById('topicNotesArea');
   if(topicArea){
     applyRecallEditsIntoNotesDom(topicArea);
-    tp.notes = sanitizeRichHtml(topicArea.innerHTML);
+    tp.notes = sanitizeRichHtml(normalizeRichColorBold(topicArea));
     syncAutoSubtopicsFromNotes(tp);
   }
   const pretestArea = document.getElementById('pretestArea');
-  if(pretestArea) tp.pretestText = sanitizeRichHtml(pretestArea.innerHTML);
+  if(pretestArea) tp.pretestText = sanitizeRichHtml(normalizeRichColorBold(pretestArea));
   (function walk(list){
     list.forEach(node=>{
       const area = document.getElementById('subNotesArea-'+node.id);
-      if(area) node.notes = sanitizeRichHtml(area.innerHTML);
+      if(area) node.notes = sanitizeRichHtml(normalizeRichColorBold(area));
       walk(node.subtopics||[]);
     });
   })(tp.subtopics);
@@ -8600,7 +8708,7 @@ App.setOutputTarget = function(id){
   saveState(); renderAll();
 };
 App.setOutputRecallText = function(bodyEl){
-  state.output.recallText = sanitizeRichHtml(bodyEl.innerHTML);
+  state.output.recallText = sanitizeRichHtml(normalizeRichColorBold(bodyEl));
   saveState();
 };
 App.toggleOutputReveal = function(){
@@ -8638,7 +8746,7 @@ App.nextOutputTarget = function(){
 App.saveOutputAttempt = function(sid, tid, targetId, subjectName, targetName){
   const recallText = state.output.recallText||'';
   const gapArea = document.getElementById('gapNoteArea');
-  const gapText = gapArea ? sanitizeRichHtml(gapArea.innerHTML) : '';
+  const gapText = gapArea ? sanitizeRichHtml(normalizeRichColorBold(gapArea)) : '';
   if(richIsEmpty(recallText) && richIsEmpty(gapText)) return;
   const s = state.subjects.find(x=>x.id===sid);
   const tp = s && s.topics.find(x=>x.id===tid);
@@ -8669,14 +8777,14 @@ App.saveOutputAttemptEdit = function(id){
   if(!a) return;
   const recallEl = document.getElementById('editAttemptRecall_'+id);
   const gapEl = document.getElementById('editAttemptGap_'+id);
-  a.recallText = recallEl ? sanitizeRichHtml(recallEl.innerHTML) : a.recallText;
-  a.gapText = gapEl ? sanitizeRichHtml(gapEl.innerHTML) : a.gapText;
+  a.recallText = recallEl ? sanitizeRichHtml(normalizeRichColorBold(recallEl)) : a.recallText;
+  a.gapText = gapEl ? sanitizeRichHtml(normalizeRichColorBold(gapEl)) : a.gapText;
   state.editingOutputAttemptId = null;
   saveState(); renderAll();
 };
 App.saveGap = function(sid, tid, targetId, subjectName, targetName){
   const area = document.getElementById('gapNoteArea');
-  const text = area ? sanitizeRichHtml(area.innerHTML) : '';
+  const text = area ? sanitizeRichHtml(normalizeRichColorBold(area)) : '';
   if(richIsEmpty(text)) return;
   state.gaps.push({
     id: uid(), date: todayISO(), subjectId: sid, topicId: tid,
@@ -8741,7 +8849,7 @@ App.startExam = function(){
   saveState(); renderAll();
   if(ex.running && state.activeTab==='output') resumeExamTimer();
 };
-App.examSetRecallText = function(bodyEl){ state.output.exam.recallText = sanitizeRichHtml(bodyEl.innerHTML); saveState(); };
+App.examSetRecallText = function(bodyEl){ state.output.exam.recallText = sanitizeRichHtml(normalizeRichColorBold(bodyEl)); saveState(); };
 App.examToggleReveal = function(){
   const ex = state.output.exam;
   ex.revealed = true;
@@ -8761,7 +8869,7 @@ App.resumeExamTimerManual = function(){
 };
 App.examSaveGap = function(sid, tid, subid, subjectName, targetName){
   const area = document.getElementById('examGapNoteArea');
-  const text = area ? sanitizeRichHtml(area.innerHTML) : '';
+  const text = area ? sanitizeRichHtml(normalizeRichColorBold(area)) : '';
   if(richIsEmpty(text)) return;
   state.gaps.push({
     id: uid(), date: todayISO(), subjectId: sid, topicId: tid,
@@ -8929,7 +9037,7 @@ App.saveGapEdit = function(id){
   const g = state.gaps.find(x=>x.id===id);
   if(!g) return;
   const textEl = document.getElementById('editGapText_'+id);
-  const text = sanitizeRichHtml(textEl.innerHTML);
+  const text = sanitizeRichHtml(normalizeRichColorBold(textEl));
   if(richIsEmpty(text)) return;
   g.gapText = text;
   state.editingGapId = null;
@@ -9354,8 +9462,8 @@ App.addCard = function(){
   if(type==='basic'){
     const frontEl = document.getElementById('cardFront');
     const backEl = document.getElementById('cardBack');
-    const front = sanitizeRichHtml(frontEl.innerHTML);
-    const back = sanitizeRichHtml(backEl.innerHTML);
+    const front = sanitizeRichHtml(normalizeRichColorBold(frontEl));
+    const back = sanitizeRichHtml(normalizeRichColorBold(backEl));
     if(richIsEmpty(front)||richIsEmpty(back)) return;
     card.front = front; card.back = back;
   } else {
@@ -9426,8 +9534,8 @@ App.saveCardEdit = function(){
   if(type==='basic'){
     const frontEl = document.getElementById('cardFront');
     const backEl = document.getElementById('cardBack');
-    const front = sanitizeRichHtml(frontEl.innerHTML);
-    const back = sanitizeRichHtml(backEl.innerHTML);
+    const front = sanitizeRichHtml(normalizeRichColorBold(frontEl));
+    const back = sanitizeRichHtml(normalizeRichColorBold(backEl));
     if(richIsEmpty(front)||richIsEmpty(back)) return;
     c.front = front; c.back = back;
     delete c.clozeText;
