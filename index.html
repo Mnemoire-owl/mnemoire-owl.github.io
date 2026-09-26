@@ -578,9 +578,17 @@
      way of knowing their latest edits (an inserted photo, in the case that
      prompted this) aren't actually backed up yet. */
   .save-fail-banner{
+    /* Fixed to the bottom of the viewport (not just placed near the top of
+       the document) so it stays visible no matter how far down a long note
+       has been scrolled — the whole point of moving it here: a banner that
+       merely sits early in the page flow scrolls away with the header the
+       moment the page grows past one screen, which is exactly what made it
+       easy to miss in the first place. */
+    position:fixed;left:12px;right:12px;bottom:12px;z-index:1600;
     display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;
     background:#dc2626;color:#fff;font-size:13px;font-weight:600;line-height:1.4;
-    padding:9px 16px;text-align:center;border-radius:8px;margin-bottom:12px;
+    padding:9px 16px;text-align:center;border-radius:10px;
+    box-shadow:0 6px 20px rgba(0,0,0,.28);
   }
   .save-fail-banner-btn{
     background:#fff;color:#dc2626;border:none;border-radius:6px;
@@ -3881,11 +3889,21 @@ App.retrySaveNow = function(){
 function showSaveFailBanner(){
   const el = document.getElementById('saveFailBanner');
   if(!el) return;
+  // Only pop the alert modal (below) on the transition INTO a failure
+  // episode, never on every one of the repeated calls that keep happening
+  // while it stays failing (e.g. still typing, so a fresh saveState() keeps
+  // re-triggering attemptSaveState() every debounce cycle) — otherwise it'd
+  // throw up a new modal on top of itself over and over. hideSaveFailBanner()
+  // (called the moment a save actually succeeds) resets this, so a LATER,
+  // separate failure episode still gets its own single alert.
+  const wasAlreadyShown = !el.hidden;
+  const message = t('status.saveFailBanner') + (lastSaveErrorMessage ? ' ('+lastSaveErrorMessage+')' : '');
   const textEl = document.getElementById('saveFailBannerText');
-  if(textEl) textEl.textContent = t('status.saveFailBanner') + (lastSaveErrorMessage ? ' ('+lastSaveErrorMessage+')' : '');
+  if(textEl) textEl.textContent = message;
   const btnEl = document.getElementById('saveFailBannerBtn');
   if(btnEl) btnEl.textContent = t('status.saveFailRetry');
   el.hidden = false;
+  if(!wasAlreadyShown) showAlert(message);
 }
 function hideSaveFailBanner(){
   const el = document.getElementById('saveFailBanner');
