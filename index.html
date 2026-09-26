@@ -7929,12 +7929,49 @@ function renderAutoSubtopicRecallList(tp){
    own live DOM out from under the person's cursor and lose focus. Mirrors
    exactly what saveAllNotes() would do to tp.notes/tp.subtopics — this
    isn't a separate, second code path, just that same sync running more
-   often (and saveState() below is already cheap to call often; it debounces
-   its own actual write). */
+   often — but the actual CLOUD write is deliberately kept on a much
+   slower leash than this local re-sync (see scheduleNotesAutosave right
+   below): re-parsing the note and refreshing the list every 350ms pause
+   is cheap and purely local, but calling saveState() that often means a
+   full-state upsert to Supabase on almost every pause while typing, which
+   this note-taking-heavy app can do enough of to burn through the
+   project's Disk IO Budget (confirmed via Supabase's own logs after the
+   person reported save failures) — something that wasn't happening
+   before this live-list feature existed, since typing in notes never
+   used to trigger a save on its own (only tab-switch/전체 저장 did). */
 let autoSubtopicRecallRefreshTimer = null;
 function scheduleAutoSubtopicRecallRefresh(){
   clearTimeout(autoSubtopicRecallRefreshTimer);
   autoSubtopicRecallRefreshTimer = setTimeout(refreshAutoSubtopicRecallListLive, 350);
+}
+/* A separate, much less aggressive debounce than saveState()'s own 250ms,
+   used ONLY for the "person is actively typing in the notes body" case
+   (see refreshAutoSubtopicRecallListLive above). Trailing-edge: waits for
+   a real pause (4s of no typing) before actually saving, so a fast typist
+   doesn't push a cloud write every ~600ms. Also has a hard ceiling (20s)
+   so a long, uninterrupted typing session still gets persisted
+   periodically rather than only at the next tab-switch/전체 저장 — the
+   same safety net the person's fix request was really about, just far
+   cheaper on disk IO. Explicit saves (전체 저장 button, tab switch, etc.,
+   all still calling saveState() directly elsewhere) are untouched and
+   remain immediate. */
+let notesAutosaveDebounceTimer = null;
+let notesAutosaveMaxWaitTimer = null;
+function scheduleNotesAutosave(){
+  clearTimeout(notesAutosaveDebounceTimer);
+  notesAutosaveDebounceTimer = setTimeout(()=>{
+    clearTimeout(notesAutosaveMaxWaitTimer);
+    notesAutosaveMaxWaitTimer = null;
+    saveState();
+  }, 4000);
+  if(!notesAutosaveMaxWaitTimer){
+    notesAutosaveMaxWaitTimer = setTimeout(()=>{
+      clearTimeout(notesAutosaveDebounceTimer);
+      notesAutosaveDebounceTimer = null;
+      notesAutosaveMaxWaitTimer = null;
+      saveState();
+    }, 20000);
+  }
 }
 function refreshAutoSubtopicRecallListLive(){
   if(state.activeTab!=='notes') return;
@@ -7945,7 +7982,7 @@ function refreshAutoSubtopicRecallListLive(){
   if(!tp) return;
   tp.notes = sanitizeRichHtml(normalizeRichColorBold(topicArea));
   syncAutoSubtopicsFromNotes(tp);
-  saveState();
+  scheduleNotesAutosave();
   const newHtml = renderAutoSubtopicRecallList(tp);
   const existing = document.getElementById('autoSubtopicRecallList');
   if(existing){
