@@ -2759,6 +2759,53 @@ const SUPABASE_URL = 'https://jlpiqppgchlgqljehtan.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_Z2M16L_-Tw814pNd5SiEQA_eCYKXADD';
 const sbClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let currentUserId = null;
+/* ---- Image storage (Supabase Storage, per-user folder) ----
+   Notes/cards used to embed every inserted photo as a base64 data: URI
+   directly inside the single JSON blob everything else is saved into (see
+   downscaleImageDataUrl's comment) — harmless for one or two pictures, but
+   a real risk once notes and images pile up over months of studying: that
+   one blob keeps growing forever and, sooner or later, some save silently
+   fails because of it. Images now instead get uploaded to their own file
+   in the "note-images" Storage bucket (public read, so the resulting URL
+   works everywhere the old data: URI did — PDF/print export, card study,
+   ... — with no extra plumbing; write/delete are restricted server-side to
+   each signed-in user's own folder), and only that lightweight URL goes
+   into the saved HTML. See uploadImageToStorage / migrateInlineImagesToStorageIfNeeded. */
+const IMAGE_BUCKET = 'note-images';
+const NOTE_IMAGE_PUBLIC_PREFIX = SUPABASE_URL + '/storage/v1/object/public/' + IMAGE_BUCKET + '/';
+/* Uploads an already-downscaled image (a data:image/... URI, exactly what
+   downscaleImageDataUrl hands back) to this user's own folder in Storage.
+   Returns the public URL on success — drop it straight into an <img src>,
+   it behaves exactly like the old data: URI everywhere else in the app —
+   or null on any failure (offline, not signed in yet, a transient error),
+   in which case the caller should just keep using the data: URI it already
+   has; a picture already on screen is never removed or blocked on this. */
+async function uploadImageToStorage(dataUrl){
+  if(!currentUserId) return null;
+  try{
+    const blob = await (await fetch(dataUrl)).blob();
+    const ext = blob.type==='image/png' ? 'png' : blob.type==='image/webp' ? 'webp' : 'jpg';
+    const path = currentUserId + '/' + uid() + '.' + ext;
+    const { error } = await sbClient.storage.from(IMAGE_BUCKET).upload(path, blob, { contentType: blob.type||'image/jpeg', upsert:false });
+    if(error){ console.warn('[Mnemoire] image upload failed:', error); return null; }
+    const { data } = sbClient.storage.from(IMAGE_BUCKET).getPublicUrl(path);
+    return (data && data.publicUrl) || null;
+  }catch(e){
+    console.warn('[Mnemoire] image upload threw:', e);
+    return null;
+  }
+}
+/* Best-effort cleanup counterpart to uploadImageToStorage — deletes the
+   underlying Storage object when an image chip pointing at one is removed
+   (App.deleteImageChip), so deleted pictures don't linger in Storage
+   forever. A no-op for anything that isn't one of this app's own
+   note-images URLs (e.g. a still-local data:image/ URI whose upload hadn't
+   finished yet) — never throws, never blocks the caller. */
+function deleteImageFromStorage(src){
+  if(!currentUserId || !src || src.indexOf(NOTE_IMAGE_PUBLIC_PREFIX)!==0) return;
+  const path = src.slice(NOTE_IMAGE_PUBLIC_PREFIX.length).split('?')[0];
+  sbClient.storage.from(IMAGE_BUCKET).remove([path]).catch(function(e){ console.warn('[Mnemoire] image delete failed:', e); });
+}
 
 window.storage = {
   // `error: true` on the result marks a genuine fetch failure (network,
@@ -2785,15 +2832,21 @@ window.storage = {
     }
   },
   async set(key, value /*, isShared */){
-    if(!currentUserId) return { success: false };
+    if(!currentUserId) return { success: false, errorMessage: '로그인 상태가 아님' };
     try{
       const parsed = JSON.parse(value);
       const { error } = await sbClient
         .from('user_state')
         .upsert({ id: currentUserId, state: parsed, updated_at: new Date().toISOString() });
-      return { success: !error };
+      // Logged (not shown in the UI by default) so a real failure leaves an
+      // actual trace in the browser console instead of just the generic
+      // "저장 실패" banner text — see attemptSaveState()'s own comment for
+      // where the short version of this reaches the person.
+      if(error) console.warn('[Mnemoire] cloud save (user_state upsert) failed:', error);
+      return { success: !error, errorMessage: error ? (error.message||String(error)) : null };
     }catch(e){
-      return { success: false };
+      console.warn('[Mnemoire] cloud save threw before reaching Supabase:', e);
+      return { success: false, errorMessage: (e && e.message) || String(e) };
     }
   },
   async delete(key /*, isShared */){
@@ -2884,6 +2937,73 @@ App.authLogout = async function(){
   try{ await sbClient.auth.signOut(); }catch(e){}
 };
 let appStarted = false;
+/* One-time cleanup for notes/cards saved BEFORE images moved to Storage
+   (see uploadImageToStorage's own comment above): walks every rich-text
+   field anywhere in the state tree, finds any <img> still holding an
+   embedded data:image/ URI, uploads each one to this user's own Storage
+   folder, and rewrites that field's HTML to the lightweight URL instead —
+   exactly what a freshly-inserted image already does, just applied
+   retroactively so existing notes actually shrink too, not only new ones.
+   Runs once per account (state.settings.imagesMigratedToStorage guards
+   against repeating it every single load) and entirely in the background —
+   nothing here blocks startup, and it's called without awaiting it. Any
+   image that fails to upload (offline, a transient error) is simply left
+   as its original embedded data: URI — never lost, just not slimmed down
+   yet — and the "done" flag is only set once a full pass left nothing
+   still pending, so it naturally retries on a later login. */
+async function migrateInlineImagesToStorageIfNeeded(){
+  if(!currentUserId || !state.settings || state.settings.imagesMigratedToStorage) return;
+  const fields = [];
+  (state.subjects||[]).forEach(s=>{
+    (s.topics||[]).forEach(tp=>{
+      fields.push({get:()=>tp.notes, set:v=>{tp.notes=v;}});
+      fields.push({get:()=>tp.pretestText, set:v=>{tp.pretestText=v;}});
+      flattenSubtopics(tp.subtopics||[]).forEach(({node})=>{
+        fields.push({get:()=>node.notes, set:v=>{node.notes=v;}});
+      });
+    });
+  });
+  if(state.sidenote) fields.push({get:()=>state.sidenote.content, set:v=>{state.sidenote.content=v;}});
+  if(state.sidenoteLeft) fields.push({get:()=>state.sidenoteLeft.content, set:v=>{state.sidenoteLeft.content=v;}});
+  (state.cards||[]).forEach(c=>{
+    if(c.type==='basic'){
+      fields.push({get:()=>c.front, set:v=>{c.front=v;}});
+      fields.push({get:()=>c.back, set:v=>{c.back=v;}});
+    }
+  });
+  (state.gaps||[]).forEach(g=>{
+    fields.push({get:()=>g.gapText, set:v=>{g.gapText=v;}});
+  });
+  (state.outputAttempts||[]).forEach(a=>{
+    fields.push({get:()=>a.recallText, set:v=>{a.recallText=v;}});
+    fields.push({get:()=>a.gapText, set:v=>{a.gapText=v;}});
+    fields.push({get:()=>a.referenceHtml, set:v=>{a.referenceHtml=v;}});
+  });
+
+  let anyUploaded = false;
+  let anyStillPending = false;
+  for(const field of fields){
+    const html = field.get();
+    if(!html || html.indexOf('data:image/')===-1) continue;
+    const div = document.createElement('div');
+    div.innerHTML = html;
+    const imgs = div.querySelectorAll('img[src^="data:image/"]');
+    if(imgs.length===0) continue;
+    let changed = false;
+    for(const img of imgs){
+      const src = img.getAttribute('src');
+      const url = await uploadImageToStorage(src);
+      if(url){ img.setAttribute('src', url); changed = true; anyUploaded = true; }
+      else anyStillPending = true;
+    }
+    if(changed) field.set(div.innerHTML);
+  }
+  if(anyUploaded) saveState();
+  if(!anyStillPending){
+    state.settings.imagesMigratedToStorage = true;
+    saveState();
+  }
+}
 async function startAppAfterAuth(userId){
   currentUserId = userId;
   document.getElementById('authScreen').hidden = true;
@@ -2901,6 +3021,7 @@ async function startAppAfterAuth(userId){
   // be missing real data — warn clearly rather than let the person start
   // working (and autosaving) on top of what could be a blank slate.
   if(cloudLoadFailed) showAlert(t('status.loadFailedWarning'));
+  if(!cloudLoadFailed) migrateInlineImagesToStorageIfNeeded();
 }
 sbClient.auth.onAuthStateChange((event, session)=>{
   if(session){
@@ -3711,6 +3832,12 @@ async function loadState(){
 let saveTimeout = null;
 let saveRetryTimer = null;
 let saveRetryCount = 0;
+// The most recent save failure's actual message (from Supabase/PostgREST,
+// or a plain network/JS error) — kept only so the persistent-fail banner
+// (showSaveFailBanner) can show something more useful than a generic
+// "저장 실패" when it's had several tries in a row and still can't reach the
+// cloud; never shown for a single blip that resolves on its own retry.
+let lastSaveErrorMessage = null;
 function saveState(){
   clearTimeout(saveTimeout);
   saveTimeout = setTimeout(()=>{ attemptSaveState(); }, 250);
@@ -3721,13 +3848,16 @@ async function attemptSaveState(){
   try{
     result = await window.storage.set(STORAGE_KEY, JSON.stringify(state), false);
   }catch(e){
-    result = { success:false };
+    console.warn('[Mnemoire] attemptSaveState threw:', e);
+    result = { success:false, errorMessage: (e && e.message) || String(e) };
   }
   if(result && result.success){
     saveRetryCount = 0;
+    lastSaveErrorMessage = null;
     setStatus(t('status.saved'), false);
     hideSaveFailBanner();
   }else{
+    lastSaveErrorMessage = (result && result.errorMessage) || null;
     setStatus(t('status.saveFailed'), true);
     // A brief network blip usually clears up on its own — retry a handful
     // of times with backoff before leaning on the person to notice and act.
@@ -3752,7 +3882,7 @@ function showSaveFailBanner(){
   const el = document.getElementById('saveFailBanner');
   if(!el) return;
   const textEl = document.getElementById('saveFailBannerText');
-  if(textEl) textEl.textContent = t('status.saveFailBanner');
+  if(textEl) textEl.textContent = t('status.saveFailBanner') + (lastSaveErrorMessage ? ' ('+lastSaveErrorMessage+')' : '');
   const btnEl = document.getElementById('saveFailBannerBtn');
   if(btnEl) btnEl.textContent = t('status.saveFailRetry');
   el.hidden = false;
@@ -4719,12 +4849,15 @@ function sanitizeRichHtml(html){
   // src/style down to nothing" rule below — an <img> needs its src to be
   // an image at all, and its wrapper/handle need their sizing style to
   // keep whatever size the person dragged it to. Only a self-contained
-  // data:image/ URI is ever allowed through — never http(s) or anything
-  // else — so a saved note/card never depends on some external URL
-  // staying alive, and never opens an XSS avenue via a crafted src.
+  // data:image/ URI (the old, still-supported inline format — see
+  // migrateInlineImagesToStorageIfNeeded) OR this app's OWN note-images
+  // Storage URL (uploadImageToStorage) is ever allowed through — never any
+  // other http(s) URL — so a saved note/card never depends on some
+  // arbitrary external URL staying alive, and never opens an XSS avenue via
+  // a crafted src.
   div.querySelectorAll('img').forEach(img=>{
     const src = img.getAttribute('src')||'';
-    if(!/^data:image\//i.test(src)) img.remove();
+    if(!/^data:image\//i.test(src) && src.indexOf(NOTE_IMAGE_PUBLIC_PREFIX)!==0) img.remove();
   });
   div.querySelectorAll('*').forEach(el=>{
     const isImgChrome = el.tagName==='IMG' ||
@@ -5484,6 +5617,28 @@ function insertImageChipAtSelection(bodyId, dataUrl, anchorRange){
   }
   ensureImageContainerFits(body);
   body.dispatchEvent(new Event('input', {bubbles:true}));
+  // Handed back so a caller (App.insertRichImage / App.handleRichBodyPaste)
+  // can swap this exact <img>'s src once its background Storage upload
+  // finishes — see uploadImageToStorage's own comment for why that swap
+  // matters (it's what keeps this image out of the big saved JSON blob).
+  return wrapEl.querySelector('img');
+}
+/* Shared by both ways an image can get into a field (toolbar picker, paste
+   — see App.insertRichImage / App.handleRichBodyPaste below): kicks off
+   the background Storage upload for a just-inserted chip's <img>, and
+   swaps its src to the resulting URL once that finishes, so whatever's
+   captured the NEXT time this field is saved already has the lightweight
+   URL instead of the local data: URI it started with. Silently does
+   nothing if the upload fails (offline, transient error — the data: URI
+   stays exactly as it was, no picture is ever lost over this) or if the
+   image/field is no longer even on the page by the time it resolves. */
+function uploadAndSwapImageSrc(imgEl, dataUrl, bodyId){
+  uploadImageToStorage(dataUrl).then(function(url){
+    if(!url || !imgEl || !imgEl.isConnected) return;
+    imgEl.src = url;
+    const liveBody = document.getElementById(bodyId);
+    if(liveBody) liveBody.dispatchEvent(new Event('input', {bubbles:true}));
+  });
 }
 App.insertRichImage = function(event, bodyId){
   const file = event.target.files && event.target.files[0];
@@ -5494,8 +5649,9 @@ App.insertRichImage = function(event, bodyId){
     downscaleImageDataUrl(String(reader.result), 1000).then(function(dataUrl){
       const body = document.getElementById(bodyId);
       if(body) body.focus();
-      insertImageChipAtSelection(bodyId, dataUrl, pendingRichImageRange);
+      const imgEl = insertImageChipAtSelection(bodyId, dataUrl, pendingRichImageRange);
       pendingRichImageRange = null;
+      uploadAndSwapImageSrc(imgEl, dataUrl, bodyId);
     });
   };
   reader.readAsDataURL(file);
@@ -5528,7 +5684,8 @@ App.handleRichBodyPaste = function(event, bodyId){
   const reader = new FileReader();
   reader.onload = function(){
     downscaleImageDataUrl(String(reader.result), 1000).then(function(dataUrl){
-      insertImageChipAtSelection(bodyId, dataUrl, anchorRange);
+      const imgEl = insertImageChipAtSelection(bodyId, dataUrl, anchorRange);
+      uploadAndSwapImageSrc(imgEl, dataUrl, bodyId);
     });
   };
   reader.readAsDataURL(imageFile);
@@ -5607,6 +5764,8 @@ App.startImageMove = function(e){
 App.deleteImageChip = function(wrap){
   if(!wrap) return;
   const body = wrap.closest('.rich-body');
+  const img = wrap.querySelector('img');
+  if(img) deleteImageFromStorage(img.getAttribute('src')||'');
   if(wrap===selectedImageWrap) selectedImageWrap = null;
   wrap.remove();
   if(body){ ensureImageContainerFits(body); body.dispatchEvent(new Event('input', {bubbles:true})); }
