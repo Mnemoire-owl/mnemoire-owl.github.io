@@ -5226,6 +5226,11 @@ document.addEventListener('compositionend', function(e){
 document.addEventListener('input', function(e){
   const target = e.target;
   if(!target || !target.classList || !target.classList.contains('rich-body')) return;
+  // Any edit to the main note — typing/deleting text, toggling bold from
+  // the toolbar, pasting, inserting an image, IME composition, etc. — can
+  // change which bold headings exist, so keep the subtopic list below it
+  // live instead of stale until the next save. See scheduleAutoSubtopicRecallRefresh.
+  if(target.id === 'topicNotesArea') scheduleAutoSubtopicRecallRefresh();
   // Plain, non-IME character insertion — composed IME text is handled by
   // compositionend above, since inputType 'insertCompositionText' fires
   // repeatedly mid-composition with a constantly-revised e.data, and
@@ -7728,12 +7733,51 @@ function renderAutoSubtopicRecallList(tp){
     `;
   }).join('');
   return `
-    <div class="card" style="background:var(--surface-2);margin:14px 0;">
+    <div class="card" id="autoSubtopicRecallList" style="background:var(--surface-2);margin:14px 0;">
       <label style="margin-bottom:2px;">${t('notes.recallTitle')}</label>
       <div class="muted" style="font-size:11.5px;margin-bottom:10px;">${t('notes.recallHint')}</div>
       <div class="recall-list">${items}</div>
     </div>
   `;
+}
+/* Keeps the subtopic list right below the note in sync WHILE typing,
+   instead of only at the next full save/tab-switch/refresh (which is what
+   the person actually noticed and asked to have fixed: typing a new bold
+   heading used to leave the list stale until something else forced a
+   save). Debounced on the topicNotesArea 'input' event (see the delegated
+   listener below) so a fast typist doesn't re-parse the whole note on
+   every keystroke. Deliberately scoped to ONLY re-render the recall-list
+   card itself (by its #autoSubtopicRecallList id) rather than going
+   through renderAll()/renderNotes(), which would replace topicNotesArea's
+   own live DOM out from under the person's cursor and lose focus. Mirrors
+   exactly what saveAllNotes() would do to tp.notes/tp.subtopics — this
+   isn't a separate, second code path, just that same sync running more
+   often (and saveState() below is already cheap to call often; it debounces
+   its own actual write). */
+let autoSubtopicRecallRefreshTimer = null;
+function scheduleAutoSubtopicRecallRefresh(){
+  clearTimeout(autoSubtopicRecallRefreshTimer);
+  autoSubtopicRecallRefreshTimer = setTimeout(refreshAutoSubtopicRecallListLive, 350);
+}
+function refreshAutoSubtopicRecallListLive(){
+  if(state.activeTab!=='notes') return;
+  const topicArea = document.getElementById('topicNotesArea');
+  if(!topicArea) return;
+  const s = state.subjects.find(x=>x.id===state.activeSubjectId);
+  const tp = s && s.topics.find(x=>x.id===state.notesTopicId);
+  if(!tp) return;
+  tp.notes = sanitizeRichHtml(normalizeRichColorBold(topicArea));
+  syncAutoSubtopicsFromNotes(tp);
+  saveState();
+  const newHtml = renderAutoSubtopicRecallList(tp);
+  const existing = document.getElementById('autoSubtopicRecallList');
+  if(existing){
+    if(newHtml) existing.outerHTML = newHtml;
+    else existing.remove();
+  } else if(newHtml){
+    const richField = topicArea.closest('.rich-field');
+    if(richField) richField.insertAdjacentHTML('afterend', newHtml);
+  }
 }
 function saveAllNotes(){
   const s = state.subjects.find(x=>x.id===state.activeSubjectId);
