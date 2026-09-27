@@ -256,6 +256,7 @@
   .rich-format-btn.underline{text-decoration:underline;}
   .rich-format-btn.image{font-size:13px;}
   .rich-format-btn.tag{font-size:12px;}
+  .rich-format-btn.arrow{font-size:15px;font-weight:700;}
   /* A tagged phrase (App.applyRichTag) — the annotation text itself
      (data-tag) stays invisible until hover; the dotted underline is the
      only always-visible hint that there's something to reveal, so a tagged
@@ -365,6 +366,41 @@
      never show up in a saved/read-only view even if the class ends up
      baked into stored HTML (e.g. saved without deselecting first). */
   .rich-body .rt-img-wrap.rt-img-selected{outline:2px solid var(--amber);outline-offset:2px;}
+  /* Freely-draggable annotation arrow (App.insertRichArrow) — same
+     absolute-positioning family as .rt-img-wrap, but the "picture" here is
+     an inline <svg><line> with an arrowhead <marker>, and BOTH ends can be
+     dragged independently to any angle (see App.startArrowEndpointDrag) —
+     nothing about it is constrained to horizontal/vertical/45°. The wrap's
+     own left/top/width/height are recomputed on every drag (see
+     updateArrowWrapGeometry) to always be the tight bounding box of
+     whichever two points the line currently connects, plus a small pad so
+     the arrowhead and handle circles are never clipped. */
+  .rt-arrow-wrap{-webkit-user-drag:none;user-select:none;}
+  .rt-arrow-wrap svg{display:block;pointer-events:none;overflow:visible;}
+  .rt-arrow-handle{
+    display:none;position:absolute;box-sizing:border-box;width:14px;height:14px;margin:-7px;
+    border-radius:50%;background:var(--surface-2);border:2px solid var(--amber);
+    cursor:pointer;-webkit-user-drag:none;user-select:none;
+  }
+  .rt-arrow-move-handle{
+    display:none;position:absolute;box-sizing:border-box;width:16px;height:16px;margin:-8px;
+    background:var(--surface-2);border:1px solid var(--line);border-radius:4px;
+    cursor:grab;-webkit-user-drag:none;user-select:none;
+    font-size:10px;line-height:14px;text-align:center;color:var(--ink-dim);
+  }
+  .rt-arrow-delete-handle{
+    display:none;position:absolute;box-sizing:border-box;width:16px;height:16px;margin:-8px;
+    background:#d9534f;border:2px solid var(--surface-2);border-radius:50%;
+    cursor:pointer;-webkit-user-drag:none;user-select:none;
+    font-size:11px;line-height:12px;text-align:center;color:#fff;font-weight:700;
+  }
+  .rich-body .rt-arrow-wrap:hover .rt-arrow-handle,
+  .rich-body .rt-arrow-wrap:hover .rt-arrow-move-handle,
+  .rich-body .rt-arrow-wrap:hover .rt-arrow-delete-handle,
+  .rich-body .rt-arrow-wrap.rt-arrow-selected .rt-arrow-handle,
+  .rich-body .rt-arrow-wrap.rt-arrow-selected .rt-arrow-move-handle,
+  .rich-body .rt-arrow-wrap.rt-arrow-selected .rt-arrow-delete-handle{display:block;}
+  .rich-body .rt-arrow-wrap.rt-arrow-selected svg line{stroke-width:5px;}
 
   button.btn{
     background:var(--amber);
@@ -1272,7 +1308,7 @@ const LANG = {
       recurringNoneToday:'오늘 해당하는 상주 계획이 없어요.', recurringEmpty:'등록된 상주 계획이 없어요.',
       recurringManageTitle:'전체 상주 계획 관리', recurringNotTodayTag:'오늘 아님'
     },
-    richtext: { colorAria:'글자색 선택', clearAria:'기본색으로', boldAria:'굵게', italicAria:'기울임', underlineAria:'밑줄', bulletAria:'글머리 기호 목록', imageAria:'사진 추가', tagAria:'꼬리표 달기', tagPrompt:'이 부분에 달 꼬리표 내용을 입력하세요 (비워두면 삭제돼요):', tagNeedsSelection:'먼저 꼬리표를 달 텍스트를 선택해주세요.', tagEditAria:'꼬리표 수정', tagDeleteAria:'꼬리표 삭제' },
+    richtext: { colorAria:'글자색 선택', clearAria:'기본색으로', boldAria:'굵게', italicAria:'기울임', underlineAria:'밑줄', bulletAria:'글머리 기호 목록', imageAria:'사진 추가', arrowAria:'화살표 추가', tagAria:'꼬리표 달기', tagPrompt:'이 부분에 달 꼬리표 내용을 입력하세요 (비워두면 삭제돼요):', tagNeedsSelection:'먼저 꼬리표를 달 텍스트를 선택해주세요.', tagEditAria:'꼬리표 수정', tagDeleteAria:'꼬리표 삭제' },
     sidenote: {
       title:'메모장', placeholder:'여기에 자유롭게 적어보세요…', saved:'저장됨',
       collapseAria:'메모장 접기', expandAria:'메모장 펼치기', resizeAria:'너비 조절',
@@ -1565,7 +1601,7 @@ const LANG = {
       recurringNoneToday:'No recurring plans scheduled for today.', recurringEmpty:'No recurring plans yet.',
       recurringManageTitle:'Manage all recurring plans', recurringNotTodayTag:'Not today'
     },
-    richtext: { colorAria:'Choose text color', clearAria:'Reset color', boldAria:'Bold', italicAria:'Italic', underlineAria:'Underline', bulletAria:'Bulleted list', imageAria:'Add image', tagAria:'Add tag', tagPrompt:'Enter the tag text for this selection (leave blank to remove):', tagNeedsSelection:'Select some text first to tag it.', tagEditAria:'Edit tag', tagDeleteAria:'Delete tag' },
+    richtext: { colorAria:'Choose text color', clearAria:'Reset color', boldAria:'Bold', italicAria:'Italic', underlineAria:'Underline', bulletAria:'Bulleted list', imageAria:'Add image', arrowAria:'Add arrow', tagAria:'Add tag', tagPrompt:'Enter the tag text for this selection (leave blank to remove):', tagNeedsSelection:'Select some text first to tag it.', tagEditAria:'Edit tag', tagDeleteAria:'Delete tag' },
     sidenote: {
       title:'Notes', placeholder:'Jot down anything here…', saved:'Saved',
       collapseAria:'Collapse notes', expandAria:'Expand notes', resizeAria:'Resize',
@@ -1858,7 +1894,7 @@ const LANG = {
       recurringNoneToday:'Heute ist kein fester Plan vorgesehen.', recurringEmpty:'Noch keine festen Pläne angelegt.',
       recurringManageTitle:'Alle festen Pläne verwalten', recurringNotTodayTag:'Nicht heute'
     },
-    richtext: { colorAria:'Textfarbe wählen', clearAria:'Farbe zurücksetzen', boldAria:'Fett', italicAria:'Kursiv', underlineAria:'Unterstrichen', bulletAria:'Aufzählungsliste', imageAria:'Bild hinzufügen', tagAria:'Markierung hinzufügen', tagPrompt:'Text für diese Markierung eingeben (leer lassen zum Entfernen):', tagNeedsSelection:'Bitte zuerst Text auswählen, um ihn zu markieren.', tagEditAria:'Markierung bearbeiten', tagDeleteAria:'Markierung löschen' },
+    richtext: { colorAria:'Textfarbe wählen', clearAria:'Farbe zurücksetzen', boldAria:'Fett', italicAria:'Kursiv', underlineAria:'Unterstrichen', bulletAria:'Aufzählungsliste', imageAria:'Bild hinzufügen', arrowAria:'Pfeil hinzufügen', tagAria:'Markierung hinzufügen', tagPrompt:'Text für diese Markierung eingeben (leer lassen zum Entfernen):', tagNeedsSelection:'Bitte zuerst Text auswählen, um ihn zu markieren.', tagEditAria:'Markierung bearbeiten', tagDeleteAria:'Markierung löschen' },
     sidenote: {
       title:'Notizen', placeholder:'Hier frei notieren…', saved:'Gespeichert',
       collapseAria:'Notizen einklappen', expandAria:'Notizen ausklappen', resizeAria:'Größe ändern',
@@ -2151,7 +2187,7 @@ const LANG = {
       recurringNoneToday:'Aucun plan récurrent programmé pour aujourd’hui.', recurringEmpty:'Aucun plan récurrent pour l’instant.',
       recurringManageTitle:'Gérer tous les plans récurrents', recurringNotTodayTag:'Pas aujourd’hui'
     },
-    richtext: { colorAria:'Choisir la couleur du texte', clearAria:'Réinitialiser la couleur', boldAria:'Gras', italicAria:'Italique', underlineAria:'Souligné', bulletAria:'Liste à puces', imageAria:'Ajouter une image', tagAria:'Ajouter une étiquette', tagPrompt:'Saisissez le texte de cette étiquette (laissez vide pour la supprimer) :', tagNeedsSelection:'Sélectionnez d’abord du texte à étiqueter.', tagEditAria:'Modifier l’étiquette', tagDeleteAria:'Supprimer l’étiquette' },
+    richtext: { colorAria:'Choisir la couleur du texte', clearAria:'Réinitialiser la couleur', boldAria:'Gras', italicAria:'Italique', underlineAria:'Souligné', bulletAria:'Liste à puces', imageAria:'Ajouter une image', arrowAria:'Ajouter une flèche', tagAria:'Ajouter une étiquette', tagPrompt:'Saisissez le texte de cette étiquette (laissez vide pour la supprimer) :', tagNeedsSelection:'Sélectionnez d’abord du texte à étiqueter.', tagEditAria:'Modifier l’étiquette', tagDeleteAria:'Supprimer l’étiquette' },
     sidenote: {
       title:'Notes', placeholder:'Notez quelque chose ici…', saved:'Enregistré',
       collapseAria:'Réduire les notes', expandAria:'Développer les notes', resizeAria:'Redimensionner',
@@ -4775,7 +4811,11 @@ function hexToRgbStr(hex){
 function normalizeRichColorBold(root){
   if(!root || !root.isConnected) return root ? root.innerHTML : '';
   const defaultColor = getComputedStyle(root).color;
-  function isImageWrap(el){ return !!(el.classList && el.classList.contains('rt-img-wrap')); }
+  // Also matches .rt-arrow-wrap (see App.insertRichArrow) — an arrow chip
+  // is exactly as "opaque" to this function as an image chip: kept as-is
+  // via outerHTML rather than recursed into, since its <svg>/<line>/handle
+  // structure carries no text runs for styleKeyFor to process at all.
+  function isImageWrap(el){ return !!(el.classList && (el.classList.contains('rt-img-wrap') || el.classList.contains('rt-arrow-wrap'))); }
   function isRichTag(el){ return !!(el.classList && el.classList.contains('rich-tag')); }
   function styleKeyFor(node){
     const el = node.nodeType===3 ? node.parentElement : node;
@@ -4878,9 +4918,16 @@ function sanitizeRichHtml(html){
     if(!/^data:image\//i.test(src) && src.indexOf(NOTE_IMAGE_PUBLIC_PREFIX)!==0) img.remove();
   });
   div.querySelectorAll('*').forEach(el=>{
+    // .rt-arrow-wrap and its handles (App.insertRichArrow) need the exact
+    // same style-attribute leniency as the image chip's own chrome — their
+    // position/left/top/width/height come from JS (updateArrowWrapGeometry),
+    // not a stylesheet, so without this they'd be stripped down to nothing
+    // (or just a stray `color:`) the moment the note is saved.
     const isImgChrome = el.tagName==='IMG' ||
       (el.classList && (el.classList.contains('rt-img-wrap') || el.classList.contains('rt-img-resize-handle') ||
-        el.classList.contains('rt-img-move-handle') || el.classList.contains('rt-img-delete-handle')));
+        el.classList.contains('rt-img-move-handle') || el.classList.contains('rt-img-delete-handle') ||
+        el.classList.contains('rt-arrow-wrap') || el.classList.contains('rt-arrow-handle') ||
+        el.classList.contains('rt-arrow-move-handle') || el.classList.contains('rt-arrow-delete-handle')));
     [...el.attributes].forEach(attr=>{
       const name = attr.name.toLowerCase();
       if(name==='src'){
@@ -4927,6 +4974,10 @@ function richTextToPlain(html){
 function richIsEmpty(html){
   if(!html) return true;
   if(/<img[\s>]/i.test(html)) return false;
+  // Same idea for an arrow-only note/card side (App.insertRichArrow) — an
+  // <svg> arrow contributes no textContent either, so without this it
+  // would wrongly count as blank too.
+  if(/class="rt-arrow-wrap/.test(html)) return false;
   return richTextToPlain(html).trim()==='';
 }
 // Detects the "mark this important" convention: text that is both bold AND
@@ -5021,9 +5072,15 @@ function richFieldHtml(bodyId, valueHtml, placeholder, minHeight, extraAttrs){
   // button, so the click doesn't blur the field and lose the selection
   // being tagged.
   const tagBtn = `<button type="button" class="rich-format-btn tag" onmousedown="event.preventDefault()" onclick="App.applyRichTag('${bodyId}')" aria-label="${t('richtext.tagAria')}" title="${t('richtext.tagAria')}">🏷️</button>`;
+  // Arrow button — drops a default diagonal arrow near the caret (see
+  // App.insertRichArrow), positioned exactly like an image chip (freely
+  // draggable, never tied to a text line), except BOTH of its ends have
+  // their own drag handle so the whole thing can point in any direction,
+  // not just the handful a resize-handle-on-a-box would allow.
+  const arrowBtn = `<button type="button" class="rich-format-btn arrow" onmousedown="event.preventDefault()" onclick="App.insertRichArrow('${bodyId}')" aria-label="${t('richtext.arrowAria')}" title="${t('richtext.arrowAria')}">↗</button>`;
   return `
     <div class="rich-field">
-      <div class="rich-colorbar">${formatBtns}${imageBtn}${tagBtn}<span class="rich-toolbar-sep"></span>${swatches}${clearBtn}</div>
+      <div class="rich-colorbar">${formatBtns}${imageBtn}${arrowBtn}${tagBtn}<span class="rich-toolbar-sep"></span>${swatches}${clearBtn}</div>
       <div class="rich-body" id="${bodyId}" contenteditable="true" style="min-height:${minHeight||90}px;" data-placeholder="${escapeAttr(placeholder||'')}" onpaste="App.handleRichBodyPaste(event,'${bodyId}')" ${extraAttrs||''}>${valueHtml||''}</div>
     </div>
   `;
@@ -5046,7 +5103,24 @@ let richActiveBold = {};
 App.applyRichColor = function(bodyId, hex){
   const body = document.getElementById(bodyId);
   if(!body) return;
-  body.focus();
+  // A selected arrow (see App.insertRichArrow/the delegated mousedown
+  // listener below) intercepts the swatch click entirely — recolor that
+  // arrow's line/arrowhead instead of running execCommand('foreColor',...),
+  // which would do nothing useful since the arrow is contenteditable=false
+  // and holds no text selection to color.
+  if(selectedArrowWrap && body.contains(selectedArrowWrap)){
+    recolorArrowWrap(selectedArrowWrap, hex);
+    return;
+  }
+  // {preventScroll:true} — without it, re-affirming focus on a body that's
+  // already focused can still make the browser scroll that (very tall, in a
+  // long note) element back into view by its own bounding box rather than
+  // wherever the caret actually is, which is exactly what a long note
+  // scrolled deep down looked like from the person's side: clicking a color
+  // swatch snapped the whole screen back up toward the top of the note.
+  // preventScroll keeps the click's effect purely local (the color change)
+  // and leaves the person's scroll position alone.
+  body.focus({preventScroll:true});
   document.execCommand('styleWithCSS', false, true);
   document.execCommand('foreColor', false, hex);
   richActiveColor[bodyId] = hex;
@@ -5055,7 +5129,7 @@ App.applyRichColor = function(bodyId, hex){
 App.applyRichFormat = function(bodyId, cmd){
   const body = document.getElementById(bodyId);
   if(!body) return;
-  body.focus();
+  body.focus({preventScroll:true});
   // Force styleWithCSS off for these — applyRichColor turns it ON (so
   // execCommand('foreColor', ...) produces an inline color style instead of
   // a <font> tag), and that flag is a global document setting that would
@@ -5086,7 +5160,7 @@ App.applyRichFormat = function(bodyId, cmd){
 App.clearRichFormat = function(bodyId){
   const body = document.getElementById(bodyId);
   if(!body) return;
-  body.focus();
+  body.focus({preventScroll:true});
   document.execCommand('styleWithCSS', false, false);
   if(document.queryCommandState('bold')) document.execCommand('bold', false, null);
   delete richActiveBold[bodyId];
@@ -5120,7 +5194,7 @@ function unwrapRichTag(tagEl){
 App.applyRichTag = function(bodyId){
   const body = document.getElementById(bodyId);
   if(!body) return;
-  body.focus();
+  body.focus({preventScroll:true});
   const sel = window.getSelection();
   if(!sel || !sel.rangeCount || !body.contains(sel.anchorNode)){
     alert(t('richtext.tagNeedsSelection'));
@@ -5433,6 +5507,15 @@ function deselectImageWrap(){
   if(selectedImageWrap) selectedImageWrap.classList.remove('rt-img-selected');
   selectedImageWrap = null;
 }
+// Same idea as selectedImageWrap, for the arrow annotation feature below
+// (see App.insertRichArrow) — the arrow chip currently "selected" by a
+// direct click or an in-progress drag, so Backspace/Delete removes it and
+// a color-swatch click recolors it instead of running execCommand.
+let selectedArrowWrap = null;
+function deselectArrowWrap(){
+  if(selectedArrowWrap) selectedArrowWrap.classList.remove('rt-arrow-selected');
+  selectedArrowWrap = null;
+}
 App.triggerRichImagePicker = function(bodyId){
   const body = document.getElementById(bodyId);
   if(!body) return;
@@ -5518,7 +5601,11 @@ function ensureImageContainerFits(container){
   let maxBottom = 0;
   for(let i=0;i<container.children.length;i++){
     const child = container.children[i];
-    if(child.classList && child.classList.contains('rt-img-wrap')){
+    // .rt-arrow-wrap (see App.insertRichArrow below) is absolutely
+    // positioned exactly like .rt-img-wrap, so it needs to grow the
+    // container's min-height the same way — otherwise an arrow dragged
+    // below the last line of text would visually hang off the bottom edge.
+    if(child.classList && (child.classList.contains('rt-img-wrap') || child.classList.contains('rt-arrow-wrap'))){
       const top = parseFloat(child.style.top)||0;
       const h = child.offsetHeight||0;
       if(top+h > maxBottom) maxBottom = top+h;
@@ -5788,6 +5875,318 @@ App.deleteImageChip = function(wrap){
   wrap.remove();
   if(body){ ensureImageContainerFits(body); body.dispatchEvent(new Event('input', {bubbles:true})); }
 };
+// ---- Freely-directional arrow annotation ("노트의 방향에 제약을 받지 않고
+// 드래그해서 표시할 수 있는 화살표") ----
+// Modeled directly on the .rt-img-wrap architecture just above — same
+// absolute-positioning-on-a-page metaphor, same contenteditable=false
+// atomic-unit trick, same class-based (not inline on*) event wiring so it
+// survives sanitizeRichHtml, same MutationObserver-driven migration pass
+// for backward compatibility / read-only render paths (App.startImageMove/
+// App.deleteImageChip/migrateImageWrapIfNeeded above are the direct
+// counterparts of everything below).
+// The one real difference: an image has an intrinsic size and a single
+// anchor point (its top-left corner). An arrow's only actual content is
+// two endpoints, which must be draggable to ANY angle — that's the whole
+// point of this feature — so a single left/top pair can't be the source of
+// truth. Instead each wrap carries its geometry as four absolute,
+// body-relative pixel coordinates: data-ax1/data-ay1 (start point) and
+// data-ax2/data-ay2 (end point). updateArrowWrapGeometry() is the one place
+// that turns those four numbers into everything else that's actually
+// rendered (the wrap's own bounding box, the inline SVG's viewBox, the
+// <line>'s endpoints, and all 4 handles' positions) — every drag handler
+// below moves the arrow purely by writing new data-ax*/data-ay* values and
+// then calling that function, never by touching any of the derived pieces
+// directly.
+const RT_ARROW_PAD = 16; // bounding-box padding so the arrowhead + handle circles are never clipped
+/* Recomputes a .rt-arrow-wrap's entire visible geometry from its
+   data-ax1/ay1/ax2/ay2 attributes (the source of truth — see the comment
+   above). Safe to call before the wrap has ever been laid out (no
+   getBoundingClientRect reads here, pure arithmetic), so App.insertRichArrow
+   can call it immediately after building the initial markup. */
+function updateArrowWrapGeometry(wrap){
+  if(!wrap) return;
+  const ax1 = parseFloat(wrap.dataset.ax1)||0, ay1 = parseFloat(wrap.dataset.ay1)||0;
+  const ax2 = parseFloat(wrap.dataset.ax2)||0, ay2 = parseFloat(wrap.dataset.ay2)||0;
+  const left = Math.min(ax1, ax2) - RT_ARROW_PAD;
+  const top = Math.min(ay1, ay2) - RT_ARROW_PAD;
+  const width = Math.abs(ax2-ax1) + RT_ARROW_PAD*2;
+  const height = Math.abs(ay2-ay1) + RT_ARROW_PAD*2;
+  wrap.style.position = 'absolute';
+  wrap.style.left = Math.round(left)+'px';
+  wrap.style.top = Math.round(top)+'px';
+  wrap.style.width = Math.round(width)+'px';
+  wrap.style.height = Math.round(height)+'px';
+  // Local (viewBox-relative) coordinates — the same two points, just
+  // re-anchored to the wrap's own top-left instead of the body's.
+  const x1 = ax1-left, y1 = ay1-top, x2 = ax2-left, y2 = ay2-top;
+  const svg = wrap.querySelector('svg');
+  if(svg){
+    const w = Math.round(width), h = Math.round(height);
+    svg.setAttribute('width', String(w));
+    svg.setAttribute('height', String(h));
+    svg.setAttribute('viewBox', '0 0 '+w+' '+h);
+    const line = svg.querySelector('line');
+    if(line){
+      line.setAttribute('x1', String(x1)); line.setAttribute('y1', String(y1));
+      line.setAttribute('x2', String(x2)); line.setAttribute('y2', String(y2));
+    }
+  }
+  const startHandle = wrap.querySelector('.rt-arrow-handle[data-endpoint="start"]');
+  if(startHandle){ startHandle.style.left = Math.round(x1)+'px'; startHandle.style.top = Math.round(y1)+'px'; }
+  const endHandle = wrap.querySelector('.rt-arrow-handle[data-endpoint="end"]');
+  if(endHandle){ endHandle.style.left = Math.round(x2)+'px'; endHandle.style.top = Math.round(y2)+'px'; }
+  // Move/delete handles sit near the line's midpoint, offset from one
+  // another (and slightly off the line itself) so neither ends up
+  // overlapping the other or sitting exactly under the cursor while
+  // dragging the line itself.
+  const midX = (x1+x2)/2, midY = (y1+y2)/2;
+  const moveHandle = wrap.querySelector('.rt-arrow-move-handle');
+  if(moveHandle){ moveHandle.style.left = Math.round(midX)+'px'; moveHandle.style.top = Math.round(midY)+'px'; }
+  const deleteHandle = wrap.querySelector('.rt-arrow-delete-handle');
+  if(deleteHandle){ deleteHandle.style.left = Math.round(midX+20)+'px'; deleteHandle.style.top = Math.round(midY-20)+'px'; }
+}
+/* The actual "chip" markup for a freshly-inserted arrow — see
+   insertImageChipAtSelection's own comment above for why this is built as
+   a detached <div> and handed back as an element rather than an HTML
+   string: same reasoning applies here. ax1/ay1/ax2/ay2 are absolute,
+   body-relative pixel coordinates (the initial shape — always further
+   adjustable by dragging either endpoint). Each arrow gets its own unique
+   marker id (rather than one shared <marker> reused by every arrow in the
+   field) specifically so recolorArrowWrap() can recolor ONE arrow's
+   arrowhead without accidentally recoloring every other arrow that would
+   otherwise share the same <marker>. */
+function arrowWrapHtml(ax1, ay1, ax2, ay2, color){
+  const markerId = 'rt-arrow-head-' + uid();
+  return '<span class="rt-arrow-wrap" contenteditable="false" draggable="false" data-rt-positioned="1" ' +
+    'data-ax1="'+ax1+'" data-ay1="'+ay1+'" data-ax2="'+ax2+'" data-ay2="'+ay2+'" style="position:absolute;">' +
+    '<svg xmlns="http://www.w3.org/2000/svg">' +
+      '<defs><marker id="'+markerId+'" markerWidth="10" markerHeight="10" refX="7" refY="5" orient="auto" markerUnits="userSpaceOnUse">' +
+        '<polygon points="0,0 10,5 0,10" fill="'+color+'"></polygon>' +
+      '</marker></defs>' +
+      '<line stroke="'+color+'" stroke-width="3" stroke-linecap="round" marker-end="url(#'+markerId+')"></line>' +
+    '</svg>' +
+    '<span class="rt-arrow-handle" data-endpoint="start" contenteditable="false" draggable="false" title="시작점 옮기기"></span>' +
+    '<span class="rt-arrow-handle" data-endpoint="end" contenteditable="false" draggable="false" title="끝점 옮기기"></span>' +
+    '<span class="rt-arrow-move-handle" contenteditable="false" draggable="false" title="옮기기">⠿</span>' +
+    '<span class="rt-arrow-delete-handle" contenteditable="false" draggable="false" title="삭제">×</span>' +
+    '</span>';
+}
+// Recolors ONE arrow's line + arrowhead in place — the color-swatch-reuse
+// path (see App.applyRichColor's selectedArrowWrap check above): clicking
+// a swatch while an arrow is selected lands here instead of running
+// execCommand('foreColor', ...), which would have nothing to do since the
+// arrow holds no text selection at all.
+function recolorArrowWrap(wrap, hex){
+  if(!wrap) return;
+  const line = wrap.querySelector('svg > line');
+  const polygon = wrap.querySelector('marker polygon');
+  if(line) line.setAttribute('stroke', hex);
+  if(polygon) polygon.setAttribute('fill', hex);
+  const body = wrap.closest('.rich-body');
+  if(body) body.dispatchEvent(new Event('input', {bubbles:true}));
+}
+/* Toolbar button entry point (see richFieldHtml's arrowBtn). Places a
+   modest default diagonal arrow near wherever the caret/selection was —
+   same anchor-range logic as insertImageChipAtSelection, but resolved
+   synchronously off the live selection since (unlike inserting a picture)
+   there's no async file-picker dialog in between that could lose it — and
+   immediately selects it, so both endpoint handles are right there to drag
+   into whatever direction/length is actually meant without an extra click
+   first. */
+App.insertRichArrow = function(bodyId){
+  const body = document.getElementById(bodyId);
+  if(!body) return;
+  body.focus({preventScroll:true});
+  const bodyRect = body.getBoundingClientRect();
+  let left = 24, top = 24;
+  const sel = window.getSelection();
+  const range = (sel && sel.rangeCount>0 && body.contains(sel.anchorNode)) ? sel.getRangeAt(0) : null;
+  let rect = null;
+  if(range){
+    try{
+      const r = range.cloneRange();
+      r.collapse(true);
+      const rects = r.getClientRects();
+      rect = (rects && rects[0]) || r.getBoundingClientRect();
+    } catch(e){ rect = null; }
+  }
+  if(rect && (rect.width || rect.height || rect.top || rect.left)){
+    left = rect.left - bodyRect.left + body.scrollLeft;
+    top = rect.top - bodyRect.top + body.scrollTop;
+  }
+  // Stagger repeated inserts the same way insertImageChipAtSelection does,
+  // so adding several arrows in a row doesn't stack them exactly on top of
+  // one another.
+  const existingCount = body.querySelectorAll('.rt-arrow-wrap').length;
+  left += (existingCount % 5) * 18;
+  top += (existingCount % 5) * 18;
+  left = Math.max(0, left);
+  top = Math.max(0, top);
+  const color = richActiveColor[bodyId] || RICH_COLORS[1];
+  // Arbitrary but immediately visible default shape — a short diagonal
+  // pointing down-and-right — rather than a zero-length line that would be
+  // invisible until dragged out to somewhere.
+  const ax1 = left, ay1 = top, ax2 = left+140, ay2 = top+80;
+  const temp = document.createElement('div');
+  temp.innerHTML = arrowWrapHtml(ax1, ay1, ax2, ay2, color);
+  const wrapEl = temp.firstElementChild;
+  // Same structural placement as insertImageChipAtSelection — insert as a
+  // sibling right after whichever top-level line the cursor sits in, so
+  // parseAutoSubtopicSections attributes it to the right subtopic instead
+  // of always the end of the whole field.
+  let insertAfterEl = null;
+  if(range){
+    let node = range.startContainer;
+    if(node === body){
+      const idx = range.startOffset;
+      insertAfterEl = idx>0 ? body.childNodes[idx-1] : null;
+    } else {
+      while(node && node.parentNode !== body) node = node.parentNode;
+      if(node && node.parentNode === body) insertAfterEl = node;
+    }
+  }
+  if(insertAfterEl && insertAfterEl.parentNode === body){
+    body.insertBefore(wrapEl, insertAfterEl.nextSibling);
+  } else {
+    body.appendChild(wrapEl);
+  }
+  updateArrowWrapGeometry(wrapEl);
+  ensureImageContainerFits(body);
+  deselectImageWrap();
+  deselectArrowWrap();
+  selectedArrowWrap = wrapEl;
+  wrapEl.classList.add('rt-arrow-selected');
+  body.dispatchEvent(new Event('input', {bubbles:true}));
+};
+/* Dragging either endpoint handle independently — this is the whole point
+   of the feature (no constraint to horizontal/vertical/any fixed angle):
+   moving just ONE of data-ax1/ay1 or data-ax2/ay2 by the raw mouse delta,
+   in the same body-relative absolute coordinate space insertImageChipAt
+   Selection's left/top already use, then letting updateArrowWrapGeometry
+   re-derive everything else (including which corner is now "min", since
+   dragging an endpoint past the other can flip the bounding box). */
+App.startArrowEndpointDrag = function(e, which){
+  e.preventDefault();
+  e.stopPropagation();
+  const handle = e.target.closest('.rt-arrow-handle');
+  const wrap = handle && handle.closest('.rt-arrow-wrap');
+  if(!wrap) return;
+  const body = wrap.closest('.rich-body');
+  if(!body) return;
+  deselectImageWrap();
+  deselectArrowWrap();
+  selectedArrowWrap = wrap;
+  wrap.classList.add('rt-arrow-selected');
+  const bodyRect = body.getBoundingClientRect();
+  function onMove(ev){
+    const x = Math.max(0, ev.clientX - bodyRect.left + body.scrollLeft);
+    const y = Math.max(0, ev.clientY - bodyRect.top + body.scrollTop);
+    if(which==='start'){ wrap.dataset.ax1 = String(x); wrap.dataset.ay1 = String(y); }
+    else { wrap.dataset.ax2 = String(x); wrap.dataset.ay2 = String(y); }
+    updateArrowWrapGeometry(wrap);
+    ensureImageContainerFits(body);
+  }
+  function onUp(){
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+    ensureImageContainerFits(body);
+    body.dispatchEvent(new Event('input', {bubbles:true}));
+  }
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+};
+/* Drag-to-reposition for the WHOLE arrow (the move handle at its
+   midpoint) — translates both endpoints by the same delta so the arrow's
+   own length/angle never changes, only its position, exactly like
+   App.startImageMove's plain pixel drag above. The delta itself (not each
+   endpoint separately) is what gets clamped to stay >=0 — clamping each
+   point independently would let one endpoint hit the edge before the
+   other and silently distort the arrow's shape/angle mid-drag. */
+App.startArrowMove = function(e){
+  e.preventDefault();
+  e.stopPropagation();
+  const wrap = e.target.closest('.rt-arrow-wrap');
+  if(!wrap) return;
+  const body = wrap.closest('.rich-body');
+  if(!body) return;
+  deselectImageWrap();
+  deselectArrowWrap();
+  selectedArrowWrap = wrap;
+  wrap.classList.add('rt-arrow-selected');
+  const startX = e.clientX, startY = e.clientY;
+  const ax1 = parseFloat(wrap.dataset.ax1)||0, ay1 = parseFloat(wrap.dataset.ay1)||0;
+  const ax2 = parseFloat(wrap.dataset.ax2)||0, ay2 = parseFloat(wrap.dataset.ay2)||0;
+  wrap.style.opacity = '0.6';
+  function onMove(ev){
+    let dx = ev.clientX - startX, dy = ev.clientY - startY;
+    const minDx = -Math.min(ax1, ax2), minDy = -Math.min(ay1, ay2);
+    if(dx < minDx) dx = minDx;
+    if(dy < minDy) dy = minDy;
+    wrap.dataset.ax1 = String(ax1+dx); wrap.dataset.ay1 = String(ay1+dy);
+    wrap.dataset.ax2 = String(ax2+dx); wrap.dataset.ay2 = String(ay2+dy);
+    updateArrowWrapGeometry(wrap);
+    ensureImageContainerFits(body);
+  }
+  function onUp(){
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+    wrap.style.opacity = '';
+    ensureImageContainerFits(body);
+    body.dispatchEvent(new Event('input', {bubbles:true}));
+  }
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+};
+// Removes an inserted arrow outright — the counterpart of
+// App.deleteImageChip above, used by both the hover ✕ handle and the
+// Backspace/Delete-while-selected flow (see the delegated keydown listener
+// below).
+App.deleteArrowChip = function(wrap){
+  if(!wrap) return;
+  const body = wrap.closest('.rich-body');
+  if(wrap===selectedArrowWrap) selectedArrowWrap = null;
+  wrap.remove();
+  if(body){ ensureImageContainerFits(body); body.dispatchEvent(new Event('input', {bubbles:true})); }
+};
+/* Backward-compatibility + universal display support: any .rt-arrow-wrap
+   that shows up anywhere in the page without valid absolute positioning —
+   the exact counterpart of migrateImageWrapIfNeeded above, for the same
+   reasons (read-only render paths, and parseAutoSubtopicSections
+   deliberately stripping position/left/top before handing a section's HTML
+   off to a subtopic/card, since the ORIGINAL coordinates were computed
+   against a usually-wider field — see that function's own comment). The
+   arrow's local line endpoints (still valid — only the wrap's own
+   position/left/top get cleared, never the <line> itself) are re-anchored
+   to wherever the wrap actually rendered once dropped into its new
+   container, giving it a sensible fresh data-ax1/ay1/ax2/ay2 instead of
+   silently keeping stale coordinates from a different-sized field. */
+function migrateArrowWrapIfNeeded(wrap){
+  const container = wrap.parentElement;
+  if(!container) return;
+  const style = wrap.getAttribute('style')||'';
+  const isAbsolute = /position\s*:\s*absolute/i.test(style);
+  if(!isAbsolute){
+    const containerRect = container.getBoundingClientRect();
+    const wrapRect = wrap.getBoundingClientRect();
+    const left = Math.max(0, Math.round(wrapRect.left - containerRect.left + container.scrollLeft));
+    const top = Math.max(0, Math.round(wrapRect.top - containerRect.top + container.scrollTop));
+    const line = wrap.querySelector('line');
+    const x1 = line ? (parseFloat(line.getAttribute('x1'))||0) : 0;
+    const y1 = line ? (parseFloat(line.getAttribute('y1'))||0) : 0;
+    const x2 = line ? (parseFloat(line.getAttribute('x2'))||(RT_ARROW_PAD*2+40)) : (RT_ARROW_PAD*2+40);
+    const y2 = line ? (parseFloat(line.getAttribute('y2'))||(RT_ARROW_PAD*2+40)) : (RT_ARROW_PAD*2+40);
+    wrap.dataset.ax1 = String(left + x1);
+    wrap.dataset.ay1 = String(top + y1);
+    wrap.dataset.ax2 = String(left + x2);
+    wrap.dataset.ay2 = String(top + y2);
+    wrap.style.display = '';
+    wrap.style.verticalAlign = '';
+    const next = wrap.nextSibling;
+    if(next && next.nodeType===3 && /^ +$/.test(next.nodeValue)) next.remove();
+  }
+  updateArrowWrapGeometry(wrap);
+  ensureImageContainerFits(container);
+}
 /* Backward-compatibility + universal display support: any .rt-img-wrap
    that shows up anywhere in the page — freshly loaded from notes/cards
    saved before this absolute-positioning rework (which had images inline
@@ -5827,9 +6226,12 @@ const richImageMigrationObserver = new MutationObserver(function(mutations){
     m.addedNodes.forEach(function(node){
       if(node.nodeType!==1) return;
       if(node.classList && node.classList.contains('rt-img-wrap')) migrateImageWrapIfNeeded(node);
+      if(node.classList && node.classList.contains('rt-arrow-wrap')) migrateArrowWrapIfNeeded(node);
       if(node.querySelectorAll){
         const nested = node.querySelectorAll('.rt-img-wrap');
         for(let i=0;i<nested.length;i++) migrateImageWrapIfNeeded(nested[i]);
+        const nestedArrows = node.querySelectorAll('.rt-arrow-wrap');
+        for(let i=0;i<nestedArrows.length;i++) migrateArrowWrapIfNeeded(nestedArrows[i]);
       }
     });
   });
@@ -5868,22 +6270,69 @@ document.addEventListener('mousedown', function(e){
   if(wrap && wrap.closest('.rich-body')){
     e.preventDefault();
     deselectImageWrap();
+    deselectArrowWrap();
     selectedImageWrap = wrap;
     wrap.classList.add('rt-img-selected');
     return;
   }
-  if(selectedImageWrap) deselectImageWrap();
+  // Arrow endpoint/move/delete handles — same recognize-by-class pattern as
+  // the image handles just above, and the same reason (sanitizeRichHtml
+  // strips inline on* attributes on every save, so these can't be wired
+  // that way). Checked before the generic "clicked the arrow itself" branch
+  // below, same ordering as the image handles vs. .rt-img-wrap.
+  const arrowHandle = e.target && e.target.closest && e.target.closest('.rt-arrow-handle');
+  if(arrowHandle && arrowHandle.closest('.rich-body')){ App.startArrowEndpointDrag(e, arrowHandle.dataset.endpoint); return; }
+  const arrowMoveHandle = e.target && e.target.closest && e.target.closest('.rt-arrow-move-handle');
+  if(arrowMoveHandle && arrowMoveHandle.closest('.rich-body')){ App.startArrowMove(e); return; }
+  const arrowDeleteHandle = e.target && e.target.closest && e.target.closest('.rt-arrow-delete-handle');
+  if(arrowDeleteHandle && arrowDeleteHandle.closest('.rich-body')){
+    e.preventDefault();
+    e.stopPropagation();
+    App.deleteArrowChip(arrowDeleteHandle.closest('.rt-arrow-wrap'));
+    return;
+  }
+  // Clicking anywhere inside the arrow's own bounding box (its <svg> has
+  // pointer-events:none — see the CSS — so a click "on the line" actually
+  // lands on this wrap span) selects it, same idea as clicking an image.
+  const arrowWrap = e.target && e.target.closest && e.target.closest('.rt-arrow-wrap');
+  if(arrowWrap && arrowWrap.closest('.rich-body')){
+    e.preventDefault();
+    deselectImageWrap();
+    deselectArrowWrap();
+    selectedArrowWrap = arrowWrap;
+    arrowWrap.classList.add('rt-arrow-selected');
+    return;
+  }
+  // A click on the field's OWN toolbar (a color swatch above all — see the
+  // selectedArrowWrap check in App.applyRichColor) deliberately does NOT
+  // deselect here. A toolbar button's onclick only runs after its mousedown
+  // has already bubbled up to and finished running this very listener, so
+  // deselecting unconditionally would clear selectedArrowWrap a moment
+  // before applyRichColor ever gets to check it — silently turning every
+  // "recolor the selected arrow" swatch click back into a no-op foreColor
+  // call instead. Clicking anywhere else still deselects as before.
+  const onToolbar = e.target && e.target.closest && e.target.closest('.rich-colorbar');
+  if(!onToolbar){
+    if(selectedImageWrap) deselectImageWrap();
+    if(selectedArrowWrap) deselectArrowWrap();
+  }
 });
 document.addEventListener('keydown', function(e){
-  if(!selectedImageWrap) return;
+  if(!selectedImageWrap && !selectedArrowWrap) return;
   if(e.key==='Backspace' || e.key==='Delete'){
-    if(!document.body.contains(selectedImageWrap)){ selectedImageWrap = null; return; }
-    e.preventDefault();
-    App.deleteImageChip(selectedImageWrap);
+    if(selectedImageWrap){
+      if(!document.body.contains(selectedImageWrap)){ selectedImageWrap = null; }
+      else { e.preventDefault(); App.deleteImageChip(selectedImageWrap); return; }
+    }
+    if(selectedArrowWrap){
+      if(!document.body.contains(selectedArrowWrap)){ selectedArrowWrap = null; return; }
+      e.preventDefault();
+      App.deleteArrowChip(selectedArrowWrap);
+    }
   }
 });
 document.addEventListener('dragstart', function(e){
-  if(e.target && e.target.closest && e.target.closest('.rt-img-wrap')) e.preventDefault();
+  if(e.target && e.target.closest && (e.target.closest('.rt-img-wrap') || e.target.closest('.rt-arrow-wrap'))) e.preventDefault();
 });
 function isMobileSidenote(){
   if(window.matchMedia) return window.matchMedia('(max-width:720px)').matches;
@@ -5960,7 +6409,7 @@ function initSidenoteColors(side){
     b.setAttribute('aria-label', t(sidenoteTKey(side,'colorAria')));
     b.onclick = function(){
       const body = document.getElementById(ids.body);
-      if(body) body.focus();
+      if(body) body.focus({preventScroll:true});
       document.execCommand('foreColor', false, hex);
       commitSidenoteContent(side);
     };
@@ -7749,6 +8198,19 @@ function parseAutoSubtopicSections(notesHtml){
     wrap.style.right = '';
     wrap.style.bottom = '';
   });
+  // Same idea for an arrow (.rt-arrow-wrap, see App.insertRichArrow) — only
+  // the wrap's own derived position/left/top/width/height gets stripped
+  // here, never its data-ax1/ay1/ax2/ay2 or its <line>'s endpoints, so
+  // migrateArrowWrapIfNeeded (the arrow counterpart of
+  // migrateImageWrapIfNeeded) has everything it needs to re-anchor the
+  // arrow to wherever it actually ends up rendering.
+  container.querySelectorAll('.rt-arrow-wrap').forEach(wrap=>{
+    wrap.style.position = '';
+    wrap.style.left = '';
+    wrap.style.top = '';
+    wrap.style.width = '';
+    wrap.style.height = '';
+  });
   const lineEls = getNotesTopLevelLines(container);
   const sections = [];
   let current = null;
@@ -8048,10 +8510,10 @@ App.saveAllNotes = function(){
    images still stay inside their container and visible instead of
    overflowing or getting clipped. */
 function flattenAbsoluteImagesForPrint(html){
-  if(!html || html.indexOf('rt-img-wrap')===-1) return html;
+  if(!html || (html.indexOf('rt-img-wrap')===-1 && html.indexOf('rt-arrow-wrap')===-1)) return html;
   const div = document.createElement('div');
   div.innerHTML = html;
-  div.querySelectorAll('.rt-img-move-handle,.rt-img-delete-handle,.rt-img-resize-handle').forEach(function(el){ el.remove(); });
+  div.querySelectorAll('.rt-img-move-handle,.rt-img-delete-handle,.rt-img-resize-handle,.rt-arrow-handle,.rt-arrow-move-handle,.rt-arrow-delete-handle').forEach(function(el){ el.remove(); });
   return div.innerHTML;
 }
 function openPrintableDoc(title, bodyHtml){
@@ -8113,6 +8575,22 @@ ${bodyHtml}
         var img = wrap.querySelector('img');
         var imgWidth = img ? (parseFloat(img.style.width) || img.getBoundingClientRect().width || img.naturalWidth || 0) : 0;
         if(imgWidth > 0) wrap.style.width = imgWidth + 'px';
+        var maxLeft = Math.max(0, container.clientWidth - wrap.offsetWidth);
+        var left = parseFloat(wrap.style.left) || 0;
+        if(left > maxLeft) wrap.style.left = maxLeft + 'px';
+        var top = parseFloat(wrap.style.top) || 0;
+        var bottom = top + (wrap.offsetHeight || 0);
+        if(bottom > maxBottom) maxBottom = bottom;
+      });
+      // Same clamping for a freely-directional arrow (.rt-arrow-wrap, see
+      // App.insertRichArrow in the live app) — its width/height are already
+      // explicit (baked in by updateArrowWrapGeometry when the note was
+      // saved, unlike an image's shrink-to-fit box), so this only needs to
+      // pull it back onto the page if it was dragged further right than
+      // this narrower, fixed-width printed page allows, and fold it into
+      // the same bottom-edge measurement so the container's height still
+      // accounts for it.
+      container.querySelectorAll(':scope > .rt-arrow-wrap').forEach(function(wrap){
         var maxLeft = Math.max(0, container.clientWidth - wrap.offsetWidth);
         var left = parseFloat(wrap.style.left) || 0;
         if(left > maxLeft) wrap.style.left = maxLeft + 'px';
