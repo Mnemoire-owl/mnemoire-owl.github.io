@@ -400,11 +400,13 @@
   .rich-body .rt-arrow-wrap.rt-arrow-selected .rt-arrow-handle,
   .rich-body .rt-arrow-wrap.rt-arrow-selected .rt-arrow-move-handle,
   .rich-body .rt-arrow-wrap.rt-arrow-selected .rt-arrow-delete-handle{display:block;}
-  /* A modest bump (2px -> 3px), not a doubling — a brand-new arrow starts
-     out auto-selected (see App.insertRichArrow), so a heavy-handed boost
-     here made every freshly-inserted arrow look like a thick, near-solid
-     bar before the person had even touched it. */
-  .rich-body .rt-arrow-wrap.rt-arrow-selected svg line{stroke-width:3px;}
+  /* A modest bump over the 1.5px base — a brand-new arrow starts out
+     auto-selected (see App.insertRichArrow), so a heavy-handed boost here
+     made every freshly-inserted arrow look like a thick bar before the
+     person had even touched it. Kept small enough that the base shaft
+     ("선자체가 두껍다" — the line itself was too thick) stays thin
+     even while selected, not just when idle. */
+  .rich-body .rt-arrow-wrap.rt-arrow-selected svg line{stroke-width:2px;}
 
   button.btn{
     background:var(--amber);
@@ -5971,11 +5973,16 @@ function arrowWrapHtml(ax1, ay1, ax2, ay2, color){
     // (only the shaft between the two endpoints grows), which is what
     // actually gives it a "can be made longer" feel — a real drawn-arrow
     // look rather than a fixed-size sticker glued onto a line's end.
+    // Shaft stroke-width dropped to 1.5 — "그냥 애초에 선자체가 두껍다" (the
+    // line itself was just too thick, independent of the head style). The
+    // chevron's own stroke stays a touch heavier than the shaft (still thin
+    // in absolute terms) purely so the tip doesn't fade out at this
+    // thinness, not because the shaft needs to look bold anywhere.
     '<svg xmlns="http://www.w3.org/2000/svg">' +
       '<defs><marker id="'+markerId+'" markerWidth="14" markerHeight="14" refX="10" refY="7" orient="auto" markerUnits="userSpaceOnUse">' +
-        '<path d="M2,1.5 L12,7 L2,12.5" fill="none" stroke="'+color+'" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path>' +
+        '<path d="M2,1.5 L12,7 L2,12.5" fill="none" stroke="'+color+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>' +
       '</marker></defs>' +
-      '<line stroke="'+color+'" stroke-width="2" stroke-linecap="round" marker-end="url(#'+markerId+')"></line>' +
+      '<line stroke="'+color+'" stroke-width="1.5" stroke-linecap="round" marker-end="url(#'+markerId+')"></line>' +
     '</svg>' +
     '<span class="rt-arrow-handle" data-endpoint="start" contenteditable="false" draggable="false" title="시작점 옮기기"></span>' +
     '<span class="rt-arrow-handle" data-endpoint="end" contenteditable="false" draggable="false" title="끝점 옮기기"></span>' +
