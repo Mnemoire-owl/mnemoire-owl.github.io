@@ -400,7 +400,11 @@
   .rich-body .rt-arrow-wrap.rt-arrow-selected .rt-arrow-handle,
   .rich-body .rt-arrow-wrap.rt-arrow-selected .rt-arrow-move-handle,
   .rich-body .rt-arrow-wrap.rt-arrow-selected .rt-arrow-delete-handle{display:block;}
-  .rich-body .rt-arrow-wrap.rt-arrow-selected svg line{stroke-width:5px;}
+  /* A modest bump (2px -> 3px), not a doubling — a brand-new arrow starts
+     out auto-selected (see App.insertRichArrow), so a heavy-handed boost
+     here made every freshly-inserted arrow look like a thick, near-solid
+     bar before the person had even touched it. */
+  .rich-body .rt-arrow-wrap.rt-arrow-selected svg line{stroke-width:3px;}
 
   button.btn{
     background:var(--amber);
@@ -5959,11 +5963,18 @@ function arrowWrapHtml(ax1, ay1, ax2, ay2, color){
   const markerId = 'rt-arrow-head-' + uid();
   return '<span class="rt-arrow-wrap" contenteditable="false" draggable="false" data-rt-positioned="1" ' +
     'data-ax1="'+ax1+'" data-ay1="'+ay1+'" data-ax2="'+ax2+'" data-ay2="'+ay2+'" style="position:absolute;">' +
+    // A thin line (stroke-width 2) with a deliberately much wider/longer
+    // arrowhead (14x14, refX inset from the tip so it visibly overshoots
+    // the line's own end) — a plain triangle sized close to the line's own
+    // stroke reads as barely more than a blunt end, not an actual arrow
+    // ("화살표가 아니라 그냥 선"). Sizing the head at roughly 7x the line's
+    // width instead makes the point unmistakable while keeping the shaft
+    // itself thin and clean, not a fat near-solid bar.
     '<svg xmlns="http://www.w3.org/2000/svg">' +
-      '<defs><marker id="'+markerId+'" markerWidth="10" markerHeight="10" refX="7" refY="5" orient="auto" markerUnits="userSpaceOnUse">' +
-        '<polygon points="0,0 10,5 0,10" fill="'+color+'"></polygon>' +
+      '<defs><marker id="'+markerId+'" markerWidth="14" markerHeight="14" refX="10" refY="7" orient="auto" markerUnits="userSpaceOnUse">' +
+        '<polygon points="0,0.5 13,7 0,13.5" fill="'+color+'"></polygon>' +
       '</marker></defs>' +
-      '<line stroke="'+color+'" stroke-width="3" stroke-linecap="round" marker-end="url(#'+markerId+')"></line>' +
+      '<line stroke="'+color+'" stroke-width="2" stroke-linecap="round" marker-end="url(#'+markerId+')"></line>' +
     '</svg>' +
     '<span class="rt-arrow-handle" data-endpoint="start" contenteditable="false" draggable="false" title="시작점 옮기기"></span>' +
     '<span class="rt-arrow-handle" data-endpoint="end" contenteditable="false" draggable="false" title="끝점 옮기기"></span>' +
