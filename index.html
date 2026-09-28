@@ -368,13 +368,15 @@
   .rich-body .rt-img-wrap.rt-img-selected{outline:2px solid var(--amber);outline-offset:2px;}
   /* Freely-draggable annotation arrow (App.insertRichArrow) — same
      absolute-positioning family as .rt-img-wrap, but the "picture" here is
-     an inline <svg><line> with an arrowhead <marker>, and BOTH ends can be
-     dragged independently to any angle (see App.startArrowEndpointDrag) —
-     nothing about it is constrained to horizontal/vertical/45°. The wrap's
-     own left/top/width/height are recomputed on every drag (see
-     updateArrowWrapGeometry) to always be the tight bounding box of
-     whichever two points the line currently connects, plus a small pad so
-     the arrowhead and handle circles are never clipped. */
+     an inline <svg><path class="rt-arrow-shaft"> (a quadratic bezier, so it
+     can also be bent into a curve — see the curve handle below) with an
+     arrowhead <marker>, and BOTH ends can be dragged independently to any
+     angle (see App.startArrowEndpointDrag) — nothing about it is
+     constrained to horizontal/vertical/45°. The wrap's own left/top/
+     width/height are recomputed on every drag (see updateArrowWrapGeometry)
+     to always be the tight bounding box of whichever two points the line
+     currently connects (plus its curve control point, if any), plus a small
+     pad so the arrowhead and handle circles are never clipped. */
   .rt-arrow-wrap{-webkit-user-drag:none;user-select:none;}
   .rt-arrow-wrap svg{display:block;pointer-events:none;overflow:visible;}
   .rt-arrow-handle{
@@ -394,10 +396,32 @@
     cursor:pointer;-webkit-user-drag:none;user-select:none;
     font-size:11px;line-height:12px;text-align:center;color:#fff;font-weight:700;
   }
+  /* The curve handle (App.startArrowCurveDrag) — a small rotated square
+     ("diamond") in --teal rather than the endpoint handles' amber circle,
+     so it reads as a distinct kind of control at a glance. Dragging it sets
+     an explicit data-acx/acy control point that bends the shaft into a
+     quadratic-bezier curve; see updateArrowWrapGeometry's comment for why a
+     never-dragged arrow has no acx/acy at all and stays perfectly straight. */
+  .rt-arrow-curve-handle{
+    display:none;position:absolute;box-sizing:border-box;width:11px;height:11px;margin:-6px;
+    background:var(--surface-2);border:2px solid var(--teal);
+    cursor:pointer;-webkit-user-drag:none;user-select:none;
+    transform:rotate(45deg);
+  }
+  /* A faint dashed reference line from the shaft's own (uncurved) midpoint
+     out to the curve handle — purely so it's visually obvious which
+     direction dragging that handle bends the line, same idea as the
+     handle/anchor guide lines in most vector-drawing tools. Hidden unless
+     hovered/selected, like every other handle. */
+  .rt-arrow-curve-guide{display:none;}
   .rich-body .rt-arrow-wrap:hover .rt-arrow-handle,
+  .rich-body .rt-arrow-wrap:hover .rt-arrow-curve-handle,
+  .rich-body .rt-arrow-wrap:hover .rt-arrow-curve-guide,
   .rich-body .rt-arrow-wrap:hover .rt-arrow-move-handle,
   .rich-body .rt-arrow-wrap:hover .rt-arrow-delete-handle,
   .rich-body .rt-arrow-wrap.rt-arrow-selected .rt-arrow-handle,
+  .rich-body .rt-arrow-wrap.rt-arrow-selected .rt-arrow-curve-handle,
+  .rich-body .rt-arrow-wrap.rt-arrow-selected .rt-arrow-curve-guide,
   .rich-body .rt-arrow-wrap.rt-arrow-selected .rt-arrow-move-handle,
   .rich-body .rt-arrow-wrap.rt-arrow-selected .rt-arrow-delete-handle{display:block;}
   /* A modest bump over the 1px base — a brand-new arrow starts out
@@ -405,7 +429,11 @@
      made every freshly-inserted arrow look like a thick bar before the
      person had even touched it. Kept small enough that the base shaft
      ("거의 글자 획 굵기 처럼 얆았으면" — should be about as thin as a
-     text stroke) stays thin even while selected, not just when idle. */
+     text stroke) stays thin even while selected, not just when idle. Targets
+     .rt-arrow-shaft (a <path>, curve-capable — see updateArrowWrapGeometry)
+     rather than svg line now, but also still matches any not-yet-upgraded
+     legacy <line> shaft via the plain "svg line" selector below it. */
+  .rich-body .rt-arrow-wrap.rt-arrow-selected svg .rt-arrow-shaft,
   .rich-body .rt-arrow-wrap.rt-arrow-selected svg line{stroke-width:1.5px;}
 
   button.btn{
@@ -4933,6 +4961,7 @@ function sanitizeRichHtml(html){
       (el.classList && (el.classList.contains('rt-img-wrap') || el.classList.contains('rt-img-resize-handle') ||
         el.classList.contains('rt-img-move-handle') || el.classList.contains('rt-img-delete-handle') ||
         el.classList.contains('rt-arrow-wrap') || el.classList.contains('rt-arrow-handle') ||
+        el.classList.contains('rt-arrow-curve-handle') ||
         el.classList.contains('rt-arrow-move-handle') || el.classList.contains('rt-arrow-delete-handle')));
     [...el.attributes].forEach(attr=>{
       const name = attr.name.toLowerCase();
@@ -5896,56 +5925,123 @@ App.deleteImageChip = function(wrap){
 // point of this feature — so a single left/top pair can't be the source of
 // truth. Instead each wrap carries its geometry as four absolute,
 // body-relative pixel coordinates: data-ax1/data-ay1 (start point) and
-// data-ax2/data-ay2 (end point). updateArrowWrapGeometry() is the one place
-// that turns those four numbers into everything else that's actually
-// rendered (the wrap's own bounding box, the inline SVG's viewBox, the
-// <line>'s endpoints, and all 4 handles' positions) — every drag handler
-// below moves the arrow purely by writing new data-ax*/data-ay* values and
-// then calling that function, never by touching any of the derived pieces
-// directly.
+// data-ax2/data-ay2 (end point), PLUS an optional curve control point,
+// data-acx/data-acy (see App.startArrowCurveDrag) — the shaft is rendered
+// as a quadratic bezier through that control point, so leaving it unset
+// (the default for every arrow until the curve handle is actually dragged)
+// makes updateArrowWrapGeometry fall back to the live midpoint of the two
+// endpoints, which keeps the shaft perfectly straight (a quadratic bezier
+// whose control point sits exactly on its own endpoints' midpoint
+// degenerates to the straight line between them). updateArrowWrapGeometry()
+// is the one place that turns those numbers into everything else that's
+// actually rendered (the wrap's own bounding box, the inline SVG's
+// viewBox, the shaft's path data, and all handles' positions) — every drag
+// handler below moves/bends the arrow purely by writing new data-a* values
+// and then calling that function, never by touching any of the derived
+// pieces directly.
 const RT_ARROW_PAD = 16; // bounding-box padding so the arrowhead + handle circles are never clipped
+const RT_ARROW_SVG_NS = 'http://www.w3.org/2000/svg';
 /* Recomputes a .rt-arrow-wrap's entire visible geometry from its
-   data-ax1/ay1/ax2/ay2 attributes (the source of truth — see the comment
-   above). Safe to call before the wrap has ever been laid out (no
-   getBoundingClientRect reads here, pure arithmetic), so App.insertRichArrow
-   can call it immediately after building the initial markup. */
+   data-ax1/ay1/ax2/ay2 (+ optional data-acx/acy) attributes (the source of
+   truth — see the comment above). Safe to call before the wrap has ever
+   been laid out (no getBoundingClientRect reads here, pure arithmetic), so
+   App.insertRichArrow can call it immediately after building the initial
+   markup. */
 function updateArrowWrapGeometry(wrap){
   if(!wrap) return;
   const ax1 = parseFloat(wrap.dataset.ax1)||0, ay1 = parseFloat(wrap.dataset.ay1)||0;
   const ax2 = parseFloat(wrap.dataset.ax2)||0, ay2 = parseFloat(wrap.dataset.ay2)||0;
-  const left = Math.min(ax1, ax2) - RT_ARROW_PAD;
-  const top = Math.min(ay1, ay2) - RT_ARROW_PAD;
-  const width = Math.abs(ax2-ax1) + RT_ARROW_PAD*2;
-  const height = Math.abs(ay2-ay1) + RT_ARROW_PAD*2;
+  const hasCurve = wrap.dataset.acx !== undefined && wrap.dataset.acx !== '' &&
+                    wrap.dataset.acy !== undefined && wrap.dataset.acy !== '';
+  const acx = hasCurve ? (parseFloat(wrap.dataset.acx)||0) : (ax1+ax2)/2;
+  const acy = hasCurve ? (parseFloat(wrap.dataset.acy)||0) : (ay1+ay2)/2;
+  // A quadratic bezier always stays within the convex hull of its two
+  // endpoints and its control point, so folding acx/acy into the same
+  // min/max as ax1/ax2/ay1/ay2 always gives a tight, correct bounding box —
+  // no matter how far the curve is bent.
+  const left = Math.min(ax1, ax2, acx) - RT_ARROW_PAD;
+  const top = Math.min(ay1, ay2, acy) - RT_ARROW_PAD;
+  const right = Math.max(ax1, ax2, acx) + RT_ARROW_PAD;
+  const bottom = Math.max(ay1, ay2, acy) + RT_ARROW_PAD;
+  const width = right-left, height = bottom-top;
   wrap.style.position = 'absolute';
   wrap.style.left = Math.round(left)+'px';
   wrap.style.top = Math.round(top)+'px';
   wrap.style.width = Math.round(width)+'px';
   wrap.style.height = Math.round(height)+'px';
-  // Local (viewBox-relative) coordinates — the same two points, just
+  // Local (viewBox-relative) coordinates — the same points, just
   // re-anchored to the wrap's own top-left instead of the body's.
   const x1 = ax1-left, y1 = ay1-top, x2 = ax2-left, y2 = ay2-top;
+  const cx = acx-left, cy = acy-top;
+  // Where the curve HANDLE itself renders — same as (cx,cy) once the arrow
+  // has actually been curved, but nudged a fixed distance perpendicular to
+  // the shaft while it hasn't been (see the curveHandle block below for why:
+  // the un-set default control point sits exactly on the move handle's own
+  // rest position). Computed once here so the handle and its dashed guide
+  // line agree on exactly the same point.
+  let handleCx = cx, handleCy = cy;
+  if(!hasCurve){
+    const dxLine = x2-x1, dyLine = y2-y1;
+    const len = Math.hypot(dxLine, dyLine) || 1;
+    const nudge = 20;
+    handleCx = cx + (-dyLine/len)*nudge;
+    handleCy = cy + (dxLine/len)*nudge;
+  }
   const svg = wrap.querySelector('svg');
   if(svg){
     const w = Math.round(width), h = Math.round(height);
     svg.setAttribute('width', String(w));
     svg.setAttribute('height', String(h));
     svg.setAttribute('viewBox', '0 0 '+w+' '+h);
-    const line = svg.querySelector('line');
-    if(line){
-      line.setAttribute('x1', String(x1)); line.setAttribute('y1', String(y1));
-      line.setAttribute('x2', String(x2)); line.setAttribute('y2', String(y2));
+    // Self-heal an arrow saved before curve support existed — it still has
+    // a plain <line>, not a <path class="rt-arrow-shaft">. Upgrading it in
+    // place (copying over its stroke/marker) is silent and lossless: a
+    // quadratic bezier with the control point on the midpoint (the default
+    // above, since an old arrow never has data-acx/acy) renders pixel-
+    // identical to the straight line it replaces.
+    let shaft = svg.querySelector('.rt-arrow-shaft');
+    if(!shaft){
+      const legacyLine = svg.querySelector('line');
+      if(legacyLine){
+        shaft = document.createElementNS(RT_ARROW_SVG_NS, 'path');
+        shaft.setAttribute('class', 'rt-arrow-shaft');
+        shaft.setAttribute('fill', 'none');
+        ['stroke','stroke-width','stroke-linecap','marker-end'].forEach(function(attr){
+          const v = legacyLine.getAttribute(attr);
+          if(v!==null) shaft.setAttribute(attr, v);
+        });
+        legacyLine.replaceWith(shaft);
+      }
+    }
+    if(shaft){
+      shaft.setAttribute('d', 'M'+x1+','+y1+' Q'+cx+','+cy+' '+x2+','+y2);
+    }
+    const guide = svg.querySelector('.rt-arrow-curve-guide');
+    if(guide){
+      const straightMidX = (x1+x2)/2, straightMidY = (y1+y2)/2;
+      guide.setAttribute('x1', String(straightMidX)); guide.setAttribute('y1', String(straightMidY));
+      guide.setAttribute('x2', String(handleCx)); guide.setAttribute('y2', String(handleCy));
     }
   }
   const startHandle = wrap.querySelector('.rt-arrow-handle[data-endpoint="start"]');
   if(startHandle){ startHandle.style.left = Math.round(x1)+'px'; startHandle.style.top = Math.round(y1)+'px'; }
   const endHandle = wrap.querySelector('.rt-arrow-handle[data-endpoint="end"]');
   if(endHandle){ endHandle.style.left = Math.round(x2)+'px'; endHandle.style.top = Math.round(y2)+'px'; }
-  // Move/delete handles sit near the line's midpoint, offset from one
-  // another (and slightly off the line itself) so neither ends up
-  // overlapping the other or sitting exactly under the cursor while
-  // dragging the line itself.
-  const midX = (x1+x2)/2, midY = (y1+y2)/2;
+  // The curve handle renders at handleCx/handleCy (== the true control
+  // point cx/cy once explicitly curved; nudged off it otherwise — see
+  // handleCx/handleCy's own comment above for why). This is purely a
+  // rendering position: dragging it (App.startArrowCurveDrag) always writes
+  // the real acx/acy from wherever the cursor actually is, same as every
+  // other handle, so nothing about the drag itself depends on this nudge.
+  const curveHandle = wrap.querySelector('.rt-arrow-curve-handle');
+  if(curveHandle){ curveHandle.style.left = Math.round(handleCx)+'px'; curveHandle.style.top = Math.round(handleCy)+'px'; }
+  // Move/delete handles sit near the curve's actual visual midpoint — the
+  // bezier point at t=0.5 (0.25*P0 + 0.5*P1 + 0.25*P2), not the straight-
+  // line midpoint — so they stay near the visible line even when it's bent
+  // far away from a straight path between the two endpoints. For a
+  // never-curved arrow (cx/cy == the straight midpoint) this is exactly the
+  // same point as before, so idle arrows are unaffected.
+  const midX = (x1+x2)/4 + cx/2, midY = (y1+y2)/4 + cy/2;
   const moveHandle = wrap.querySelector('.rt-arrow-move-handle');
   if(moveHandle){ moveHandle.style.left = Math.round(midX)+'px'; moveHandle.style.top = Math.round(midY)+'px'; }
   const deleteHandle = wrap.querySelector('.rt-arrow-delete-handle');
@@ -5977,29 +6073,38 @@ function arrowWrapHtml(ax1, ay1, ax2, ay2, color){
     // 좋겠어" (should be about as thin as a text stroke). The chevron's own
     // stroke stays a touch heavier than the shaft (still thin in absolute
     // terms) purely so the tip doesn't fade out at this thinness, not
-    // because the shaft needs to look bold anywhere.
+    // because the shaft needs to look bold anywhere. The shaft itself is a
+    // <path> (class rt-arrow-shaft), not a <line> — see App.startArrowCurve
+    // Drag/updateArrowWrapGeometry — so it can be bent into a curve; no
+    // "d" attribute is set here since updateArrowWrapGeometry (called right
+    // after this is inserted) always derives it from data-ax1/ay1/ax2/ay2.
     '<svg xmlns="http://www.w3.org/2000/svg">' +
       '<defs><marker id="'+markerId+'" markerWidth="14" markerHeight="14" refX="10" refY="7" orient="auto" markerUnits="userSpaceOnUse">' +
         '<path d="M2,1.5 L12,7 L2,12.5" fill="none" stroke="'+color+'" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>' +
       '</marker></defs>' +
-      '<line stroke="'+color+'" stroke-width="1" stroke-linecap="round" marker-end="url(#'+markerId+')"></line>' +
+      '<line class="rt-arrow-curve-guide" stroke="var(--ink-dim)" stroke-width="1" stroke-dasharray="3,3"></line>' +
+      '<path class="rt-arrow-shaft" fill="none" stroke="'+color+'" stroke-width="1" stroke-linecap="round" marker-end="url(#'+markerId+')"></path>' +
     '</svg>' +
     '<span class="rt-arrow-handle" data-endpoint="start" contenteditable="false" draggable="false" title="시작점 옮기기"></span>' +
     '<span class="rt-arrow-handle" data-endpoint="end" contenteditable="false" draggable="false" title="끝점 옮기기"></span>' +
+    '<span class="rt-arrow-curve-handle" contenteditable="false" draggable="false" title="곡선으로 휘기"></span>' +
     '<span class="rt-arrow-move-handle" contenteditable="false" draggable="false" title="옮기기">⠿</span>' +
     '<span class="rt-arrow-delete-handle" contenteditable="false" draggable="false" title="삭제">×</span>' +
     '</span>';
 }
-// Recolors ONE arrow's line + arrowhead in place — the color-swatch-reuse
+// Recolors ONE arrow's shaft + arrowhead in place — the color-swatch-reuse
 // path (see App.applyRichColor's selectedArrowWrap check above): clicking
 // a swatch while an arrow is selected lands here instead of running
 // execCommand('foreColor', ...), which would have nothing to do since the
-// arrow holds no text selection at all.
+// arrow holds no text selection at all. Looks for the modern .rt-arrow-shaft
+// <path> first, falling back to a legacy <line> in the (very unlikely) case
+// this runs before updateArrowWrapGeometry has had a chance to self-heal it
+// (see that function's comment).
 function recolorArrowWrap(wrap, hex){
   if(!wrap) return;
-  const line = wrap.querySelector('svg > line');
+  const shaft = wrap.querySelector('.rt-arrow-shaft') || wrap.querySelector('svg > line');
   const head = wrap.querySelector('marker path'); // open chevron head — see arrowWrapHtml
-  if(line) line.setAttribute('stroke', hex);
+  if(shaft) shaft.setAttribute('stroke', hex);
   if(head) head.setAttribute('stroke', hex);
   const body = wrap.closest('.rich-body');
   if(body) body.dispatchEvent(new Event('input', {bubbles:true}));
@@ -6114,13 +6219,56 @@ App.startArrowEndpointDrag = function(e, which){
   document.addEventListener('mousemove', onMove);
   document.addEventListener('mouseup', onUp);
 };
+/* Dragging the curve handle bends the shaft into a quadratic-bezier curve
+   by writing an explicit data-acx/acy control point — same raw-mouse-delta,
+   body-relative approach as the endpoint handles above, and the same
+   Math.max(0, ...) clamp so the control point can't be dragged into
+   negative (off-canvas) territory. Once this has run once, the arrow
+   carries its own independent control point forever (see
+   updateArrowWrapGeometry's comment on why a never-touched arrow has no
+   acx/acy at all, rather than one that merely happens to equal the
+   midpoint) — dragging an endpoint afterward no longer moves the bend,
+   exactly like a real vector-tool control handle. */
+App.startArrowCurveDrag = function(e){
+  e.preventDefault();
+  e.stopPropagation();
+  const handle = e.target.closest('.rt-arrow-curve-handle');
+  const wrap = handle && handle.closest('.rt-arrow-wrap');
+  if(!wrap) return;
+  const body = wrap.closest('.rich-body');
+  if(!body) return;
+  deselectImageWrap();
+  deselectArrowWrap();
+  selectedArrowWrap = wrap;
+  wrap.classList.add('rt-arrow-selected');
+  const bodyRect = body.getBoundingClientRect();
+  function onMove(ev){
+    const x = Math.max(0, ev.clientX - bodyRect.left + body.scrollLeft);
+    const y = Math.max(0, ev.clientY - bodyRect.top + body.scrollTop);
+    wrap.dataset.acx = String(x);
+    wrap.dataset.acy = String(y);
+    updateArrowWrapGeometry(wrap);
+    ensureImageContainerFits(body);
+  }
+  function onUp(){
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+    ensureImageContainerFits(body);
+    body.dispatchEvent(new Event('input', {bubbles:true}));
+  }
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+};
 /* Drag-to-reposition for the WHOLE arrow (the move handle at its
    midpoint) — translates both endpoints by the same delta so the arrow's
    own length/angle never changes, only its position, exactly like
    App.startImageMove's plain pixel drag above. The delta itself (not each
    endpoint separately) is what gets clamped to stay >=0 — clamping each
    point independently would let one endpoint hit the edge before the
-   other and silently distort the arrow's shape/angle mid-drag. */
+   other and silently distort the arrow's shape/angle mid-drag. An
+   explicitly-curved arrow's control point (data-acx/acy) is translated by
+   the same delta too, and folded into that same clamp, so moving a bent
+   arrow carries its bend along with it instead of leaving the curve behind. */
 App.startArrowMove = function(e){
   e.preventDefault();
   e.stopPropagation();
@@ -6135,14 +6283,20 @@ App.startArrowMove = function(e){
   const startX = e.clientX, startY = e.clientY;
   const ax1 = parseFloat(wrap.dataset.ax1)||0, ay1 = parseFloat(wrap.dataset.ay1)||0;
   const ax2 = parseFloat(wrap.dataset.ax2)||0, ay2 = parseFloat(wrap.dataset.ay2)||0;
+  const hasCurve = wrap.dataset.acx !== undefined && wrap.dataset.acx !== '' &&
+                    wrap.dataset.acy !== undefined && wrap.dataset.acy !== '';
+  const acx0 = hasCurve ? (parseFloat(wrap.dataset.acx)||0) : null;
+  const acy0 = hasCurve ? (parseFloat(wrap.dataset.acy)||0) : null;
   wrap.style.opacity = '0.6';
   function onMove(ev){
     let dx = ev.clientX - startX, dy = ev.clientY - startY;
-    const minDx = -Math.min(ax1, ax2), minDy = -Math.min(ay1, ay2);
+    let minDx = -Math.min(ax1, ax2), minDy = -Math.min(ay1, ay2);
+    if(hasCurve){ minDx = Math.max(minDx, -acx0); minDy = Math.max(minDy, -acy0); }
     if(dx < minDx) dx = minDx;
     if(dy < minDy) dy = minDy;
     wrap.dataset.ax1 = String(ax1+dx); wrap.dataset.ay1 = String(ay1+dy);
     wrap.dataset.ax2 = String(ax2+dx); wrap.dataset.ay2 = String(ay2+dy);
+    if(hasCurve){ wrap.dataset.acx = String(acx0+dx); wrap.dataset.acy = String(acy0+dy); }
     updateArrowWrapGeometry(wrap);
     ensureImageContainerFits(body);
   }
@@ -6174,11 +6328,14 @@ App.deleteArrowChip = function(wrap){
    deliberately stripping position/left/top before handing a section's HTML
    off to a subtopic/card, since the ORIGINAL coordinates were computed
    against a usually-wider field — see that function's own comment). The
-   arrow's local line endpoints (still valid — only the wrap's own
-   position/left/top get cleared, never the <line> itself) are re-anchored
-   to wherever the wrap actually rendered once dropped into its new
-   container, giving it a sensible fresh data-ax1/ay1/ax2/ay2 instead of
-   silently keeping stale coordinates from a different-sized field. */
+   arrow's local shaft endpoints (still valid — only the wrap's own
+   position/left/top get cleared, never the shaft itself) are re-anchored to
+   wherever the wrap actually rendered once dropped into its new container,
+   giving it a sensible fresh data-ax1/ay1/ax2/ay2 instead of silently
+   keeping stale coordinates from a different-sized field. The shaft may be
+   the modern <path class="rt-arrow-shaft"> (curve-capable — its "d" encodes
+   the control point too) or, for an arrow saved before curve support
+   existed, a plain <line> — read whichever is actually present. */
 function migrateArrowWrapIfNeeded(wrap){
   const container = wrap.parentElement;
   if(!container) return;
@@ -6189,15 +6346,38 @@ function migrateArrowWrapIfNeeded(wrap){
     const wrapRect = wrap.getBoundingClientRect();
     const left = Math.max(0, Math.round(wrapRect.left - containerRect.left + container.scrollLeft));
     const top = Math.max(0, Math.round(wrapRect.top - containerRect.top + container.scrollTop));
-    const line = wrap.querySelector('line');
-    const x1 = line ? (parseFloat(line.getAttribute('x1'))||0) : 0;
-    const y1 = line ? (parseFloat(line.getAttribute('y1'))||0) : 0;
-    const x2 = line ? (parseFloat(line.getAttribute('x2'))||(RT_ARROW_PAD*2+40)) : (RT_ARROW_PAD*2+40);
-    const y2 = line ? (parseFloat(line.getAttribute('y2'))||(RT_ARROW_PAD*2+40)) : (RT_ARROW_PAD*2+40);
+    const shaft = wrap.querySelector('.rt-arrow-shaft');
+    let x1, y1, x2, y2, cx = null, cy = null;
+    if(shaft){
+      const d = shaft.getAttribute('d') || '';
+      const m = d.match(/M\s*(-?[\d.]+)[ ,]+(-?[\d.]+)\s*Q\s*(-?[\d.]+)[ ,]+(-?[\d.]+)\s+(-?[\d.]+)[ ,]+(-?[\d.]+)/i);
+      if(m){
+        x1 = parseFloat(m[1]); y1 = parseFloat(m[2]);
+        cx = parseFloat(m[3]); cy = parseFloat(m[4]);
+        x2 = parseFloat(m[5]); y2 = parseFloat(m[6]);
+      }
+    }
+    if(x1===undefined){
+      const line = wrap.querySelector('line');
+      x1 = line ? (parseFloat(line.getAttribute('x1'))||0) : 0;
+      y1 = line ? (parseFloat(line.getAttribute('y1'))||0) : 0;
+      x2 = line ? (parseFloat(line.getAttribute('x2'))||(RT_ARROW_PAD*2+40)) : (RT_ARROW_PAD*2+40);
+      y2 = line ? (parseFloat(line.getAttribute('y2'))||(RT_ARROW_PAD*2+40)) : (RT_ARROW_PAD*2+40);
+    }
     wrap.dataset.ax1 = String(left + x1);
     wrap.dataset.ay1 = String(top + y1);
     wrap.dataset.ax2 = String(left + x2);
     wrap.dataset.ay2 = String(top + y2);
+    // Only re-anchor an explicit curve (a control point already set before
+    // this migration ran, per its own dataset) — a never-curved arrow must
+    // keep following the dynamic midpoint default in
+    // updateArrowWrapGeometry, not freeze onto whatever the midpoint
+    // happens to be at this exact moment.
+    const hadExplicitCurve = wrap.dataset.acx !== undefined && wrap.dataset.acx !== '';
+    if(hadExplicitCurve && cx!==null){
+      wrap.dataset.acx = String(left + cx);
+      wrap.dataset.acy = String(top + cy);
+    }
     wrap.style.display = '';
     wrap.style.verticalAlign = '';
     const next = wrap.nextSibling;
@@ -6301,6 +6481,8 @@ document.addEventListener('mousedown', function(e){
   // below, same ordering as the image handles vs. .rt-img-wrap.
   const arrowHandle = e.target && e.target.closest && e.target.closest('.rt-arrow-handle');
   if(arrowHandle && arrowHandle.closest('.rich-body')){ App.startArrowEndpointDrag(e, arrowHandle.dataset.endpoint); return; }
+  const arrowCurveHandle = e.target && e.target.closest && e.target.closest('.rt-arrow-curve-handle');
+  if(arrowCurveHandle && arrowCurveHandle.closest('.rich-body')){ App.startArrowCurveDrag(e); return; }
   const arrowMoveHandle = e.target && e.target.closest && e.target.closest('.rt-arrow-move-handle');
   if(arrowMoveHandle && arrowMoveHandle.closest('.rich-body')){ App.startArrowMove(e); return; }
   const arrowDeleteHandle = e.target && e.target.closest && e.target.closest('.rt-arrow-delete-handle');
@@ -8532,7 +8714,7 @@ function flattenAbsoluteImagesForPrint(html){
   if(!html || (html.indexOf('rt-img-wrap')===-1 && html.indexOf('rt-arrow-wrap')===-1)) return html;
   const div = document.createElement('div');
   div.innerHTML = html;
-  div.querySelectorAll('.rt-img-move-handle,.rt-img-delete-handle,.rt-img-resize-handle,.rt-arrow-handle,.rt-arrow-move-handle,.rt-arrow-delete-handle').forEach(function(el){ el.remove(); });
+  div.querySelectorAll('.rt-img-move-handle,.rt-img-delete-handle,.rt-img-resize-handle,.rt-arrow-handle,.rt-arrow-curve-handle,.rt-arrow-curve-guide,.rt-arrow-move-handle,.rt-arrow-delete-handle').forEach(function(el){ el.remove(); });
   return div.innerHTML;
 }
 function openPrintableDoc(title, bodyHtml){
