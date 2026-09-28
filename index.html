@@ -6146,24 +6146,15 @@ App.insertRichArrow = function(bodyId){
   top += (existingCount % 5) * 18;
   left = Math.max(0, left);
   top = Math.max(0, top);
-  // "글자 색으로" — a freshly-inserted arrow should pick up whatever color
-  // the actual text AT THE CARET currently is, not a fixed default.
-  // richActiveColor[bodyId] alone isn't enough for this: it only holds a
-  // color right after the person clicks a swatch to prime upcoming typing,
-  // and gets deleted on every cursor move/blur/selection change (see the
-  // keydown/blur/selectionchange handlers above) — so by the time the
-  // arrow toolbar button is actually clicked it's usually already gone,
-  // even if the caret is sitting in obviously-colored text.
-  // document.queryCommandValue('foreColor') instead reports whatever color
-  // text typed right here would actually render in — the browser's own
-  // live "current color at the caret", reflecting the real surrounding
-  // text color whether or not richActiveColor happens to still be set.
-  let caretColor = null;
-  try {
-    const v = document.queryCommandValue('foreColor');
-    if(v && v.trim()) caretColor = v.trim();
-  } catch(e){ caretColor = null; }
-  const color = richActiveColor[bodyId] || caretColor || RICH_COLORS[1];
+  // Every new arrow starts out plain black — "기본 화살표색은 검은색으로
+  // 해줘". A previous version of this tried to auto-match whatever color
+  // the caret was sitting in (misreading an earlier "화살표의 색깔도
+  // 바꿀수있게 해줘 글자 색으로" as asking for that); the person clarified
+  // they meant only the existing "select the arrow, then click a color
+  // swatch" recolor flow (App.applyRichColor/recolorArrowWrap above, both
+  // unchanged) — the arrow's color at INSERT time should just be a fixed
+  // black, not tied to typing style or caret position at all.
+  const color = '#000000';
   // Arbitrary but immediately visible default shape — a short diagonal
   // pointing down-and-right — rather than a zero-length line that would be
   // invisible until dragged out to somewhere.
