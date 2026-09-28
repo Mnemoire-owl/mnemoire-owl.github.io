@@ -9179,7 +9179,7 @@ function renderDrawTopicBody(){
             <div class="muted mono" style="font-size:12px;">${t('draw.drawnLabel')}${isSub?' · '+escapeHtml(tp.name):''}</div>
             <div class="name">${escapeHtml(item.name)}</div>
             ${state.draw.revealed
-              ? `<div class="card" style="text-align:left;margin-top:14px;background:var(--surface-2);"><div class="muted" style="font-size:11px;margin-bottom:6px;">${t('draw.notesLabel')}</div>${item.notes?escapeHtml(item.notes).replace(/\n/g,'<br>'):'<span class="muted">'+t('draw.noNotes')+'</span>'}</div>`
+              ? `<div class="card" style="text-align:left;margin-top:14px;background:var(--surface-2);"><div class="muted" style="font-size:11px;margin-bottom:6px;">${t('draw.notesLabel')}</div>${!richIsEmpty(item.notes)?item.notes:'<span class="muted">'+t('draw.noNotes')+'</span>'}</div>`
               : `<button class="btn teal" onclick="App.revealDraw()" style="margin-top:12px;">${t('draw.reveal')}</button>`
             }
           </div>`;
