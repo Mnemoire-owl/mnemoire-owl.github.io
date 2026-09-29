@@ -257,6 +257,7 @@
   .rich-format-btn.image{font-size:13px;}
   .rich-format-btn.tag{font-size:12px;}
   .rich-format-btn.arrow{font-size:15px;font-weight:700;}
+  .rich-format-btn.textbox{font-size:13px;}
   /* A tagged phrase (App.applyRichTag) — the annotation text itself
      (data-tag) stays invisible until hover; the dotted underline is the
      only always-visible hint that there's something to reveal, so a tagged
@@ -435,6 +436,55 @@
      legacy <line> shaft via the plain "svg line" selector below it. */
   .rich-body .rt-arrow-wrap.rt-arrow-selected svg .rt-arrow-shaft,
   .rich-body .rt-arrow-wrap.rt-arrow-selected svg line{stroke-width:1.5px;}
+  /* Freely-positioned text box (App.insertRichTextbox) — same absolute-
+     positioning-on-a-page family as .rt-img-wrap/.rt-arrow-wrap just above
+     (never tied to a text line, always freely draggable), but the wrap
+     itself is deliberately left contenteditable at its default (inherited
+     "true" from .rich-body) rather than "false" like an image/arrow chip —
+     unlike those two, its whole point is to hold real text the person types
+     straight into (.rt-textbox-body, explicitly contenteditable="true"). The
+     wrap has no visual chrome of its own (no border/padding/background) so
+     every pixel inside its bounding box is genuinely the body's own editable
+     area — there is no "dead zone" a click could land on that isn't either
+     the text itself or one of the three handles below (each of which stays
+     contenteditable="false", exactly like an image/arrow handle). */
+  .rt-textbox-wrap{-webkit-user-drag:none;}
+  .rt-textbox-body{
+    width:100%;box-sizing:border-box;
+    background:var(--surface);border:1px solid var(--line);border-radius:6px;
+    padding:8px 10px;min-width:80px;min-height:1.4em;
+    outline:none;cursor:text;white-space:pre-wrap;overflow-wrap:break-word;
+    font-size:13.5px;line-height:1.5;
+  }
+  .rt-textbox-body:focus{border-color:var(--amber);}
+  .rt-textbox-body:empty::before{content:attr(data-placeholder);color:var(--ink-dim);}
+  /* Move/delete/resize handles — same look, corner, and hover-only-inside-
+     .rich-body visibility as the image chip's own (.rt-img-move-handle etc.
+     above); see that CSS block's own comment for why -webkit-user-drag:none
+     + draggable="false" are both needed on each one. */
+  .rt-textbox-move-handle{
+    display:none;position:absolute;left:-6px;top:-6px;
+    width:16px;height:16px;background:var(--surface-2);
+    border:1px solid var(--line);border-radius:4px;
+    cursor:grab;-webkit-user-drag:none;user-select:none;
+    font-size:10px;line-height:14px;text-align:center;color:var(--ink-dim);
+  }
+  .rt-textbox-delete-handle{
+    display:none;position:absolute;right:-6px;top:-6px;
+    width:16px;height:16px;background:#d9534f;
+    border:2px solid var(--surface-2);border-radius:50%;
+    cursor:pointer;-webkit-user-drag:none;user-select:none;
+    font-size:11px;line-height:12px;text-align:center;color:#fff;font-weight:700;
+  }
+  .rt-textbox-resize-handle{
+    display:none;position:absolute;right:-5px;bottom:-5px;
+    width:13px;height:13px;background:var(--amber);
+    border:2px solid var(--surface-2);border-radius:3px;
+    cursor:nwse-resize;-webkit-user-drag:none;user-select:none;
+  }
+  .rich-body .rt-textbox-wrap:hover .rt-textbox-move-handle,
+  .rich-body .rt-textbox-wrap:hover .rt-textbox-delete-handle,
+  .rich-body .rt-textbox-wrap:hover .rt-textbox-resize-handle{display:block;}
 
   button.btn{
     background:var(--amber);
@@ -1343,7 +1393,7 @@ const LANG = {
       recurringNoneToday:'오늘 해당하는 상주 계획이 없어요.', recurringEmpty:'등록된 상주 계획이 없어요.',
       recurringManageTitle:'전체 상주 계획 관리', recurringNotTodayTag:'오늘 아님'
     },
-    richtext: { colorAria:'글자색 선택', clearAria:'기본색으로', boldAria:'굵게', italicAria:'기울임', underlineAria:'밑줄', bulletAria:'글머리 기호 목록', imageAria:'사진 추가', arrowAria:'화살표 추가', tagAria:'꼬리표 달기', tagPrompt:'이 부분에 달 꼬리표 내용을 입력하세요 (비워두면 삭제돼요):', tagNeedsSelection:'먼저 꼬리표를 달 텍스트를 선택해주세요.', tagEditAria:'꼬리표 수정', tagDeleteAria:'꼬리표 삭제' },
+    richtext: { colorAria:'글자색 선택', clearAria:'기본색으로', boldAria:'굵게', italicAria:'기울임', underlineAria:'밑줄', bulletAria:'글머리 기호 목록', imageAria:'사진 추가', arrowAria:'화살표 추가', textboxAria:'텍스트 상자 추가', textboxPlaceholder:'텍스트 입력', tagAria:'꼬리표 달기', tagPrompt:'이 부분에 달 꼬리표 내용을 입력하세요 (비워두면 삭제돼요):', tagNeedsSelection:'먼저 꼬리표를 달 텍스트를 선택해주세요.', tagEditAria:'꼬리표 수정', tagDeleteAria:'꼬리표 삭제' },
     sidenote: {
       title:'메모장', placeholder:'여기에 자유롭게 적어보세요…', saved:'저장됨',
       collapseAria:'메모장 접기', expandAria:'메모장 펼치기', resizeAria:'너비 조절',
@@ -1637,7 +1687,7 @@ const LANG = {
       recurringNoneToday:'No recurring plans scheduled for today.', recurringEmpty:'No recurring plans yet.',
       recurringManageTitle:'Manage all recurring plans', recurringNotTodayTag:'Not today'
     },
-    richtext: { colorAria:'Choose text color', clearAria:'Reset color', boldAria:'Bold', italicAria:'Italic', underlineAria:'Underline', bulletAria:'Bulleted list', imageAria:'Add image', arrowAria:'Add arrow', tagAria:'Add tag', tagPrompt:'Enter the tag text for this selection (leave blank to remove):', tagNeedsSelection:'Select some text first to tag it.', tagEditAria:'Edit tag', tagDeleteAria:'Delete tag' },
+    richtext: { colorAria:'Choose text color', clearAria:'Reset color', boldAria:'Bold', italicAria:'Italic', underlineAria:'Underline', bulletAria:'Bulleted list', imageAria:'Add image', arrowAria:'Add arrow', textboxAria:'Add text box', textboxPlaceholder:'Type text', tagAria:'Add tag', tagPrompt:'Enter the tag text for this selection (leave blank to remove):', tagNeedsSelection:'Select some text first to tag it.', tagEditAria:'Edit tag', tagDeleteAria:'Delete tag' },
     sidenote: {
       title:'Notes', placeholder:'Jot down anything here…', saved:'Saved',
       collapseAria:'Collapse notes', expandAria:'Expand notes', resizeAria:'Resize',
@@ -1931,7 +1981,7 @@ const LANG = {
       recurringNoneToday:'Heute ist kein fester Plan vorgesehen.', recurringEmpty:'Noch keine festen Pläne angelegt.',
       recurringManageTitle:'Alle festen Pläne verwalten', recurringNotTodayTag:'Nicht heute'
     },
-    richtext: { colorAria:'Textfarbe wählen', clearAria:'Farbe zurücksetzen', boldAria:'Fett', italicAria:'Kursiv', underlineAria:'Unterstrichen', bulletAria:'Aufzählungsliste', imageAria:'Bild hinzufügen', arrowAria:'Pfeil hinzufügen', tagAria:'Markierung hinzufügen', tagPrompt:'Text für diese Markierung eingeben (leer lassen zum Entfernen):', tagNeedsSelection:'Bitte zuerst Text auswählen, um ihn zu markieren.', tagEditAria:'Markierung bearbeiten', tagDeleteAria:'Markierung löschen' },
+    richtext: { colorAria:'Textfarbe wählen', clearAria:'Farbe zurücksetzen', boldAria:'Fett', italicAria:'Kursiv', underlineAria:'Unterstrichen', bulletAria:'Aufzählungsliste', imageAria:'Bild hinzufügen', arrowAria:'Pfeil hinzufügen', textboxAria:'Textfeld hinzufügen', textboxPlaceholder:'Text eingeben', tagAria:'Markierung hinzufügen', tagPrompt:'Text für diese Markierung eingeben (leer lassen zum Entfernen):', tagNeedsSelection:'Bitte zuerst Text auswählen, um ihn zu markieren.', tagEditAria:'Markierung bearbeiten', tagDeleteAria:'Markierung löschen' },
     sidenote: {
       title:'Notizen', placeholder:'Hier frei notieren…', saved:'Gespeichert',
       collapseAria:'Notizen einklappen', expandAria:'Notizen ausklappen', resizeAria:'Größe ändern',
@@ -2225,7 +2275,7 @@ const LANG = {
       recurringNoneToday:'Aucun plan récurrent programmé pour aujourd’hui.', recurringEmpty:'Aucun plan récurrent pour l’instant.',
       recurringManageTitle:'Gérer tous les plans récurrents', recurringNotTodayTag:'Pas aujourd’hui'
     },
-    richtext: { colorAria:'Choisir la couleur du texte', clearAria:'Réinitialiser la couleur', boldAria:'Gras', italicAria:'Italique', underlineAria:'Souligné', bulletAria:'Liste à puces', imageAria:'Ajouter une image', arrowAria:'Ajouter une flèche', tagAria:'Ajouter une étiquette', tagPrompt:'Saisissez le texte de cette étiquette (laissez vide pour la supprimer) :', tagNeedsSelection:'Sélectionnez d’abord du texte à étiqueter.', tagEditAria:'Modifier l’étiquette', tagDeleteAria:'Supprimer l’étiquette' },
+    richtext: { colorAria:'Choisir la couleur du texte', clearAria:'Réinitialiser la couleur', boldAria:'Gras', italicAria:'Italique', underlineAria:'Souligné', bulletAria:'Liste à puces', imageAria:'Ajouter une image', arrowAria:'Ajouter une flèche', textboxAria:'Ajouter une zone de texte', textboxPlaceholder:'Saisir un texte', tagAria:'Ajouter une étiquette', tagPrompt:'Saisissez le texte de cette étiquette (laissez vide pour la supprimer) :', tagNeedsSelection:'Sélectionnez d’abord du texte à étiqueter.', tagEditAria:'Modifier l’étiquette', tagDeleteAria:'Supprimer l’étiquette' },
     sidenote: {
       title:'Notes', placeholder:'Notez quelque chose ici…', saved:'Enregistré',
       collapseAria:'Réduire les notes', expandAria:'Développer les notes', resizeAria:'Redimensionner',
@@ -4887,6 +4937,23 @@ function normalizeRichColorBold(root){
   // structure carries no text runs for styleKeyFor to process at all.
   function isImageWrap(el){ return !!(el.classList && (el.classList.contains('rt-img-wrap') || el.classList.contains('rt-arrow-wrap'))); }
   function isRichTag(el){ return !!(el.classList && el.classList.contains('rich-tag')); }
+  // A text box (App.insertRichTextbox) is NOT opaque like an image/arrow
+  // chip above — its whole point is the real text typed into its own
+  // .rt-textbox-body, which DOES need the same color/bold drift-correction
+  // as every other text run in the field. So its outer wrap (classes,
+  // position/left/top/width, handles) is kept exactly as-is via a clone,
+  // but that clone's .rt-textbox-body content is replaced with a freshly
+  // re-normalized copy of the live body's content — same "keep the
+  // wrapper, recurse into the content" idea as isRichTag just above, just
+  // applied to a block-level container instead of an inline one.
+  function isTextboxWrap(el){ return !!(el.classList && el.classList.contains('rt-textbox-wrap')); }
+  function serializeTextboxWrap(wrap){
+    const clone = wrap.cloneNode(true);
+    const liveBody = wrap.querySelector('.rt-textbox-body');
+    const cloneBody = clone.querySelector('.rt-textbox-body');
+    if(cloneBody) cloneBody.innerHTML = liveBody ? processBlock(liveBody) : '';
+    return clone.outerHTML;
+  }
   function styleKeyFor(node){
     const el = node.nodeType===3 ? node.parentElement : node;
     if(!el) return defaultColor+'|false|false|false';
@@ -4927,6 +4994,8 @@ function normalizeRichColorBold(root){
         } else if(isRichTag(child)){
           const tagVal = child.getAttribute('data-tag')||'';
           out.push({opaque: '<span class="rich-tag" data-tag="'+escapeAttr(tagVal)+'">'+runsToHtml(processInline(child))+'</span>'});
+        } else if(isTextboxWrap(child)){
+          out.push({opaque: serializeTextboxWrap(child)});
         } else {
           // Any other inline wrapper (span/b/i/u/strong/em/font/...) is
           // flattened away here — its visual effect on descendant text was
@@ -4950,6 +5019,8 @@ function normalizeRichColorBold(root){
         html += '<br>';
       } else if(isImageWrap(child)){
         html += child.outerHTML;
+      } else if(isTextboxWrap(child)){
+        html += serializeTextboxWrap(child);
       } else if(child.tagName==='UL' || child.tagName==='OL'){
         const tag = child.tagName.toLowerCase();
         const items = Array.from(child.children).map(function(li){ return '<li>'+processBlock(li)+'</li>'; }).join('');
@@ -4998,7 +5069,14 @@ function sanitizeRichHtml(html){
         el.classList.contains('rt-img-move-handle') || el.classList.contains('rt-img-delete-handle') ||
         el.classList.contains('rt-arrow-wrap') || el.classList.contains('rt-arrow-handle') ||
         el.classList.contains('rt-arrow-curve-handle') ||
-        el.classList.contains('rt-arrow-move-handle') || el.classList.contains('rt-arrow-delete-handle')));
+        el.classList.contains('rt-arrow-move-handle') || el.classList.contains('rt-arrow-delete-handle') ||
+        // Same leniency for a text box's own outer wrap (App.insertRichTextbox)
+        // — its position/left/top/width come from JS (App.startTextboxMove/
+        // App.startTextboxResize), not a stylesheet. Its .rt-textbox-body and
+        // everything typed inside it are deliberately left OUT of this list —
+        // that inner text goes through the exact same color-only style
+        // allowlist as any other note text, via the plain "else" branch below.
+        el.classList.contains('rt-textbox-wrap')));
     [...el.attributes].forEach(attr=>{
       const name = attr.name.toLowerCase();
       if(name==='src'){
@@ -5149,9 +5227,15 @@ function richFieldHtml(bodyId, valueHtml, placeholder, minHeight, extraAttrs){
   // their own drag handle so the whole thing can point in any direction,
   // not just the handful a resize-handle-on-a-box would allow.
   const arrowBtn = `<button type="button" class="rich-format-btn arrow" onmousedown="event.preventDefault()" onclick="App.insertRichArrow('${bodyId}')" aria-label="${t('richtext.arrowAria')}" title="${t('richtext.arrowAria')}">↗</button>`;
+  // Text box button — drops a small, freely-positioned editable box near the
+  // caret (see App.insertRichTextbox), positioned exactly like an image/
+  // arrow chip (never tied to a text line, always draggable) — except
+  // unlike those two its content is real editable text, and it focuses that
+  // text immediately after inserting so typing can start right away.
+  const textboxBtn = `<button type="button" class="rich-format-btn textbox" onmousedown="event.preventDefault()" onclick="App.insertRichTextbox('${bodyId}')" aria-label="${t('richtext.textboxAria')}" title="${t('richtext.textboxAria')}">▭</button>`;
   return `
     <div class="rich-field">
-      <div class="rich-colorbar">${formatBtns}${imageBtn}${arrowBtn}${tagBtn}<span class="rich-toolbar-sep"></span>${swatches}${clearBtn}</div>
+      <div class="rich-colorbar">${formatBtns}${imageBtn}${arrowBtn}${textboxBtn}${tagBtn}<span class="rich-toolbar-sep"></span>${swatches}${clearBtn}</div>
       <div class="rich-body" id="${bodyId}" contenteditable="true" style="min-height:${minHeight||90}px;" data-placeholder="${escapeAttr(placeholder||'')}" onpaste="App.handleRichBodyPaste(event,'${bodyId}')" ${extraAttrs||''}>${valueHtml||''}</div>
     </div>
   `;
@@ -5672,11 +5756,12 @@ function ensureImageContainerFits(container){
   let maxBottom = 0;
   for(let i=0;i<container.children.length;i++){
     const child = container.children[i];
-    // .rt-arrow-wrap (see App.insertRichArrow below) is absolutely
-    // positioned exactly like .rt-img-wrap, so it needs to grow the
-    // container's min-height the same way — otherwise an arrow dragged
-    // below the last line of text would visually hang off the bottom edge.
-    if(child.classList && (child.classList.contains('rt-img-wrap') || child.classList.contains('rt-arrow-wrap'))){
+    // .rt-arrow-wrap (see App.insertRichArrow below) and .rt-textbox-wrap
+    // (see App.insertRichTextbox further below) are absolutely positioned
+    // exactly like .rt-img-wrap, so they need to grow the container's
+    // min-height the same way — otherwise one dragged below the last line
+    // of text would visually hang off the bottom edge.
+    if(child.classList && (child.classList.contains('rt-img-wrap') || child.classList.contains('rt-arrow-wrap') || child.classList.contains('rt-textbox-wrap'))){
       const top = parseFloat(child.style.top)||0;
       const h = child.offsetHeight||0;
       if(top+h > maxBottom) maxBottom = top+h;
@@ -6365,6 +6450,203 @@ App.deleteArrowChip = function(wrap){
   wrap.remove();
   if(body){ ensureImageContainerFits(body); body.dispatchEvent(new Event('input', {bubbles:true})); }
 };
+// ---- Freely-positioned text box ("노트에 텍스트 박스를 추가 할수있도록 해줘") ----
+// Modeled on the same absolute-positioning-on-a-page metaphor as the image/
+// arrow chips just above (App.insertRichImage/App.insertRichArrow) — never
+// tied to a text line, always freely draggable and resizable via handles —
+// but the "content" here is real text the person types directly into
+// (.rt-textbox-body), not an opaque picture or line. See the .rt-textbox-wrap
+// CSS block's own comment for why the wrap itself is left contenteditable at
+// its inherited default instead of "false".
+/* The actual markup for a freshly-inserted text box — a plain (non-
+   contenteditable=false) wrapper div, so the same reasoning as
+   insertImageChipAtSelection's own doc comment about a detached temp <div>
+   applies here too. data-rt-positioned marks it as already correctly placed
+   (see migrateTextboxWrapIfNeeded below), same convention as an image/arrow
+   chip. */
+function textboxWrapHtml(left, top, width, placeholder){
+  return '<div class="rt-textbox-wrap" data-rt-positioned="1" style="position:absolute;left:' + Math.round(left) + 'px;top:' + Math.round(top) + 'px;width:' + Math.round(width) + 'px;">' +
+    '<span class="rt-textbox-move-handle" contenteditable="false" draggable="false" title="옮기기">⠿</span>' +
+    '<span class="rt-textbox-delete-handle" contenteditable="false" draggable="false" title="삭제">×</span>' +
+    '<div class="rt-textbox-body" contenteditable="true" data-placeholder="' + escapeAttr(placeholder||'') + '"></div>' +
+    '<span class="rt-textbox-resize-handle" contenteditable="false" draggable="false" title="드래그해서 크기 조절"></span>' +
+    '</div>';
+}
+/* Toolbar button entry point (see richFieldHtml's textboxBtn). Drops a
+   small default-width box near wherever the caret/selection was — same
+   anchor-range + "insert as a sibling right after the current top-level
+   line" logic as insertImageChipAtSelection/App.insertRichArrow, so
+   parseAutoSubtopicSections/findAutoSectionLineEls attribute it to the
+   right subtopic by DOM order, not always at the very end of the field —
+   then immediately focuses its own text area so typing can start right
+   away, with no second click needed to "enter" the box first. */
+App.insertRichTextbox = function(bodyId){
+  const body = document.getElementById(bodyId);
+  if(!body) return;
+  body.focus({preventScroll:true});
+  const bodyRect = body.getBoundingClientRect();
+  let left = 16, top = 16;
+  const sel = window.getSelection();
+  const range = (sel && sel.rangeCount>0 && body.contains(sel.anchorNode)) ? sel.getRangeAt(0) : null;
+  let rect = null;
+  if(range){
+    try{
+      const r = range.cloneRange();
+      r.collapse(true);
+      const rects = r.getClientRects();
+      rect = (rects && rects[0]) || r.getBoundingClientRect();
+    } catch(e){ rect = null; }
+  }
+  if(rect && (rect.width || rect.height || rect.top || rect.left)){
+    left = rect.left - bodyRect.left + body.scrollLeft;
+    top = rect.top - bodyRect.top + body.scrollTop;
+  }
+  // Stagger repeated inserts the same way insertImageChipAtSelection/
+  // App.insertRichArrow do, so adding several boxes in a row doesn't stack
+  // them exactly on top of one another.
+  const existingCount = body.querySelectorAll('.rt-textbox-wrap').length;
+  left += (existingCount % 5) * 16;
+  top += (existingCount % 5) * 16;
+  const width = 200;
+  const maxLeft = Math.max(0, body.clientWidth - width);
+  left = Math.max(0, Math.min(left, maxLeft));
+  top = Math.max(0, top);
+  const temp = document.createElement('div');
+  temp.innerHTML = textboxWrapHtml(left, top, width, t('richtext.textboxPlaceholder'));
+  const wrapEl = temp.firstElementChild;
+  let insertAfterEl = null;
+  if(range){
+    let node = range.startContainer;
+    if(node === body){
+      const idx = range.startOffset;
+      insertAfterEl = idx>0 ? body.childNodes[idx-1] : null;
+    } else {
+      while(node && node.parentNode !== body) node = node.parentNode;
+      if(node && node.parentNode === body) insertAfterEl = node;
+    }
+  }
+  if(insertAfterEl && insertAfterEl.parentNode === body){
+    body.insertBefore(wrapEl, insertAfterEl.nextSibling);
+  } else {
+    body.appendChild(wrapEl);
+  }
+  ensureImageContainerFits(body);
+  body.dispatchEvent(new Event('input', {bubbles:true}));
+  const textEl = wrapEl.querySelector('.rt-textbox-body');
+  if(textEl){
+    textEl.focus();
+    const r = document.createRange();
+    r.selectNodeContents(textEl);
+    r.collapse(false);
+    const s = window.getSelection();
+    s.removeAllRanges();
+    s.addRange(r);
+  }
+};
+/* Drag-to-reposition (the grip handle in the box's top-left corner) — a
+   plain pixel-for-pixel drag of the wrap's absolute left/top, exactly like
+   App.startImageMove above. Only clamped so it can't be dragged left/up off
+   the field entirely. */
+App.startTextboxMove = function(e){
+  e.preventDefault();
+  e.stopPropagation();
+  const wrap = e.target.closest('.rt-textbox-wrap');
+  if(!wrap) return;
+  const body = wrap.closest('.rich-body');
+  if(!body) return;
+  const startX = e.clientX, startY = e.clientY;
+  const startLeft = parseFloat(wrap.style.left)||0;
+  const startTop = parseFloat(wrap.style.top)||0;
+  const maxLeft = Math.max(0, body.clientWidth - wrap.offsetWidth);
+  wrap.style.opacity = '0.7';
+  function onMove(ev){
+    const dx = ev.clientX - startX, dy = ev.clientY - startY;
+    const newLeft = Math.min(Math.max(0, startLeft+dx), maxLeft);
+    const newTop = Math.max(0, startTop+dy);
+    wrap.style.left = Math.round(newLeft)+'px';
+    wrap.style.top = Math.round(newTop)+'px';
+    ensureImageContainerFits(body);
+  }
+  function onUp(){
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+    wrap.style.opacity = '';
+    ensureImageContainerFits(body);
+    body.dispatchEvent(new Event('input', {bubbles:true}));
+  }
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+};
+/* Drag-to-resize (the handle in the box's bottom-right corner) — unlike
+   App.startImageResize (which resizes the <img> and lets the wrap shrink-
+   wrap around it), a text box's WRAP width is itself the authoritative box
+   width (.rt-textbox-body is CSS width:100% of it), so this writes directly
+   to wrap.style.width. Height is never set explicitly — the body's own
+   normal block layout (plus its padding/min-height) always determines it,
+   so it grows on its own as more text is typed, exactly like a real sticky
+   note. */
+App.startTextboxResize = function(e){
+  e.preventDefault();
+  e.stopPropagation();
+  const wrap = e.target.closest('.rt-textbox-wrap');
+  if(!wrap) return;
+  const body = wrap.closest('.rich-body');
+  const startX = e.clientX;
+  const startWidth = wrap.getBoundingClientRect().width;
+  const container = body || wrap.parentElement;
+  const maxWidth = container ? Math.max(container.getBoundingClientRect().width - 8, 100) : 2000;
+  function onMove(ev){
+    const delta = ev.clientX - startX;
+    const newWidth = Math.round(Math.max(100, Math.min(startWidth + delta, maxWidth)));
+    wrap.style.width = newWidth + 'px';
+    if(body) ensureImageContainerFits(body);
+  }
+  function onUp(){
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+    if(body){ ensureImageContainerFits(body); body.dispatchEvent(new Event('input', {bubbles:true})); }
+  }
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+};
+// Removes a text box outright — the hover ✕ button is its only removal
+// path (unlike the image/arrow chips, a text box is never "selected" as a
+// whole for a Backspace/Delete flow, since clicking into it should just
+// place the text cursor normally for editing, not select the box).
+App.deleteTextboxChip = function(wrap){
+  if(!wrap) return;
+  const body = wrap.closest('.rich-body');
+  wrap.remove();
+  if(body){ ensureImageContainerFits(body); body.dispatchEvent(new Event('input', {bubbles:true})); }
+};
+/* Backward-compatibility + universal display support: any .rt-textbox-wrap
+   that shows up anywhere in the page without valid absolute positioning —
+   the exact counterpart of migrateImageWrapIfNeeded below (a text box's
+   left/top scheme is a plain single anchor point, same as an image, not the
+   arrow's four-coordinate system) — needed for the same reasons: read-only
+   render paths, and parseAutoSubtopicSections deliberately stripping
+   position/left/top before handing a section's HTML off to a subtopic/card,
+   since the ORIGINAL coordinates were computed against a usually-wider
+   field. Width is deliberately left untouched by that stripping (see its
+   own comment) — a text box's chosen size should carry over into wherever
+   it lands, only its position needs re-deriving. */
+function migrateTextboxWrapIfNeeded(wrap){
+  const container = wrap.parentElement;
+  if(!container) return;
+  const style = wrap.getAttribute('style')||'';
+  const isAbsolute = /position\s*:\s*absolute/i.test(style);
+  if(!isAbsolute){
+    const containerRect = container.getBoundingClientRect();
+    const wrapRect = wrap.getBoundingClientRect();
+    const left = Math.max(0, Math.round(wrapRect.left - containerRect.left + container.scrollLeft));
+    const top = Math.max(0, Math.round(wrapRect.top - containerRect.top + container.scrollTop));
+    wrap.style.position = 'absolute';
+    wrap.style.left = left+'px';
+    wrap.style.top = top+'px';
+    if(!wrap.style.width) wrap.style.width = (wrapRect.width || 200)+'px';
+  }
+  ensureImageContainerFits(container);
+}
 /* Backward-compatibility + universal display support: any .rt-arrow-wrap
    that shows up anywhere in the page without valid absolute positioning —
    the exact counterpart of migrateImageWrapIfNeeded above, for the same
@@ -6470,11 +6752,14 @@ const richImageMigrationObserver = new MutationObserver(function(mutations){
       if(node.nodeType!==1) return;
       if(node.classList && node.classList.contains('rt-img-wrap')) migrateImageWrapIfNeeded(node);
       if(node.classList && node.classList.contains('rt-arrow-wrap')) migrateArrowWrapIfNeeded(node);
+      if(node.classList && node.classList.contains('rt-textbox-wrap')) migrateTextboxWrapIfNeeded(node);
       if(node.querySelectorAll){
         const nested = node.querySelectorAll('.rt-img-wrap');
         for(let i=0;i<nested.length;i++) migrateImageWrapIfNeeded(nested[i]);
         const nestedArrows = node.querySelectorAll('.rt-arrow-wrap');
         for(let i=0;i<nestedArrows.length;i++) migrateArrowWrapIfNeeded(nestedArrows[i]);
+        const nestedTextboxes = node.querySelectorAll('.rt-textbox-wrap');
+        for(let i=0;i<nestedTextboxes.length;i++) migrateTextboxWrapIfNeeded(nestedTextboxes[i]);
       }
     });
   });
@@ -6548,6 +6833,23 @@ document.addEventListener('mousedown', function(e){
     arrowWrap.classList.add('rt-arrow-selected');
     return;
   }
+  // Text box move/delete/resize handles — same recognize-by-class pattern as
+  // the image/arrow handles above. Deliberately NO "clicked the box itself
+  // selects it" branch below this (unlike the image/arrow wraps above) —
+  // clicking anywhere inside a text box that isn't one of these three
+  // handles should just place the text cursor normally, so it falls all the
+  // way through to the browser's own default contenteditable click handling.
+  const textboxMoveHandle = e.target && e.target.closest && e.target.closest('.rt-textbox-move-handle');
+  if(textboxMoveHandle && textboxMoveHandle.closest('.rich-body')){ App.startTextboxMove(e); return; }
+  const textboxResizeHandle = e.target && e.target.closest && e.target.closest('.rt-textbox-resize-handle');
+  if(textboxResizeHandle && textboxResizeHandle.closest('.rich-body')){ App.startTextboxResize(e); return; }
+  const textboxDeleteHandle = e.target && e.target.closest && e.target.closest('.rt-textbox-delete-handle');
+  if(textboxDeleteHandle && textboxDeleteHandle.closest('.rich-body')){
+    e.preventDefault();
+    e.stopPropagation();
+    App.deleteTextboxChip(textboxDeleteHandle.closest('.rt-textbox-wrap'));
+    return;
+  }
   // A click on the field's OWN toolbar (a color swatch above all — see the
   // selectedArrowWrap check in App.applyRichColor) deliberately does NOT
   // deselect here. A toolbar button's onclick only runs after its mousedown
@@ -6577,7 +6879,11 @@ document.addEventListener('keydown', function(e){
   }
 });
 document.addEventListener('dragstart', function(e){
-  if(e.target && e.target.closest && (e.target.closest('.rt-img-wrap') || e.target.closest('.rt-arrow-wrap'))) e.preventDefault();
+  // Scoped to the text box's three handle spans only, never the wrap or its
+  // .rt-textbox-body — those need to keep supporting the browser's normal
+  // text-selection/drag behavior for actually editing the box's content.
+  if(e.target && e.target.closest && (e.target.closest('.rt-img-wrap') || e.target.closest('.rt-arrow-wrap') ||
+    e.target.closest('.rt-textbox-move-handle') || e.target.closest('.rt-textbox-delete-handle') || e.target.closest('.rt-textbox-resize-handle'))) e.preventDefault();
 });
 function isMobileSidenote(){
   if(window.matchMedia) return window.matchMedia('(max-width:720px)').matches;
@@ -8417,18 +8723,22 @@ function lineIsFullyBold(lineEl){
 }
 /* A line counts as an actual PARAGRAPH GAP (the kind that separates one
    auto-subtopic section from the next, or ends one after two in a row) only
-   when it is truly empty — no text AND no picture/arrow. A line that holds
-   only an inserted picture (.rt-img-wrap) or arrow annotation (.rt-arrow-
-   wrap) has empty textContent too, but it is real note content, not a gap —
-   without this check it silently counted toward the same blank-streak that
-   closes a section, so a picture dropped in the middle of a subtopic's notes
-   could cut the subtopic short (or, with a real blank line next to it,
-   immediately end it), losing everything typed after the picture and
-   leaving the picture itself outside the subtopic. */
+   when it is truly empty — no text AND no picture/arrow/text box. A line
+   that holds only an inserted picture (.rt-img-wrap) or arrow annotation
+   (.rt-arrow-wrap) has empty textContent too, but it is real note content,
+   not a gap — without this check it silently counted toward the same
+   blank-streak that closes a section, so a picture dropped in the middle of
+   a subtopic's notes could cut the subtopic short (or, with a real blank
+   line next to it, immediately end it), losing everything typed after the
+   picture and leaving the picture itself outside the subtopic. A freshly
+   inserted, not-yet-typed-into text box (.rt-textbox-wrap, see
+   App.insertRichTextbox) has the exact same empty-textContent shape right
+   after it's dropped in, so it needs the same protection from day one,
+   before it can ever have "legacy" content the way old images once did. */
 function lineIsBlank(lineEl){
   const text = (lineEl.textContent||'').trim();
   if(text!=='') return false;
-  return !lineEl.querySelector('.rt-img-wrap,.rt-arrow-wrap');
+  return !lineEl.querySelector('.rt-img-wrap,.rt-arrow-wrap,.rt-textbox-wrap');
 }
 /* Parses sanitized notes HTML into {name, html} sections — one per detected
    bold heading, with `html` holding everything below it (as real HTML, so
@@ -8470,6 +8780,17 @@ function parseAutoSubtopicSections(notesHtml){
     wrap.style.top = '';
     wrap.style.width = '';
     wrap.style.height = '';
+  });
+  // Same idea for a text box (.rt-textbox-wrap, see App.insertRichTextbox)
+  // — only position/left/top get stripped here; migrateTextboxWrapIfNeeded
+  // (the text box counterpart of migrateImageWrapIfNeeded) re-derives fresh
+  // coordinates from wherever it actually renders once dropped into its new
+  // container. Its width is deliberately left untouched (unlike position) —
+  // the box's own chosen size should carry over into wherever it lands.
+  container.querySelectorAll('.rt-textbox-wrap').forEach(wrap=>{
+    wrap.style.position = '';
+    wrap.style.left = '';
+    wrap.style.top = '';
   });
   const lineEls = getNotesTopLevelLines(container);
   const sections = [];
@@ -8770,10 +9091,10 @@ App.saveAllNotes = function(){
    images still stay inside their container and visible instead of
    overflowing or getting clipped. */
 function flattenAbsoluteImagesForPrint(html){
-  if(!html || (html.indexOf('rt-img-wrap')===-1 && html.indexOf('rt-arrow-wrap')===-1)) return html;
+  if(!html || (html.indexOf('rt-img-wrap')===-1 && html.indexOf('rt-arrow-wrap')===-1 && html.indexOf('rt-textbox-wrap')===-1)) return html;
   const div = document.createElement('div');
   div.innerHTML = html;
-  div.querySelectorAll('.rt-img-move-handle,.rt-img-delete-handle,.rt-img-resize-handle,.rt-arrow-handle,.rt-arrow-curve-handle,.rt-arrow-curve-guide,.rt-arrow-move-handle,.rt-arrow-delete-handle').forEach(function(el){ el.remove(); });
+  div.querySelectorAll('.rt-img-move-handle,.rt-img-delete-handle,.rt-img-resize-handle,.rt-arrow-handle,.rt-arrow-curve-handle,.rt-arrow-curve-guide,.rt-arrow-move-handle,.rt-arrow-delete-handle,.rt-textbox-move-handle,.rt-textbox-delete-handle,.rt-textbox-resize-handle').forEach(function(el){ el.remove(); });
   return div.innerHTML;
 }
 function openPrintableDoc(title, bodyHtml){
@@ -8796,6 +9117,13 @@ function openPrintableDoc(title, bodyHtml){
   .pdf-body{font-size:13.5px;line-height:1.7;margin-bottom:10px;position:relative;}
   .pdf-empty{color:#9a917f;font-style:italic;}
   .pdf-subtopic{margin:12px 0 12px 16px;padding-left:12px;border-left:2px solid #ddd4bf;}
+  /* This standalone document has none of the live app's own stylesheet
+     loaded, so a note's text boxes (.rt-textbox-wrap/.rt-textbox-body, see
+     App.insertRichTextbox) need their own box look defined here too, or
+     they'd print as unstyled plain text floating at their saved position
+     with no visible border/background at all. */
+  .rt-textbox-wrap{position:absolute;}
+  .rt-textbox-body{box-sizing:border-box;width:100%;border:1px solid #ddd4bf;border-radius:6px;background:#fdfcf6;padding:8px 10px;font-size:13px;line-height:1.5;white-space:pre-wrap;overflow-wrap:break-word;}
   .print-bar{display:flex;justify-content:flex-end;margin-bottom:16px;}
   .print-bar button{font-family:'Work Sans',sans-serif;font-size:13px;font-weight:600;padding:8px 16px;border-radius:7px;border:1px solid #1a1712;background:#1a1712;color:#fff;cursor:pointer;}
   @media print{ .print-bar{display:none;} body{margin:0;padding:0 8mm;} }
@@ -8851,6 +9179,19 @@ ${bodyHtml}
       // the same bottom-edge measurement so the container's height still
       // accounts for it.
       container.querySelectorAll(':scope > .rt-arrow-wrap').forEach(function(wrap){
+        var maxLeft = Math.max(0, container.clientWidth - wrap.offsetWidth);
+        var left = parseFloat(wrap.style.left) || 0;
+        if(left > maxLeft) wrap.style.left = maxLeft + 'px';
+        var top = parseFloat(wrap.style.top) || 0;
+        var bottom = top + (wrap.offsetHeight || 0);
+        if(bottom > maxBottom) maxBottom = bottom;
+      });
+      // Same clamping again for a text box (.rt-textbox-wrap, see
+      // App.insertRichTextbox in the live app) — its width is already
+      // explicit (the person's own chosen box width, carried over as-is),
+      // so exactly the same "pull it back onto the page, fold it into the
+      // bottom-edge measurement" treatment as the arrow case just above.
+      container.querySelectorAll(':scope > .rt-textbox-wrap').forEach(function(wrap){
         var maxLeft = Math.max(0, container.clientWidth - wrap.offsetWidth);
         var left = parseFloat(wrap.style.left) || 0;
         if(left > maxLeft) wrap.style.left = maxLeft + 'px';
