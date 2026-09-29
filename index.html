@@ -8379,6 +8379,21 @@ function lineIsFullyBold(lineEl){
   lineEl.querySelectorAll('b,strong').forEach(el=>{ boldText += el.textContent; });
   return normalize(boldText)===fullText;
 }
+/* A line counts as an actual PARAGRAPH GAP (the kind that separates one
+   auto-subtopic section from the next, or ends one after two in a row) only
+   when it is truly empty — no text AND no picture/arrow. A line that holds
+   only an inserted picture (.rt-img-wrap) or arrow annotation (.rt-arrow-
+   wrap) has empty textContent too, but it is real note content, not a gap —
+   without this check it silently counted toward the same blank-streak that
+   closes a section, so a picture dropped in the middle of a subtopic's notes
+   could cut the subtopic short (or, with a real blank line next to it,
+   immediately end it), losing everything typed after the picture and
+   leaving the picture itself outside the subtopic. */
+function lineIsBlank(lineEl){
+  const text = (lineEl.textContent||'').trim();
+  if(text!=='') return false;
+  return !lineEl.querySelector('.rt-img-wrap,.rt-arrow-wrap');
+}
 /* Parses sanitized notes HTML into {name, html} sections — one per detected
    bold heading, with `html` holding everything below it (as real HTML, so
    colors/bold/etc. inside the body survive) up to the terminating gap. Text
@@ -8433,7 +8448,7 @@ function parseAutoSubtopicSections(notesHtml){
       return;
     }
     if(!current) return;
-    if(text===''){
+    if(lineIsBlank(lineEl)){
       blankStreak++;
       if(blankStreak>=2){ current = null; blankStreak = 0; return; }
     } else {
@@ -8505,7 +8520,7 @@ function findAutoSectionLineEls(topicArea, headingName){
       continue;
     }
     if(!collecting) continue;
-    if(text===''){
+    if(lineIsBlank(lineEl)){
       blankStreak++;
       if(blankStreak>=2) break;
     } else {
