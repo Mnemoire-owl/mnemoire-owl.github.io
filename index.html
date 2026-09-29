@@ -1302,7 +1302,9 @@ const LANG = {
       prevBtn:'← 이전', nextBtn:'다음 →', navHint:'← → 방향키로 이전/다음, Enter로 답 확인',
       progressLabel:'{current}/{total}',
       memorizeBtn:'🧠 주문 암기', memorizeTitle:'주문 암기', exitMemorize:'닫기',
-      organizedTitle:'정리된 카드 목록', exportPdf:'PDF로 저장'
+      organizedTitle:'정리된 카드 목록', exportPdf:'PDF로 저장',
+      viewStudy:'학습', viewCreate:'만들기', viewList:'전체 목록',
+      searchLabel:'카드 검색', searchPh:'과목, 소주제, 카드 내용으로 검색…', searchNoResults:'검색 결과가 없어요.'
     },
     focus: {
       workMode:'집중 시간', breakMode:'휴식 시간', start:'시작', pause:'일시정지', reset:'초기화',
@@ -1599,7 +1601,9 @@ const LANG = {
       prevBtn:'← Prev', nextBtn:'Next →', navHint:'Use ← → to go prev/next, Enter to flip',
       progressLabel:'{current}/{total}',
       memorizeBtn:'🧠 Memorize', memorizeTitle:'Memorize spells', exitMemorize:'Close',
-      organizedTitle:'Organized Card List', exportPdf:'Export as PDF'
+      organizedTitle:'Organized Card List', exportPdf:'Export as PDF',
+      viewStudy:'Study', viewCreate:'Create', viewList:'All Cards',
+      searchLabel:'Search cards', searchPh:'Search by subject, subtopic, or card content…', searchNoResults:'No matches found.'
     },
     focus: {
       workMode:'Focus time', breakMode:'Break time', start:'Start', pause:'Pause', reset:'Reset',
@@ -1896,7 +1900,9 @@ const LANG = {
       prevBtn:'← Zurück', nextBtn:'Weiter →', navHint:'← → für vor/zurück, Enter zum Umdrehen',
       progressLabel:'{current}/{total}',
       memorizeBtn:'🧠 Einprägen', memorizeTitle:'Zaubersprüche einprägen', exitMemorize:'Schließen',
-      organizedTitle:'Geordnete Kartenliste', exportPdf:'Als PDF speichern'
+      organizedTitle:'Geordnete Kartenliste', exportPdf:'Als PDF speichern',
+      viewStudy:'Lernen', viewCreate:'Erstellen', viewList:'Alle Karten',
+      searchLabel:'Karten durchsuchen', searchPh:'Nach Fach, Unterthema oder Karteninhalt suchen…', searchNoResults:'Keine Treffer gefunden.'
     },
     focus: {
       workMode:'Fokuszeit', breakMode:'Pause', start:'Start', pause:'Pause', reset:'Zurücksetzen',
@@ -2193,7 +2199,9 @@ const LANG = {
       prevBtn:'← Précédent', nextBtn:'Suivant →', navHint:'Utilisez ← → pour naviguer, Entrée pour retourner',
       progressLabel:'{current}/{total}',
       memorizeBtn:'🧠 Mémoriser', memorizeTitle:'Mémoriser les sortilèges', exitMemorize:'Fermer',
-      organizedTitle:'Liste de cartes organisée', exportPdf:'Exporter en PDF'
+      organizedTitle:'Liste de cartes organisée', exportPdf:'Exporter en PDF',
+      viewStudy:'Réviser', viewCreate:'Créer', viewList:'Toutes les cartes',
+      searchLabel:'Rechercher des cartes', searchPh:'Rechercher par matière, sous-sujet ou contenu de carte…', searchNoResults:'Aucun résultat trouvé.'
     },
     focus: {
       workMode:'Temps de concentration', breakMode:'Temps de pause', start:'Démarrer', pause:'Pause', reset:'Réinitialiser',
@@ -3230,6 +3238,7 @@ function defaultState(){
     rewardClaims: [],
     rewardTimer: { active:false, rewardId:null, rewardTitle:'', totalSeconds:0, remainingSeconds:0, running:false },
     notesSearchQuery: '',
+    cardsSearchQuery: '',
     planPickerQuery: '',
     tutorialActive: false,
     tutorialStep: 0,
@@ -3242,6 +3251,13 @@ function defaultState(){
     lastCardType: 'basic',
     lastCardSubtopicBySubject: {},
     cardEditingId: null,
+    // Which of the three Cards-tab sub-views is showing: 'study' (review/
+    // browse panel), 'create' (add/edit form), or 'list' (the organized
+    // 과목→소주제 list + search). Introduced so the tab only ever shows ONE
+    // of these at a time instead of cramming the study panel, the create
+    // form, AND the full organized list onto one screen (the "한 화면에 다
+    // 몰려있음" clutter complaint) — see renderCards().
+    cardsViewMode: 'study',
     cardReview: { queue: [], index: 0, flipped: false, mode: 'due', browseSubjectIds: [], browseSubtopics: [], fullscreen: false },
     editingCategoryId: null,
     editingSubtopicId: null,
@@ -3746,6 +3762,8 @@ function normalizeState(){
   if(state.lastCardType!=='basic' && state.lastCardType!=='cloze') state.lastCardType = 'basic';
   if(!state.lastCardSubtopicBySubject || typeof state.lastCardSubtopicBySubject!=='object' || Array.isArray(state.lastCardSubtopicBySubject)) state.lastCardSubtopicBySubject = {};
   if(state.cardEditingId===undefined) state.cardEditingId = null;
+  if(state.cardsViewMode!=='study' && state.cardsViewMode!=='create' && state.cardsViewMode!=='list') state.cardsViewMode = 'study';
+  if(typeof state.cardsSearchQuery!=='string') state.cardsSearchQuery = '';
   if(state.editingCategoryId===undefined) state.editingCategoryId = null;
   if(state.editingSubtopicId===undefined) state.editingSubtopicId = null;
   if(state.editingRewardId===undefined) state.editingRewardId = null;
@@ -3940,6 +3958,7 @@ function normalizeState(){
   state.rewardTimer = Object.assign({active:false, rewardId:null, rewardTitle:'', totalSeconds:0, remainingSeconds:0, running:false}, state.rewardTimer||{});
   state.rewardTimer.running = false;
   state.notesSearchQuery = '';
+  state.cardsSearchQuery = '';
   state.planPickerQuery = '';
   state.reviewQueue = Object.assign({active:false, items:[], index:0}, state.reviewQueue||{});
   state.reviewQueue.active = false;
@@ -9547,6 +9566,11 @@ App.seedCard = function(sid, name, notes, subtopic){
   // 오답노트 shortcuts keep their old blank-subtopic behavior unchanged.
   state.cardDraft = { subjectId: sid, front: name, back: notes || '', subtopic: subtopic || '' };
   state.activeTab = 'cards';
+  // Land directly on the 만들기 (create) tab so the draft is actually
+  // visible — otherwise this shortcut could switch to the Cards tab while
+  // it's showing the 학습/전체 목록 view, leaving the seeded draft invisible
+  // until the person happened to click over to 만들기 themselves.
+  state.cardsViewMode = 'create';
   saveState(); renderAll();
   scrollActiveTabIntoView();
 };
@@ -10837,41 +10861,68 @@ function renderCards(){
   cardSubtopicSuggestionPool = subtopicChoices;
 
   const browseMode = state.cardReview.mode==='all';
-  // The raw "every card, most-recent-first" list that used to live under
-  // the create/edit form was removed per the user's own request — it only
-  // ever showed a partial slice (most recent 50) and felt incomplete
-  // ("전체 리스트가 안보이고 파트로 보이는" — looks partial, not the full list).
-  // Editing/deleting now happens from the study panel on the left instead
-  // (see the edit/delete row added to renderCardStudyPanel()'s reviewBlock),
-  // which already lets you page through — and, in browse-all mode,
-  // subject/subtopic-filter down to — every card, one at a time.
-  const studyPanelHtml = renderCardStudyPanel();
 
-  return `
-    <div class="grid grid-2">
+  /* Which of the three sub-views (학습/만들기/전체 목록) is actually shown —
+     see the state.cardsViewMode comment near its declaration for why this
+     exists at all. Editing an existing card always forces the 만들기 view
+     open regardless of whichever tab was last selected, since that's the
+     only place the edit form lives; App.startEditCard/startEditCardFromBrowse
+     also set state.cardsViewMode='create' themselves so the *next* render
+     (and the tab highlighting below) agrees with this one. */
+  const view = editingCard ? 'create' : (state.cardsViewMode || 'study');
+
+  const tabsHtml = `
+    <div class="mode-toggle" style="margin-bottom:14px;">
+      <button class="btn ${view==='study'?'':'ghost'} small" onclick="App.setCardsView('study')">${t('cards.viewStudy')}</button>
+      <button class="btn ${view==='create'?'':'ghost'} small" onclick="App.setCardsView('create')">${t('cards.viewCreate')}</button>
+      <button class="btn ${view==='list'?'':'ghost'} small" onclick="App.setCardsView('list')">${t('cards.viewList')}</button>
+    </div>
+  `;
+
+  let bodyHtml;
+  if(view==='study'){
+    // The raw "every card, most-recent-first" list that used to live under
+    // the create/edit form was removed per the user's own earlier request —
+    // it only ever showed a partial slice (most recent 50) and felt
+    // incomplete. Editing/deleting happens from this panel instead (see the
+    // edit/delete row added to renderCardStudyPanel()'s reviewBlock), which
+    // already lets you page through — and, in browse-all mode,
+    // subject/subtopic-filter down to — every card, one at a time.
+    bodyHtml = `
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
           <h2 class="section-title" style="margin-bottom:0;">${browseMode ? t('cards.browseTitle') : t('cards.todayTitle')}</h2>
           <button class="btn ghost small" onclick="App.openCardMemorize()">${t('cards.memorizeBtn')}</button>
         </div>
-        <div style="margin-top:10px;">${studyPanelHtml}</div>
+        <div style="margin-top:10px;">${renderCardStudyPanel()}</div>
       </div>
+    `;
+  } else if(view==='create'){
+    // Metadata (subject/subtopic/type) lives together in one row, with the
+    // actual content fields below a divider — grouping it this way (instead
+    // of every field stacked top-to-bottom) is what the person meant by the
+    // form itself feeling complicated, on top of it being squeezed into half
+    // a screen next to the study panel.
+    bodyHtml = `
       <div class="card">
         <h2 class="section-title">${editingCard ? t('cards.editTitle') : t('cards.createTitle')}</h2>
-        <div class="field"><label>${t('cards.subjectLabel')}</label><select id="cardSubject" onchange="App.setCardSubject(this.value)">${subOptions}</select></div>
-        <div class="field" style="position:relative;">
-          <label>${t('cards.subtopicLabel')}</label>
-          <input type="text" id="cardSubtopic" autocomplete="off" placeholder="${t('cards.subtopicPh')}" value="${escapeAttr(subtopicValue)}"
-            oninput="App.showSubtopicSuggestions()" onfocus="App.showSubtopicSuggestions()" onblur="App.hideSubtopicSuggestionsDelayed()"
-            onkeydown="App.handleSubtopicFieldEnterKey(event)">
-          <div id="cardSubtopicSuggestions" class="subtopic-suggestions" style="display:none;"></div>
+        <div class="row" style="flex-wrap:wrap;align-items:flex-start;">
+          <div class="field" style="flex:1 1 160px;"><label>${t('cards.subjectLabel')}</label><select id="cardSubject" onchange="App.setCardSubject(this.value)">${subOptions}</select></div>
+          <div class="field" style="flex:1 1 160px;position:relative;">
+            <label>${t('cards.subtopicLabel')}</label>
+            <input type="text" id="cardSubtopic" autocomplete="off" placeholder="${t('cards.subtopicPh')}" value="${escapeAttr(subtopicValue)}"
+              oninput="App.showSubtopicSuggestions()" onfocus="App.showSubtopicSuggestions()" onblur="App.hideSubtopicSuggestionsDelayed()"
+              onkeydown="App.handleSubtopicFieldEnterKey(event)">
+            <div id="cardSubtopicSuggestions" class="subtopic-suggestions" style="display:none;"></div>
+          </div>
+          <div class="field" style="flex:0 1 140px;"><label>${t('cards.typeLabel')}</label>
+            <select id="cardType" onchange="App.toggleCardType()">
+              <option value="basic" ${initialType==='basic'?'selected':''}>${t('cards.basicOpt')}</option>
+              <option value="cloze" ${initialType==='cloze'?'selected':''}>${t('cards.clozeOpt')}</option>
+            </select>
+          </div>
         </div>
-        <div class="field"><label>${t('cards.typeLabel')}</label>
-          <select id="cardType" onchange="App.toggleCardType()">
-            <option value="basic" ${initialType==='basic'?'selected':''}>${t('cards.basicOpt')}</option>
-            <option value="cloze" ${initialType==='cloze'?'selected':''}>${t('cards.clozeOpt')}</option>
-          </select>
-        </div>
+        <hr class="divider">
         <div id="basicFields" style="display:${initialType==='basic'?'block':'none'};">
           <div class="field"><label>${t('cards.frontLabel')}</label>${richFieldHtml('cardFront', editingCard&&editingCard.type==='basic'?editingCard.front:(draft?plainToRichHtml(draft.front):(snapshot?snapshot.frontHtml:'')), '', 60, 'onkeydown="App.handleCardFieldEnterKey(event,\'cardFront\')"')}</div>
           <div class="field"><label>${t('cards.backLabel')}</label>${richFieldHtml('cardBack', editingCard&&editingCard.type==='basic'?editingCard.back:(draft?draft.back:(snapshot?snapshot.backHtml:'')), '', 60, 'onkeydown="App.handleCardFieldEnterKey(event,\'cardBack\')"')}</div>
@@ -10886,10 +10937,18 @@ function renderCards(){
           : `<button class="btn" onclick="App.addCard()">${t('cards.addCard')}</button>`
         }
       </div>
-    </div>
-    ${renderOrganizedCardsSection()}
-  `;
+    `;
+  } else {
+    bodyHtml = renderOrganizedCardsSection();
+  }
+
+  return `${tabsHtml}${bodyHtml}`;
 }
+App.setCardsView = function(v){
+  if(v!=='study' && v!=='create' && v!=='list') return;
+  state.cardsViewMode = v;
+  saveState(); renderAll();
+};
 /* Which cards' back side is currently expanded in the "정리된 카드 목록"
    (organized card list) section below — module-level, not persisted state,
    same reasoning as expandedRecallIds for the auto-subtopic recall list:
@@ -10902,43 +10961,101 @@ App.toggleOrganizedCard = function(id){
   else expandedOrganizedCardIds.add(id);
   renderAll();
 };
+/* Which subjects' <details> are currently pried open in the organized list
+   below — module-level (not persisted state) for the same reason as
+   expandedOrganizedCardIds just above: purely transient UI state, fine to
+   reset on reload. Subjects default CLOSED now (see renderOrganizedCardsSection
+   for why — every subject used to render permanently `open`, which was the
+   main source of the "포맷 자체가 정리가 안되보인다" clutter complaint once
+   more than a couple of subjects had cards), and this Set is how a manually
+   click-opened subject stays open across an unrelated re-render (e.g.
+   editing an entirely different subject's card, adding a card, and so on),
+   mirroring how renderNotesSubjectMgmtSection's ontoggle keeps its own open
+   state in sync without forcing a full re-render on every click. */
+let openOrganizedSubjectIds = new Set();
+App.setOrganizedSubjectOpen = function(id, isOpen){
+  if(isOpen) openOrganizedSubjectIds.add(id);
+  else openOrganizedSubjectIds.delete(id);
+};
+/* Plain searchable text for one card — reused by both the search filter
+   below and (indirectly) by the front-preview text already shown in each
+   row. For a cloze card there's no separate front/back HTML to search
+   (front/back are both derived from the same clozeText at render time), so
+   stripCloze's fully-revealed text covers both sides in one pass. */
+function cardSearchText(c){
+  if(c.type==='cloze') return stripCloze(c.clozeText);
+  return richTextToPlain(c.front) + '\n' + richTextToPlain(c.back);
+}
+function cardMatchesQuery(c, subjectName, subtopicLabel, query){
+  if(!query) return true;
+  const haystack = (subjectName+' '+subtopicLabel+' '+cardSearchText(c)).toLowerCase();
+  return haystack.includes(query);
+}
+/* Search box for the organized card list, mirroring renderNotesSearchBox()'s
+   pattern: typing updates state.cardsSearchQuery and does a TARGETED
+   innerHTML replace of just #organizedCardsList (not a full renderAll()),
+   so the input never loses focus mid-keystroke. Unlike the Notes search
+   (a separate results panel below the input), this search filters the
+   organized list itself in place, since that list IS the standing
+   reference the person is trying to narrow down. */
+function renderCardsSearchBox(){
+  const q = state.cardsSearchQuery || '';
+  return `
+    <div style="margin-bottom:10px;">
+      <label>${t('cards.searchLabel')}</label>
+      <input type="text" id="cardsSearchInput" value="${escapeHtml(q)}" placeholder="${t('cards.searchPh')}" oninput="App.runCardsSearch(this.value)">
+    </div>
+  `;
+}
+App.runCardsSearch = function(q){
+  state.cardsSearchQuery = q;
+  const box = document.getElementById('organizedCardsList');
+  if(!box) return;
+  box.innerHTML = renderOrganizedCardsList();
+};
 /* Read-only outline of EVERY card, grouped 과목(subject) → 소주제(subtopic),
-   independent of the study/browse panel's own filter above it (this is
-   meant as a standing reference/organizer, not another filtered view) —
-   the "카드 둘러보기랑 카드 만들기 밑에 정리된 파일 형식으로 정리해달라" request.
+   independent of the study/browse panel's own filter (this is meant as a
+   standing reference/organizer, not another filtered review view) — the
+   "카드 둘러보기랑 카드 만들기 밑에 정리된 파일 형식으로 정리해달라" request, now
+   under its own 전체 목록 tab (see renderCards()) with a search box on top.
    Each card shows just its front by default; clicking a row expands it in
    place to also show the back, same click-to-reveal idea as the recall
    list's expand/collapse (App.toggleRecallReveal) rather than flipping
-   away to a whole separate review flow. */
-function renderOrganizedCardsSection(){
-  if(state.cards.length===0){
-    return `
-      <div class="card" style="margin-top:16px;">
-        <h2 class="section-title">${t('cards.organizedTitle')}</h2>
-        <div class="empty">${t('cards.noCards')}</div>
-      </div>
-    `;
-  }
+   away to a whole separate review flow. Subject groups default CLOSED
+   (unless there's only one, or a search is actively narrowing things down)
+   — every subject used to render permanently `open`, dumping every card in
+   the deck onto the screen at once regardless of how many subjects existed,
+   which was the main clutter complaint ("포맷 자체가 정리가 안되보인다"). */
+function renderOrganizedCardsList(){
+  const query = (state.cardsSearchQuery || '').trim().toLowerCase();
   const subtopicSortKeys = (keys)=> keys.sort((a,b)=>{
     if(a===b) return 0;
     if(a==='') return 1; // the "no subtopic" bucket (empty-string key) always sorts last
     if(b==='') return -1;
     return a.localeCompare(b);
   });
-  const groupsHtml = state.subjects.map(s=>{
+  const subjectsWithCards = state.subjects.filter(s=>state.cards.some(c=>c.subjectId===s.id));
+  const groupsHtml = subjectsWithCards.map(s=>{
     const subjectCards = state.cards.filter(c=>c.subjectId===s.id);
-    if(subjectCards.length===0) return '';
     const bySubtopic = new Map();
     subjectCards.forEach(c=>{
       const key = c.subtopic || '';
+      const label = key || t('cards.noSubtopicOpt');
+      if(!cardMatchesQuery(c, s.name, label, query)) return;
       if(!bySubtopic.has(key)) bySubtopic.set(key, []);
       bySubtopic.get(key).push(c);
     });
+    if(query && bySubtopic.size===0) return ''; // no card in this subject matched — skip the whole subject
+    const matchedCount = Array.from(bySubtopic.values()).reduce((n,arr)=>n+arr.length,0);
     const subtopicHtml = subtopicSortKeys(Array.from(bySubtopic.keys())).map(key=>{
       const cardsInGroup = bySubtopic.get(key);
       const label = key || t('cards.noSubtopicOpt');
       const rowsHtml = cardsInGroup.map(c=>{
-        const expanded = expandedOrganizedCardIds.has(c.id);
+        // While actively searching, every remaining row already matched the
+        // query, so it's shown expanded — otherwise a match sitting only in
+        // the back/answer text (rather than the front preview) would stay
+        // invisible unless the person also happened to click it open.
+        const expanded = query ? true : expandedOrganizedCardIds.has(c.id);
         const frontPreview = escapeHtml((c.type==='cloze' ? stripCloze(c.clozeText) : richTextToPlain(c.front)).slice(0,80)) || `<span class="muted">(${t('cards.noCards')})</span>`;
         let backHtml;
         if(c.type==='cloze'){ backHtml = clozeRender(c.clozeText,true); }
@@ -10960,20 +11077,40 @@ function renderOrganizedCardsSection(){
         </div>
       `;
     }).join('');
+    // Force-open: a manually-opened subject (openOrganizedSubjectIds), the
+    // only subject that currently has any cards at all (nothing to declutter
+    // in that case), or any subject a live search actually matched into
+    // (so the person doesn't have to click it open right after typing).
+    const isOpen = openOrganizedSubjectIds.has(s.id) || subjectsWithCards.length===1 || (query && matchedCount>0);
     return `
-      <details open style="margin-bottom:6px;">
-        <summary style="cursor:pointer;font-weight:600;font-size:14px;padding:6px 2px;">${escapeHtml(s.name)} <span class="muted mono" style="font-size:11px;font-weight:400;">· ${subjectCards.length}</span></summary>
+      <details ${isOpen?'open':''} style="margin-bottom:6px;" ontoggle="App.setOrganizedSubjectOpen('${s.id}', this.open)">
+        <summary style="cursor:pointer;font-weight:600;font-size:14px;padding:6px 2px;">${escapeHtml(s.name)} <span class="muted mono" style="font-size:11px;font-weight:400;">· ${query?matchedCount:subjectCards.length}</span></summary>
         ${subtopicHtml}
       </details>
     `;
   }).join('');
+  if(query && !groupsHtml.trim()){
+    return `<div class="empty">${t('cards.searchNoResults')}</div>`;
+  }
+  return groupsHtml;
+}
+function renderOrganizedCardsSection(){
+  if(state.cards.length===0){
+    return `
+      <div class="card">
+        <h2 class="section-title">${t('cards.organizedTitle')}</h2>
+        <div class="empty">${t('cards.noCards')}</div>
+      </div>
+    `;
+  }
   return `
-    <div class="card" style="margin-top:16px;">
+    <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
         <h2 class="section-title" style="margin-bottom:0;">${t('cards.organizedTitle')}</h2>
         <button class="btn ghost small" onclick="App.exportCardsPDF()">${t('cards.exportPdf')}</button>
       </div>
-      ${groupsHtml}
+      ${renderCardsSearchBox()}
+      <div id="organizedCardsList">${renderOrganizedCardsList()}</div>
     </div>
   `;
 }
@@ -11239,6 +11376,12 @@ App.addCard = function(){
 App.startEditCard = function(id){
   state.cardEditingId = id;
   state.cardDraft = null;
+  // The edit form only exists inside the 만들기 (create) tab's markup — see
+  // renderCards()'s `view` computation, which forces 'create' whenever
+  // cardEditingId is set regardless of this — but keep cardsViewMode itself
+  // in sync too so the tab-bar highlight (and the tab you land on right
+  // after saving/cancelling, once cardEditingId clears again) agrees.
+  state.cardsViewMode = 'create';
   // Switching to editing an existing card intentionally replaces whatever
   // was in the new-card form with that card's own data — see the note above
   // addCard() for why skipCardFormCapture is needed here too.
