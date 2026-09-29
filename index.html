@@ -1237,7 +1237,8 @@ const LANG = {
       edit:'수정', editTitle:'주문 수정', saveEdit:'저장', cancelEdit:'취소',
       prevBtn:'← 이전', nextBtn:'다음 →', navHint:'← → 방향키로 이전/다음, Enter로 답 확인',
       progressLabel:'{current}/{total}',
-      memorizeBtn:'🧠 주문 암기', memorizeTitle:'주문 암기', exitMemorize:'닫기'
+      memorizeBtn:'🧠 주문 암기', memorizeTitle:'주문 암기', exitMemorize:'닫기',
+      organizedTitle:'정리된 카드 목록', exportPdf:'PDF로 저장'
     },
     focus: {
       workMode:'집중 시간', breakMode:'휴식 시간', start:'시작', pause:'일시정지', reset:'초기화',
@@ -1530,7 +1531,8 @@ const LANG = {
       edit:'Edit', editTitle:'Edit spell', saveEdit:'Save', cancelEdit:'Cancel',
       prevBtn:'← Prev', nextBtn:'Next →', navHint:'Use ← → to go prev/next, Enter to flip',
       progressLabel:'{current}/{total}',
-      memorizeBtn:'🧠 Memorize', memorizeTitle:'Memorize spells', exitMemorize:'Close'
+      memorizeBtn:'🧠 Memorize', memorizeTitle:'Memorize spells', exitMemorize:'Close',
+      organizedTitle:'Organized Card List', exportPdf:'Export as PDF'
     },
     focus: {
       workMode:'Focus time', breakMode:'Break time', start:'Start', pause:'Pause', reset:'Reset',
@@ -1823,7 +1825,8 @@ const LANG = {
       edit:'Bearbeiten', editTitle:'Zauberspruch bearbeiten', saveEdit:'Speichern', cancelEdit:'Abbrechen',
       prevBtn:'← Zurück', nextBtn:'Weiter →', navHint:'← → für vor/zurück, Enter zum Umdrehen',
       progressLabel:'{current}/{total}',
-      memorizeBtn:'🧠 Einprägen', memorizeTitle:'Zaubersprüche einprägen', exitMemorize:'Schließen'
+      memorizeBtn:'🧠 Einprägen', memorizeTitle:'Zaubersprüche einprägen', exitMemorize:'Schließen',
+      organizedTitle:'Geordnete Kartenliste', exportPdf:'Als PDF speichern'
     },
     focus: {
       workMode:'Fokuszeit', breakMode:'Pause', start:'Start', pause:'Pause', reset:'Zurücksetzen',
@@ -2116,7 +2119,8 @@ const LANG = {
       edit:'Modifier', editTitle:'Modifier le sortilège', saveEdit:'Enregistrer', cancelEdit:'Annuler',
       prevBtn:'← Précédent', nextBtn:'Suivant →', navHint:'Utilisez ← → pour naviguer, Entrée pour retourner',
       progressLabel:'{current}/{total}',
-      memorizeBtn:'🧠 Mémoriser', memorizeTitle:'Mémoriser les sortilèges', exitMemorize:'Fermer'
+      memorizeBtn:'🧠 Mémoriser', memorizeTitle:'Mémoriser les sortilèges', exitMemorize:'Fermer',
+      organizedTitle:'Liste de cartes organisée', exportPdf:'Exporter en PDF'
     },
     focus: {
       workMode:'Temps de concentration', breakMode:'Temps de pause', start:'Démarrer', pause:'Pause', reset:'Réinitialiser',
@@ -3136,7 +3140,7 @@ function defaultState(){
     sidenoteLeft: { content: '', collapsed: true, width: 260, mobileHeight: 280 },
     settings: { pomodoroWork: 25, pomodoroBreak: 5, language: 'ko', theme: 'wizard', soundscape: { type: 'none', volume: 0.5 } },
     activeTab: 'dashboard',
-    draw: { subjectId: null, categoryId: 'all', current: null, currentSubId: null, revealed: false, includeSubtopics: false, mode: 'equal', itemType: 'topic', cardSubjectId: 'all', cardSubtopic: 'all', currentCardId: null, cardRevealed: false },
+    draw: { subjectId: null, categoryId: 'all', current: null, currentSubId: null, revealed: false, includeSubtopics: false, mode: 'equal', itemType: 'topic', cardSubjectIds: [], cardSubtopics: [], currentCardId: null, cardRevealed: false },
     timer: { mode: 'work', remaining: 25*60, running:false, subjectId:null, alarmed:false, overtimeSeconds:0 },
     stopwatch: { running:false, elapsedSeconds:0, committedSeconds:0, subElapsed:0, lastSittingSeconds:0, checkpoints:[], day: todayISO() },
     focusSessions: [],
@@ -3165,7 +3169,7 @@ function defaultState(){
     lastCardType: 'basic',
     lastCardSubtopicBySubject: {},
     cardEditingId: null,
-    cardReview: { queue: [], index: 0, flipped: false, mode: 'due', browseSubjectId: 'all', browseSubtopic: 'all', fullscreen: false },
+    cardReview: { queue: [], index: 0, flipped: false, mode: 'due', browseSubjectIds: [], browseSubtopics: [], fullscreen: false },
     editingCategoryId: null,
     editingSubtopicId: null,
     editingRewardId: null,
@@ -3644,7 +3648,25 @@ const SUBJECT_COLORS = ['#E05C82','#3B82F6','#22C55E','#F59E0B','#8B5CF6','#06B6
 function normalizeState(){
   state.settings = Object.assign({pomodoroWork:25,pomodoroBreak:5,language:'ko',theme:'wizard'}, state.settings||{});
   if(!THEME_IDS.includes(state.settings.theme)) state.settings.theme = 'wizard';
-  state.cardReview = Object.assign({queue:[], index:0, flipped:false, mode:'due', browseSubjectId:'all', browseSubtopic:'all', fullscreen:false}, state.cardReview||{});
+  state.cardReview = Object.assign({queue:[], index:0, flipped:false, mode:'due', browseSubjectIds:[], browseSubtopics:[], fullscreen:false}, state.cardReview||{});
+  /* Backward compat: this filter used to be single-select (browseSubjectId/
+     browseSubtopic, a plain string, 'all' meaning no filter) before it
+     became a multi-select array. An old save still has those singular
+     fields sitting in state.cardReview — fold a real (non-'all') value into
+     the new array once, then drop the old field so it doesn't linger
+     forever next to the array it was replaced by. */
+  if(state.cardReview.browseSubjectId!==undefined){
+    if(state.cardReview.browseSubjectId && state.cardReview.browseSubjectId!=='all' && state.cardReview.browseSubjectIds.length===0){
+      state.cardReview.browseSubjectIds = [state.cardReview.browseSubjectId];
+    }
+    delete state.cardReview.browseSubjectId;
+  }
+  if(state.cardReview.browseSubtopic!==undefined){
+    if(state.cardReview.browseSubtopic && state.cardReview.browseSubtopic!=='all' && state.cardReview.browseSubtopics.length===0){
+      state.cardReview.browseSubtopics = [state.cardReview.browseSubtopic];
+    }
+    delete state.cardReview.browseSubtopic;
+  }
   if(state.editingSubjectId===undefined) state.editingSubjectId = null;
   if(state.editingTopicId===undefined) state.editingTopicId = null;
   if(state.lastCardSubjectId===undefined) state.lastCardSubjectId = null;
@@ -3678,7 +3700,21 @@ function normalizeState(){
   });
   state.calendarView = Object.assign({year:null, month:null}, state.calendarView||{});
   if(state.calendarSelectedDate===undefined) state.calendarSelectedDate = null;
-  state.draw = Object.assign({subjectId:null,categoryId:'all',current:null,currentSubId:null,revealed:false,includeSubtopics:false,mode:'equal',itemType:'topic',cardSubjectId:'all',cardSubtopic:'all',currentCardId:null,cardRevealed:false}, state.draw||{});
+  state.draw = Object.assign({subjectId:null,categoryId:'all',current:null,currentSubId:null,revealed:false,includeSubtopics:false,mode:'equal',itemType:'topic',cardSubjectIds:[],cardSubtopics:[],currentCardId:null,cardRevealed:false}, state.draw||{});
+  /* Same singular-to-array migration as state.cardReview above, for the
+     random-card-draw filter's own cardSubjectId/cardSubtopic fields. */
+  if(state.draw.cardSubjectId!==undefined){
+    if(state.draw.cardSubjectId && state.draw.cardSubjectId!=='all' && state.draw.cardSubjectIds.length===0){
+      state.draw.cardSubjectIds = [state.draw.cardSubjectId];
+    }
+    delete state.draw.cardSubjectId;
+  }
+  if(state.draw.cardSubtopic!==undefined){
+    if(state.draw.cardSubtopic && state.draw.cardSubtopic!=='all' && state.draw.cardSubtopics.length===0){
+      state.draw.cardSubtopics = [state.draw.cardSubtopic];
+    }
+    delete state.draw.cardSubtopic;
+  }
   if(typeof state.notesSubjectMgmtOpen !== 'boolean') state.notesSubjectMgmtOpen = false;
   if(!Array.isArray(state.subjects)) state.subjects = [];
   state.subjects.forEach((s,sIdx)=>{
@@ -9227,18 +9263,62 @@ function renderDrawTopicBody(){
    filter, shows its front, and reveals the back on click — the same
    idle -> drawn -> reveal flow as the topic body above, just over
    state.cards instead of state.subjects[].topics. */
+/* Shared multi-select filtering for both the "카드 뽑기" draw and the
+   "카드 둘러보기" browse panel — used to be single-select (one subject id
+   or one subtopic string, 'all' meaning no filter), now an ARRAY per
+   filter, empty array meaning "all" (no filter), so a study session can
+   pool several subjects/subtopics together at once instead of being stuck
+   to exactly one. '__none__' inside a subtopics array means "cards with no
+   subtopic set" — same sentinel the single-select version used, just now a
+   member of the array like any real subtopic name instead of the sole
+   value. */
+function cardMatchesMultiFilter(c, subjectIds, subtopics){
+  if(subjectIds.length>0 && !subjectIds.includes(c.subjectId)) return false;
+  if(subtopics.length>0){
+    const matchesSubtopic = c.subtopic ? subtopics.includes(c.subtopic) : subtopics.includes('__none__');
+    if(!matchesSubtopic) return false;
+  }
+  return true;
+}
+/* The subtopic checklist is scoped to whichever subjects are currently
+   selected (or every card, when the subject filter is "all") — same
+   reasoning the old single-select dropdown used, just against an array of
+   subjects instead of one. */
+function cardSubtopicOptionsFor(subjectIds){
+  const pool = subjectIds.length===0 ? state.cards : state.cards.filter(c=>subjectIds.includes(c.subjectId));
+  const hasNone = pool.some(c=>!c.subtopic);
+  const names = Array.from(new Set(pool.map(c=>c.subtopic).filter(Boolean))).sort();
+  return {hasNone, names};
+}
+/* Drops any subtopic selections that no longer apply once the subject
+   filter changes (a subtopic name that belonged only to a subject that was
+   just deselected) — same "switching subjects resets an invalid subtopic
+   filter" idea the single-select version had, but pruning instead of a
+   blanket reset so subtopic selections still valid for the new subject set
+   are kept. */
+function pruneCardSubtopicSelection(selected, subjectIds){
+  if(selected.length===0) return selected;
+  const {hasNone, names} = cardSubtopicOptionsFor(subjectIds);
+  return selected.filter(x=> x==='__none__' ? hasNone : names.includes(x));
+}
+/* Renders one filter's toggle-button row: an "전체"(all) pill plus one
+   pill per option, all independently toggle-able (unlike the old <select>,
+   any number can be active at once). Reuses the existing .btn/.btn.ghost
+   solid-vs-outline look the rest of the app already uses for other
+   on/off toggle rows (e.g. the equal/weighted draw-mode buttons), so this
+   needs no new CSS. */
+function renderCardFilterToggleGroup(label, allLabel, options, selected, allFn, toggleFn){
+  const allActive = selected.length===0;
+  const pills = [`<button type="button" class="btn ${allActive?'':'ghost'} small" style="margin:2px 4px 2px 0;" onclick="${allFn}()">${escapeHtml(allLabel)}</button>`]
+    .concat(options.map(o=>`<button type="button" class="btn ${selected.includes(o.value)?'':'ghost'} small" style="margin:2px 4px 2px 0;" onclick="${toggleFn}('${escapeAttr(o.value)}')">${escapeHtml(o.label)}</button>`))
+    .join('');
+  return `<div class="field" style="margin-bottom:0;"><label>${escapeHtml(label)}</label><div style="display:flex;flex-wrap:wrap;">${pills}</div></div>`;
+}
 function renderDrawCardBody(){
-  const csid = state.draw.cardSubjectId || 'all';
-  state.draw.cardSubjectId = csid;
-  const subOptions = `<option value="all" ${csid==='all'?'selected':''}>${t('cards.allSubjectsOpt')}</option>` +
-    state.subjects.map(x=>`<option value="${x.id}" ${x.id===csid?'selected':''}>${escapeHtml(x.name)}</option>`).join('');
-
-  const subtopicPool = state.cards.filter(c=> csid==='all' || c.subjectId===csid);
-  const hasNoSubtopicCard = subtopicPool.some(c=>!c.subtopic);
-  const subtopicNames = Array.from(new Set(subtopicPool.map(c=>c.subtopic).filter(Boolean))).sort();
-  const subtopicOptions = `<option value="all" ${state.draw.cardSubtopic==='all'?'selected':''}>${t('cards.allSubtopicsOpt')}</option>` +
-    (hasNoSubtopicCard ? `<option value="__none__" ${state.draw.cardSubtopic==='__none__'?'selected':''}>${t('cards.noSubtopicOpt')}</option>` : '') +
-    subtopicNames.map(x=>`<option value="${escapeAttr(x)}" ${state.draw.cardSubtopic===x?'selected':''}>${escapeHtml(x)}</option>`).join('');
+  const selectedSubjectIds = state.draw.cardSubjectIds;
+  const subjectOptions = state.subjects.map(x=>({value:x.id, label:x.name}));
+  const {hasNone, names} = cardSubtopicOptionsFor(selectedSubjectIds);
+  const subtopicOptions = (hasNone ? [{value:'__none__', label:t('cards.noSubtopicOpt')}] : []).concat(names.map(x=>({value:x, label:x})));
 
   let resultBlock = `<div class="draw-result muted">${t('draw.cardIdle')}</div>`;
   if(state.draw.currentCardId){
@@ -9258,9 +9338,9 @@ function renderDrawCardBody(){
   }
 
   return `
-    <div class="row" style="margin-bottom:6px;">
-      <div><label>${t('cards.subjectLabel')}</label><select onchange="App.setDrawCardSubject(this.value)">${subOptions}</select></div>
-      <div><label>${t('cards.subtopicFilterLabel')}</label><select onchange="App.setDrawCardSubtopic(this.value)">${subtopicOptions}</select></div>
+    <div class="row" style="margin-bottom:6px;flex-wrap:wrap;">
+      ${renderCardFilterToggleGroup(t('cards.subjectLabel'), t('cards.allSubjectsOpt'), subjectOptions, selectedSubjectIds, 'App.setDrawCardSubjectAll', 'App.toggleDrawCardSubject')}
+      ${renderCardFilterToggleGroup(t('cards.subtopicFilterLabel'), t('cards.allSubtopicsOpt'), subtopicOptions, state.draw.cardSubtopics, 'App.setDrawCardSubtopicAll', 'App.toggleDrawCardSubtopic')}
     </div>
     ${resultBlock}
     <div style="text-align:center;margin-top:10px;">
@@ -9273,26 +9353,44 @@ App.setDrawCategory = function(v){ state.draw.categoryId=v; saveState(); renderA
 App.setIncludeSubtopics = function(v){ state.draw.includeSubtopics=v; saveState(); renderAll(); };
 App.setDrawMode = function(v){ state.draw.mode=v; saveState(); renderAll(); };
 App.setDrawItemType = function(v){ state.draw.itemType = (v==='card') ? 'card' : 'topic'; saveState(); renderAll(); };
-App.setDrawCardSubject = function(v){
-  state.draw.cardSubjectId = v || 'all';
-  // Subtopics are scoped to a subject, same reasoning as the card browse
-  // filter — switching subjects resets the subtopic filter.
-  state.draw.cardSubtopic = 'all';
+App.setDrawCardSubjectAll = function(){
+  state.draw.cardSubjectIds = [];
+  state.draw.cardSubtopics = pruneCardSubtopicSelection(state.draw.cardSubtopics, []);
   state.draw.currentCardId = null;
   state.draw.cardRevealed = false;
   saveState(); renderAll();
 };
-App.setDrawCardSubtopic = function(v){
-  state.draw.cardSubtopic = v || 'all';
+App.toggleDrawCardSubject = function(sid){
+  const ids = state.draw.cardSubjectIds.slice();
+  const i = ids.indexOf(sid);
+  if(i>=0) ids.splice(i,1); else ids.push(sid);
+  state.draw.cardSubjectIds = ids;
+  // Subtopics are scoped to the selected subjects — prune anything that no
+  // longer applies rather than resetting the whole subtopic filter, so
+  // toggling one more subject on/off doesn't throw away an otherwise-still-
+  // valid subtopic selection.
+  state.draw.cardSubtopics = pruneCardSubtopicSelection(state.draw.cardSubtopics, ids);
+  state.draw.currentCardId = null;
+  state.draw.cardRevealed = false;
+  saveState(); renderAll();
+};
+App.setDrawCardSubtopicAll = function(){
+  state.draw.cardSubtopics = [];
+  state.draw.currentCardId = null;
+  state.draw.cardRevealed = false;
+  saveState(); renderAll();
+};
+App.toggleDrawCardSubtopic = function(name){
+  const arr = state.draw.cardSubtopics.slice();
+  const i = arr.indexOf(name);
+  if(i>=0) arr.splice(i,1); else arr.push(name);
+  state.draw.cardSubtopics = arr;
   state.draw.currentCardId = null;
   state.draw.cardRevealed = false;
   saveState(); renderAll();
 };
 App.drawCard = function(){
-  const pool = state.cards.filter(c=>
-    (state.draw.cardSubjectId==='all' || c.subjectId===state.draw.cardSubjectId) &&
-    (state.draw.cardSubtopic==='all' || (state.draw.cardSubtopic==='__none__' ? !c.subtopic : c.subtopic===state.draw.cardSubtopic))
-  );
+  const pool = state.cards.filter(c=>cardMatchesMultiFilter(c, state.draw.cardSubjectIds, state.draw.cardSubtopics));
   if(pool.length===0){ showAlert(t('draw.emptyCardPool')); return; }
   const pick = pool[Math.floor(Math.random()*pool.length)];
   state.draw.currentCardId = pick.id;
@@ -10028,10 +10126,7 @@ function refreshCardReviewQueue(){
   const cr = state.cardReview;
   let pool;
   if(cr.mode==='all'){
-    pool = state.cards.filter(c=>
-      (cr.browseSubjectId==='all' || c.subjectId===cr.browseSubjectId) &&
-      (cr.browseSubtopic==='all' || (cr.browseSubtopic==='__none__' ? !c.subtopic : c.subtopic===cr.browseSubtopic))
-    );
+    pool = state.cards.filter(c=>cardMatchesMultiFilter(c, cr.browseSubjectIds, cr.browseSubtopics));
   } else {
     pool = state.cards.filter(c=>c.dueDate<=todayISO());
   }
@@ -10056,18 +10151,12 @@ function renderCardStudyPanel(){
   const queue = cr.queue;
   const browseMode = cr.mode==='all';
 
-  const browseSubOptions = `<option value="all" ${cr.browseSubjectId==='all'?'selected':''}>${t('cards.allSubjectsOpt')}</option>` +
-    state.subjects.map(s=>`<option value="${s.id}" ${cr.browseSubjectId===s.id?'selected':''}>${escapeHtml(s.name)}</option>`).join('');
-
-  // Subtopic filter options are scoped to whichever subject is currently
-  // selected (or all cards, if the subject filter is 'all') so the
-  // dropdown never lists subtopics that don't apply to the current view.
-  const subtopicPool = state.cards.filter(c=> cr.browseSubjectId==='all' || c.subjectId===cr.browseSubjectId);
-  const hasNoSubtopicCard = subtopicPool.some(c=>!c.subtopic);
-  const subtopicNames = Array.from(new Set(subtopicPool.map(c=>c.subtopic).filter(Boolean))).sort();
-  const browseSubtopicOptions = `<option value="all" ${cr.browseSubtopic==='all'?'selected':''}>${t('cards.allSubtopicsOpt')}</option>` +
-    (hasNoSubtopicCard ? `<option value="__none__" ${cr.browseSubtopic==='__none__'?'selected':''}>${t('cards.noSubtopicOpt')}</option>` : '') +
-    subtopicNames.map(x=>`<option value="${escapeAttr(x)}" ${cr.browseSubtopic===x?'selected':''}>${escapeHtml(x)}</option>`).join('');
+  const browseSubjectOptions = state.subjects.map(s=>({value:s.id, label:s.name}));
+  // Subtopic filter options are scoped to whichever subjects are currently
+  // selected (or all cards, if the subject filter is empty/"all") so the
+  // checklist never lists subtopics that don't apply to the current view.
+  const {hasNone: browseHasNoSubtopicCard, names: browseSubtopicNames} = cardSubtopicOptionsFor(cr.browseSubjectIds);
+  const browseSubtopicOptions = (browseHasNoSubtopicCard ? [{value:'__none__', label:t('cards.noSubtopicOpt')}] : []).concat(browseSubtopicNames.map(x=>({value:x, label:x})));
 
   let reviewBlock = `<div class="empty">${browseMode ? t('cards.noneAll') : t('cards.noneToday')}</div>`;
   if(queue.length>0){
@@ -10113,9 +10202,9 @@ function renderCardStudyPanel(){
       <button class="btn ${browseMode?'':'ghost'} small" onclick="App.setCardReviewMode('all')">${t('cards.modeAll')}</button>
     </div>
     ${browseMode ? `
-      <div class="row" style="margin-bottom:10px;">
-        <div class="field" style="margin-bottom:0;"><label>${t('cards.browseSubjectLabel')}</label><select onchange="App.setCardBrowseSubject(this.value)">${browseSubOptions}</select></div>
-        <div class="field" style="margin-bottom:0;"><label>${t('cards.subtopicFilterLabel')}</label><select onchange="App.setCardBrowseSubtopic(this.value)">${browseSubtopicOptions}</select></div>
+      <div class="row" style="margin-bottom:10px;flex-wrap:wrap;">
+        ${renderCardFilterToggleGroup(t('cards.browseSubjectLabel'), t('cards.allSubjectsOpt'), browseSubjectOptions, cr.browseSubjectIds, 'App.setCardBrowseSubjectAll', 'App.toggleCardBrowseSubject')}
+        ${renderCardFilterToggleGroup(t('cards.subtopicFilterLabel'), t('cards.allSubtopicsOpt'), browseSubtopicOptions, cr.browseSubtopics, 'App.setCardBrowseSubtopicAll', 'App.toggleCardBrowseSubtopic')}
       </div>
     ` : ''}
     ${reviewBlock}
@@ -10224,8 +10313,134 @@ function renderCards(){
         }
       </div>
     </div>
+    ${renderOrganizedCardsSection()}
   `;
 }
+/* Which cards' back side is currently expanded in the "정리된 카드 목록"
+   (organized card list) section below — module-level, not persisted state,
+   same reasoning as expandedRecallIds for the auto-subtopic recall list:
+   purely a transient UI expand/collapse, fine to reset on reload, and ids
+   are globally unique so nothing breaks if it happens to carry across a
+   subject/tab switch. */
+let expandedOrganizedCardIds = new Set();
+App.toggleOrganizedCard = function(id){
+  if(expandedOrganizedCardIds.has(id)) expandedOrganizedCardIds.delete(id);
+  else expandedOrganizedCardIds.add(id);
+  renderAll();
+};
+/* Read-only outline of EVERY card, grouped 과목(subject) → 소주제(subtopic),
+   independent of the study/browse panel's own filter above it (this is
+   meant as a standing reference/organizer, not another filtered view) —
+   the "카드 둘러보기랑 카드 만들기 밑에 정리된 파일 형식으로 정리해달라" request.
+   Each card shows just its front by default; clicking a row expands it in
+   place to also show the back, same click-to-reveal idea as the recall
+   list's expand/collapse (App.toggleRecallReveal) rather than flipping
+   away to a whole separate review flow. */
+function renderOrganizedCardsSection(){
+  if(state.cards.length===0){
+    return `
+      <div class="card" style="margin-top:16px;">
+        <h2 class="section-title">${t('cards.organizedTitle')}</h2>
+        <div class="empty">${t('cards.noCards')}</div>
+      </div>
+    `;
+  }
+  const subtopicSortKeys = (keys)=> keys.sort((a,b)=>{
+    if(a===b) return 0;
+    if(a==='') return 1; // the "no subtopic" bucket (empty-string key) always sorts last
+    if(b==='') return -1;
+    return a.localeCompare(b);
+  });
+  const groupsHtml = state.subjects.map(s=>{
+    const subjectCards = state.cards.filter(c=>c.subjectId===s.id);
+    if(subjectCards.length===0) return '';
+    const bySubtopic = new Map();
+    subjectCards.forEach(c=>{
+      const key = c.subtopic || '';
+      if(!bySubtopic.has(key)) bySubtopic.set(key, []);
+      bySubtopic.get(key).push(c);
+    });
+    const subtopicHtml = subtopicSortKeys(Array.from(bySubtopic.keys())).map(key=>{
+      const cardsInGroup = bySubtopic.get(key);
+      const label = key || t('cards.noSubtopicOpt');
+      const rowsHtml = cardsInGroup.map(c=>{
+        const expanded = expandedOrganizedCardIds.has(c.id);
+        const frontPreview = escapeHtml((c.type==='cloze' ? stripCloze(c.clozeText) : richTextToPlain(c.front)).slice(0,80)) || `<span class="muted">(${t('cards.noCards')})</span>`;
+        let backHtml;
+        if(c.type==='cloze'){ backHtml = clozeRender(c.clozeText,true); }
+        else { backHtml = c.back; }
+        return `
+          <div class="topic-row" style="cursor:pointer;flex-direction:column;align-items:stretch;" onclick="App.toggleOrganizedCard('${c.id}')">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+              <span class="topic-name" style="font-size:13px;">${frontPreview}</span>
+              <span class="muted mono" style="font-size:11px;flex-shrink:0;">${expanded?'▲':'▼'}</span>
+            </div>
+            ${expanded ? `<div style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--line);font-size:13px;">${backHtml}</div>` : ''}
+          </div>
+        `;
+      }).join('');
+      return `
+        <div style="margin:8px 0 8px 10px;padding-left:12px;border-left:2px solid var(--line);">
+          <div class="muted mono" style="font-size:11px;margin-bottom:2px;">${escapeHtml(label)} · ${cardsInGroup.length}</div>
+          ${rowsHtml}
+        </div>
+      `;
+    }).join('');
+    return `
+      <details open style="margin-bottom:6px;">
+        <summary style="cursor:pointer;font-weight:600;font-size:14px;padding:6px 2px;">${escapeHtml(s.name)} <span class="muted mono" style="font-size:11px;font-weight:400;">· ${subjectCards.length}</span></summary>
+        ${subtopicHtml}
+      </details>
+    `;
+  }).join('');
+  return `
+    <div class="card" style="margin-top:16px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+        <h2 class="section-title" style="margin-bottom:0;">${t('cards.organizedTitle')}</h2>
+        <button class="btn ghost small" onclick="App.exportCardsPDF()">${t('cards.exportPdf')}</button>
+      </div>
+      ${groupsHtml}
+    </div>
+  `;
+}
+/* Print/PDF version of the same 과목→소주제 grouping above — same
+   openPrintableDoc() pipeline App.exportGapsPDF()/App.exportNotesPDF()
+   already use, so it opens as a standalone printable page rather than
+   trying to print the app's own interactive layout. Always shows both
+   front AND back (never collapsed) since the point of a printed/exported
+   copy is a standing reference sheet, not another interactive quiz. */
+App.exportCardsPDF = function(){
+  if(state.cards.length===0) return;
+  const subtopicSortKeys = (keys)=> keys.sort((a,b)=>{
+    if(a===b) return 0;
+    if(a==='') return 1;
+    if(b==='') return -1;
+    return a.localeCompare(b);
+  });
+  const body = state.subjects.map(s=>{
+    const subjectCards = state.cards.filter(c=>c.subjectId===s.id);
+    if(subjectCards.length===0) return '';
+    const bySubtopic = new Map();
+    subjectCards.forEach(c=>{
+      const key = c.subtopic || '';
+      if(!bySubtopic.has(key)) bySubtopic.set(key, []);
+      bySubtopic.get(key).push(c);
+    });
+    const sections = subtopicSortKeys(Array.from(bySubtopic.keys())).map(key=>{
+      const cardsInGroup = bySubtopic.get(key);
+      const label = key || t('cards.noSubtopicOpt');
+      const cardRows = cardsInGroup.map(c=>{
+        if(c.type==='cloze'){
+          return `<div class="pdf-body">${clozeRender(c.clozeText,true)}</div>`;
+        }
+        return `<div class="pdf-body"><strong>Q.</strong> ${c.front}<br><strong>A.</strong> ${c.back}</div>`;
+      }).join('<div style="height:10px;"></div>');
+      return `<div class="pdf-subtopic"><h3>${escapeHtml(label)}</h3>${cardRows}</div>`;
+    }).join('');
+    return `<div class="pdf-topic"><h2>${escapeHtml(s.name)}</h2>${sections}</div>`;
+  }).join('') || `<div class="pdf-empty">${t('cards.noCards')}</div>`;
+  openPrintableDoc(t('cards.organizedTitle'), body);
+};
 /* Fullscreen "카드 암기" (memorize) mode — a distraction-free version of
    the review/flip UI from renderCardStudyPanel(), rendered as a fixed
    full-viewport overlay appended directly to document.body (same pattern
@@ -10539,18 +10754,37 @@ App.setCardReviewMode = function(mode){
   state.cardReview.flipped = false;
   saveState(); renderAll();
 };
-App.setCardBrowseSubject = function(v){
-  state.cardReview.browseSubjectId = v || 'all';
-  // The subtopic list depends on which subject is selected, so switching
-  // subjects resets it rather than leaving a filter value that may no
-  // longer apply (or may silently apply to the wrong subject's subtopic).
-  state.cardReview.browseSubtopic = 'all';
+App.setCardBrowseSubjectAll = function(){
+  state.cardReview.browseSubjectIds = [];
+  state.cardReview.browseSubtopics = pruneCardSubtopicSelection(state.cardReview.browseSubtopics, []);
   state.cardReview.index = 0;
   state.cardReview.flipped = false;
   saveState(); renderAll();
 };
-App.setCardBrowseSubtopic = function(v){
-  state.cardReview.browseSubtopic = v || 'all';
+App.toggleCardBrowseSubject = function(sid){
+  const ids = state.cardReview.browseSubjectIds.slice();
+  const i = ids.indexOf(sid);
+  if(i>=0) ids.splice(i,1); else ids.push(sid);
+  state.cardReview.browseSubjectIds = ids;
+  // The subtopic list depends on which subjects are selected — prune
+  // anything that no longer applies rather than resetting the whole
+  // subtopic filter (same reasoning as the draw-card filter above).
+  state.cardReview.browseSubtopics = pruneCardSubtopicSelection(state.cardReview.browseSubtopics, ids);
+  state.cardReview.index = 0;
+  state.cardReview.flipped = false;
+  saveState(); renderAll();
+};
+App.setCardBrowseSubtopicAll = function(){
+  state.cardReview.browseSubtopics = [];
+  state.cardReview.index = 0;
+  state.cardReview.flipped = false;
+  saveState(); renderAll();
+};
+App.toggleCardBrowseSubtopic = function(name){
+  const arr = state.cardReview.browseSubtopics.slice();
+  const i = arr.indexOf(name);
+  if(i>=0) arr.splice(i,1); else arr.push(name);
+  state.cardReview.browseSubtopics = arr;
   state.cardReview.index = 0;
   state.cardReview.flipped = false;
   saveState(); renderAll();
