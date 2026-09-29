@@ -449,14 +449,25 @@
      the text itself or one of the three handles below (each of which stays
      contenteditable="false", exactly like an image/arrow handle). */
   .rt-textbox-wrap{-webkit-user-drag:none;}
+  /* Transparent-by-default, GoodNotes-style text box: no visible box/border
+     at rest, so only the typed text itself shows on the page — the box
+     "chrome" (background + border) only appears on hover (a quiet hint of
+     where the draggable/editable area is) or while actually focused/typing
+     (so the person can see what they're editing), and disappears again
+     once neither applies. Requested directly: "박스는 투명하고 글자만 보이게
+     해줘" (2026-09-29) — this used to always show a solid card-like box
+     (background:var(--surface), border:var(--line)), which stood out too
+     much against plain note text. */
   .rt-textbox-body{
     width:100%;box-sizing:border-box;
-    background:var(--surface);border:1px solid var(--line);border-radius:6px;
+    background:transparent;border:1px solid transparent;border-radius:6px;
     padding:8px 10px;min-width:80px;min-height:1.4em;
     outline:none;cursor:text;white-space:pre-wrap;overflow-wrap:break-word;
     font-size:13.5px;line-height:1.5;
+    transition:background-color .12s,border-color .12s;
   }
-  .rt-textbox-body:focus{border-color:var(--amber);}
+  .rt-textbox-wrap:hover .rt-textbox-body{background:var(--surface);border-color:var(--line);}
+  .rt-textbox-body:focus{background:var(--surface);border-color:var(--amber);}
   .rt-textbox-body:empty::before{content:attr(data-placeholder);color:var(--ink-dim);}
   /* Move/delete/resize handles — same look, corner, and hover-only-inside-
      .rich-body visibility as the image chip's own (.rt-img-move-handle etc.
@@ -5675,6 +5686,14 @@ document.addEventListener('keydown', function(e){
 // actually was — this snapshot is what lets the image land in the right
 // spot instead of always at the end of the field.
 let pendingRichImageRange = null;
+// Companion to pendingRichImageRange above: the actual resolved insertion
+// spot ({left, top, insertAfterEl}, see computeRichInsertionSpot below),
+// computed synchronously at the same moment pendingRichImageRange is
+// captured — i.e. before the native file dialog even opens, well before
+// any async file-reading/downscaling happens. See computeRichInsertionSpot's
+// own comment for why resolving this up front (rather than recomputing a
+// rect from the Range later, after all that async work) matters.
+let pendingRichImageSpot = null;
 // The image chip currently "selected" by a direct click (see the delegated
 // mousedown/keydown listeners near App.startImageResize) — lets
 // Backspace/Delete remove it without the text cursor being adjacent to it.
@@ -5704,6 +5723,12 @@ App.triggerRichImagePicker = function(bodyId){
     r.collapse(false);
     pendingRichImageRange = r;
   }
+  // Resolve the actual insertion spot right now, synchronously — before the
+  // native file dialog opens (which itself can steal focus/selection) and
+  // long before the async file-read/downscale that follows once a file is
+  // chosen. See computeRichInsertionSpot's doc comment for why waiting until
+  // after all that to compute this was the bug.
+  pendingRichImageSpot = computeRichInsertionSpot(bodyId, pendingRichImageRange);
   const input = document.getElementById(bodyId+'_imgInput');
   if(input) input.click();
 };
@@ -5820,9 +5845,27 @@ function ensureImageContainerFits(container){
    contains anchorRange's start, so it lands between the same two lines it
    visually looks like it's between, instead of always at the very end of
    the whole field regardless of where the cursor was. */
-function insertImageChipAtSelection(bodyId, dataUrl, anchorRange){
+/* Resolves BOTH the visual left/top and the structural insertion sibling
+   (see insertImageChipAtSelection's own doc comment just below for why the
+   structural part matters) from an anchorRange — split out of
+   insertImageChipAtSelection itself so a caller whose actual DOM insertion
+   happens after an async gap (FileReader/downscale — see
+   App.handleRichBodyPaste/App.triggerRichImagePicker) can call this RIGHT
+   AWAY, synchronously, at the moment of the real user action (the paste
+   event firing, or right before the native file-picker dialog even opens),
+   instead of waiting until after that async work to compute it from
+   whatever the Range still resolves to by then. A real (larger, slower-to-
+   process) photo can take long enough to read+downscale that, in the old
+   code, this rect computation sometimes turned up nothing usable by the
+   time it finally ran — silently falling back to a hardcoded (left:12,
+   top:12) default, which is exactly what "pasted images always land at the
+   note's top-left regardless of where my cursor was" (reported directly,
+   2026-09-29) looks like. Resolving the spot up front removes that
+   dependency entirely: by the time the image is actually ready to insert,
+   this function has nothing left to do — the numbers are already known. */
+function computeRichInsertionSpot(bodyId, anchorRange){
   const body = document.getElementById(bodyId);
-  if(!body) return;
+  if(!body) return null;
   const bodyRect = body.getBoundingClientRect();
   let left = 12, top = 12;
   let rect = null;
@@ -5843,6 +5886,42 @@ function insertImageChipAtSelection(bodyId, dataUrl, anchorRange){
     left = rect.left - bodyRect.left + body.scrollLeft;
     top = rect.top - bodyRect.top + body.scrollTop;
   }
+  // Find the top-level line (a direct child of body) that anchorRange (or
+  // the live selection) sits inside — the wrap will land as a sibling right
+  // after it (see insertImageChipAtSelection's doc comment for why this
+  // structural position matters beyond just the visual left/top). Falls
+  // back to null (append at the very end) whenever no usable range/line can
+  // be found, e.g. an empty field with no selection at all.
+  let insertAfterEl = null;
+  const rangeForInsertion = (anchorRange || (function(){
+    const sel = window.getSelection();
+    return (sel && sel.rangeCount>0 && body.contains(sel.anchorNode)) ? sel.getRangeAt(0) : null;
+  })());
+  if(rangeForInsertion){
+    let node = rangeForInsertion.startContainer;
+    if(node === body){
+      const idx = rangeForInsertion.startOffset;
+      insertAfterEl = idx>0 ? body.childNodes[idx-1] : null;
+    } else {
+      while(node && node.parentNode !== body) node = node.parentNode;
+      if(node && node.parentNode === body) insertAfterEl = node;
+    }
+  }
+  return {left:left, top:top, insertAfterEl:insertAfterEl};
+}
+function insertImageChipAtSelection(bodyId, dataUrl, spot){
+  const body = document.getElementById(bodyId);
+  if(!body) return;
+  // Accepts either a precomputed spot ({left, top, insertAfterEl} — see
+  // computeRichInsertionSpot above, the preferred path for any caller with
+  // an async gap between capturing the user's cursor position and actually
+  // inserting) or, for a caller that inserts synchronously with no async
+  // gap at all, a live Range/anchorRange resolved on the spot here.
+  if(!spot || spot instanceof Range){
+    spot = computeRichInsertionSpot(bodyId, spot || null) || {left:12, top:12, insertAfterEl:null};
+  }
+  let left = spot.left, top = spot.top;
+  const insertAfterEl = spot.insertAfterEl;
   // Stagger repeated inserts landing at (roughly) the same spot so they
   // don't stack exactly on top of one another.
   const existingCount = body.querySelectorAll('.rt-img-wrap').length;
@@ -5871,27 +5950,6 @@ function insertImageChipAtSelection(bodyId, dataUrl, anchorRange){
   const temp = document.createElement('div');
   temp.innerHTML = html;
   const wrapEl = temp.firstElementChild;
-  // Find the top-level line (a direct child of body) that anchorRange (or
-  // the live selection) sits inside, and insert the wrap right after it —
-  // see the function's own doc comment above for why this structural
-  // position matters now, beyond just the visual left/top. Falls back to
-  // appending at the very end (the old, only behavior) whenever no usable
-  // range/line can be found, e.g. an empty field with no selection at all.
-  let insertAfterEl = null;
-  const rangeForInsertion = (anchorRange || (function(){
-    const sel = window.getSelection();
-    return (sel && sel.rangeCount>0 && body.contains(sel.anchorNode)) ? sel.getRangeAt(0) : null;
-  })());
-  if(rangeForInsertion){
-    let node = rangeForInsertion.startContainer;
-    if(node === body){
-      const idx = rangeForInsertion.startOffset;
-      insertAfterEl = idx>0 ? body.childNodes[idx-1] : null;
-    } else {
-      while(node && node.parentNode !== body) node = node.parentNode;
-      if(node && node.parentNode === body) insertAfterEl = node;
-    }
-  }
   if(insertAfterEl && insertAfterEl.parentNode === body){
     body.insertBefore(wrapEl, insertAfterEl.nextSibling);
   } else {
@@ -5931,8 +5989,9 @@ App.insertRichImage = function(event, bodyId){
     downscaleImageDataUrl(String(reader.result), 1000).then(function(dataUrl){
       const body = document.getElementById(bodyId);
       if(body) body.focus();
-      const imgEl = insertImageChipAtSelection(bodyId, dataUrl, pendingRichImageRange);
+      const imgEl = insertImageChipAtSelection(bodyId, dataUrl, pendingRichImageSpot);
       pendingRichImageRange = null;
+      pendingRichImageSpot = null;
       uploadAndSwapImageSrc(imgEl, dataUrl, bodyId);
     });
   };
@@ -5963,10 +6022,15 @@ App.handleRichBodyPaste = function(event, bodyId){
   event.preventDefault();
   const sel = window.getSelection();
   const anchorRange = (sel && sel.rangeCount>0) ? sel.getRangeAt(0).cloneRange() : null;
+  // Resolve the insertion spot (left/top + structural sibling) right now,
+  // synchronously, at the moment of the actual paste — see
+  // computeRichInsertionSpot's doc comment above insertImageChipAtSelection
+  // for why this can't wait until after the FileReader/downscale below.
+  const spot = computeRichInsertionSpot(bodyId, anchorRange);
   const reader = new FileReader();
   reader.onload = function(){
     downscaleImageDataUrl(String(reader.result), 1000).then(function(dataUrl){
-      const imgEl = insertImageChipAtSelection(bodyId, dataUrl, anchorRange);
+      const imgEl = insertImageChipAtSelection(bodyId, dataUrl, spot);
       uploadAndSwapImageSrc(imgEl, dataUrl, bodyId);
     });
   };
@@ -9142,6 +9206,7 @@ function saveAllNotes(recordHistorySnapshot){
   const tp = s.topics.find(x=>x.id===state.notesTopicId);
   if(!tp) return;
   const wasEmpty = richIsEmpty(tp.notes);
+  let historyWasRecorded = false;
   const topicArea = document.getElementById('topicNotesArea');
   if(topicArea){
     applyRecallEditsIntoNotesDom(topicArea);
@@ -9157,6 +9222,7 @@ function saveAllNotes(recordHistorySnapshot){
       if(!Array.isArray(tp.notesHistory)) tp.notesHistory = [];
       tp.notesHistory.unshift({html: tp.notes, savedAt: new Date().toISOString()});
       if(tp.notesHistory.length>NOTES_HISTORY_MAX) tp.notesHistory.length = NOTES_HISTORY_MAX;
+      historyWasRecorded = true;
     }
     tp.notes = newNotes;
     syncAutoSubtopicsFromNotes(tp);
@@ -9172,7 +9238,16 @@ function saveAllNotes(recordHistorySnapshot){
   })(tp.subtopics);
   saveState();
   const isEmptyNow = richIsEmpty(tp.notes);
-  if(wasEmpty !== isEmptyNow) renderAll();
+  /* historyWasRecorded is only ever true when recordHistorySnapshot itself
+     is true, which only happens on an explicit 전체 저장 button click (see
+     App.saveAllNotes) — a discrete one-off user action, not a mid-typing
+     autosave — so it's always safe here to force a re-render even though
+     the note's emptiness didn't change. Without this, the "저장 기록" button's
+     "(n)" count badge and the history panel itself (if already open) never
+     refresh to show the just-recorded save point until some *other* action
+     happens to trigger a renderAll — the underlying tp.notesHistory data was
+     always correct, only the displayed button/panel were stale. */
+  if(wasEmpty !== isEmptyNow || historyWasRecorded) renderAll();
   markTopicReviewed(tp);
 }
 App.saveAllNotes = function(){
