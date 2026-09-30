@@ -9235,22 +9235,54 @@ function saveAllNotes(recordHistorySnapshot){
   const wasEmpty = richIsEmpty(tp.notes);
   let historyWasRecorded = false;
   const topicArea = document.getElementById('topicNotesArea');
+  let newNotes = tp.notes;
   if(topicArea){
     applyRecallEditsIntoNotesDom(topicArea);
-    const newNotes = sanitizeRichHtml(normalizeRichColorBold(topicArea));
-    /* Only an explicit 전체 저장 click (see App.saveAllNotes) records a save
-       point — every other caller here is autosave/tab-switch/etc., which
-       fires on almost every pause while typing and would otherwise turn
-       "the previous save point" into "a few keystrokes ago", defeating the
-       whole point of being able to step back to it. Skipped when nothing
-       actually changed (clicking 전체 저장 twice in a row shouldn't create a
-       duplicate history entry) or when there was nothing worth keeping yet. */
-    if(recordHistorySnapshot && newNotes!==tp.notes && !richIsEmpty(tp.notes)){
-      if(!Array.isArray(tp.notesHistory)) tp.notesHistory = [];
-      tp.notesHistory.unshift({html: tp.notes, savedAt: new Date().toISOString()});
-      if(tp.notesHistory.length>NOTES_HISTORY_MAX) tp.notesHistory.length = NOTES_HISTORY_MAX;
-      historyWasRecorded = true;
-    }
+    newNotes = sanitizeRichHtml(normalizeRichColorBold(topicArea));
+  }
+  /* Snapshot every manual subtopic's note field BEFORE anything is mutated —
+     both its old value (for the history entry, so a restore can bring a
+     subtopic's content back too) and its new value (to decide whether a
+     history entry should be recorded at all). This used to only look at the
+     main topic body (tp.notes): a save that changed ONLY a subtopic's own
+     note field never recorded a history entry, even though the edit itself
+     was correctly persisted — reported by the user as "전체저장해도
+     저장기록에 안들어가는거는 계속 그런거 같은데". Auto-detected subtopics
+     don't need this — their content already lives inside tp.notes itself
+     (merged in via applyRecallEditsIntoNotesDom above), so they're already
+     covered by newNotes/tp.notes. */
+  const oldSubtopicNotes = {};
+  const newSubtopicNotes = {};
+  let anySubtopicChanged = false;
+  (function collect(list){
+    list.forEach(node=>{
+      if(!node.autoDetected) oldSubtopicNotes[node.id] = node.notes;
+      const area = document.getElementById('subNotesArea-'+node.id);
+      if(area){
+        const v = sanitizeRichHtml(normalizeRichColorBold(area));
+        newSubtopicNotes[node.id] = v;
+        if(v!==node.notes) anySubtopicChanged = true;
+      }
+      collect(node.subtopics||[]);
+    });
+  })(tp.subtopics);
+  /* Only an explicit 전체 저장 click (see App.saveAllNotes) records a save
+     point — every other caller here is autosave/tab-switch/etc., which
+     fires on almost every pause while typing and would otherwise turn
+     "the previous save point" into "a few keystrokes ago", defeating the
+     whole point of being able to step back to it. Skipped when nothing
+     actually changed (main notes AND every subtopic note — clicking 전체
+     저장 twice in a row shouldn't create a duplicate history entry) or when
+     there was nothing worth keeping yet (main notes AND every subtopic were
+     empty before this save). */
+  const wasFullyEmptyBefore = richIsEmpty(tp.notes) && flattenSubtopics(tp.subtopics).every(({node})=>richIsEmpty(node.notes));
+  if(recordHistorySnapshot && (newNotes!==tp.notes || anySubtopicChanged) && !wasFullyEmptyBefore){
+    if(!Array.isArray(tp.notesHistory)) tp.notesHistory = [];
+    tp.notesHistory.unshift({html: tp.notes, subtopics: oldSubtopicNotes, savedAt: new Date().toISOString()});
+    if(tp.notesHistory.length>NOTES_HISTORY_MAX) tp.notesHistory.length = NOTES_HISTORY_MAX;
+    historyWasRecorded = true;
+  }
+  if(topicArea){
     tp.notes = newNotes;
     syncAutoSubtopicsFromNotes(tp);
   }
@@ -9258,8 +9290,7 @@ function saveAllNotes(recordHistorySnapshot){
   if(pretestArea) tp.pretestText = sanitizeRichHtml(normalizeRichColorBold(pretestArea));
   (function walk(list){
     list.forEach(node=>{
-      const area = document.getElementById('subNotesArea-'+node.id);
-      if(area) node.notes = sanitizeRichHtml(normalizeRichColorBold(area));
+      if(Object.prototype.hasOwnProperty.call(newSubtopicNotes, node.id)) node.notes = newSubtopicNotes[node.id];
       walk(node.subtopics||[]);
     });
   })(tp.subtopics);
@@ -9318,15 +9349,40 @@ App.restoreNotesHistory = function(topicId, index){
   const entry = tp.notesHistory[index];
   if(!entry) return;
   showConfirm(t('notes.historyRestoreConfirm'), function(){
-    saveAllNotes(); // flush any live, unsaved edit into tp.notes first (not recorded as its own history entry — handled explicitly below instead)
-    if(tp.notes!==entry.html && !richIsEmpty(tp.notes)){
-      tp.notesHistory.unshift({html: tp.notes, savedAt: new Date().toISOString()});
+    saveAllNotes(); // flush any live, unsaved edit (main notes AND subtopic notes) into tp first (not recorded as its own history entry — handled explicitly below instead)
+    /* entry.subtopics (present on entries recorded after the subtopic-history
+       fix; absent/undefined on older entries saved before it — treated the
+       same as {}, so restoring an old entry just leaves current subtopic
+       notes untouched instead of erroring) maps manual-subtopic id -> the
+       notes that subtopic had at that save point. Back up the CURRENT main
+       notes AND current manual-subtopic notes before overwriting either, so
+       stepping back to an older point is itself undoable — same reasoning
+       as the main-notes-only backup this replaces. */
+    const entrySubtopics = entry.subtopics || {};
+    const currentSubtopicNotes = {};
+    let anySubtopicWouldChange = false;
+    flattenSubtopics(tp.subtopics).forEach(({node})=>{
+      if(node.autoDetected) return;
+      currentSubtopicNotes[node.id] = node.notes;
+      if(Object.prototype.hasOwnProperty.call(entrySubtopics, node.id) && entrySubtopics[node.id]!==node.notes) anySubtopicWouldChange = true;
+    });
+    const wasFullyEmpty = richIsEmpty(tp.notes) && flattenSubtopics(tp.subtopics).every(({node})=>richIsEmpty(node.notes));
+    if((tp.notes!==entry.html || anySubtopicWouldChange) && !wasFullyEmpty){
+      tp.notesHistory.unshift({html: tp.notes, subtopics: currentSubtopicNotes, savedAt: new Date().toISOString()});
       if(tp.notesHistory.length>NOTES_HISTORY_MAX) tp.notesHistory.length = NOTES_HISTORY_MAX;
     }
     const idx = tp.notesHistory.indexOf(entry);
     if(idx!==-1) tp.notesHistory.splice(idx, 1);
     tp.notes = entry.html;
     syncAutoSubtopicsFromNotes(tp);
+    // Apply the restored snapshot's subtopic notes onto whichever of those
+    // subtopics still exist (by id) — a subtopic deleted since that save
+    // point simply has no node left to apply its old content to, safely
+    // ignored; a subtopic added since then is left as-is (not in the
+    // snapshot, nothing to restore it FROM).
+    flattenSubtopics(tp.subtopics).forEach(({node})=>{
+      if(!node.autoDetected && Object.prototype.hasOwnProperty.call(entrySubtopics, node.id)) node.notes = entrySubtopics[node.id];
+    });
     saveState();
     notesHistoryPanelTopicId = null;
     renderAll();
