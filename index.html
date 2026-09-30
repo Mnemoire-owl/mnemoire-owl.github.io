@@ -1303,7 +1303,8 @@ const LANG = {
       progressLabel:'{current}/{total}',
       memorizeBtn:'🧠 주문 암기', memorizeTitle:'주문 암기', exitMemorize:'닫기',
       organizedTitle:'정리된 카드 목록', exportPdf:'PDF로 저장',
-      viewStudy:'학습', viewCreate:'만들기', viewList:'전체 목록',
+      viewFilter:'필터', viewStudy:'학습', viewCreate:'만들기', viewList:'전체 목록',
+      filterTitle:'카드 필터', filterMatchCount:'이 필터에 해당하는 카드: {count}장', goStudyBtn:'학습 시작하기',
       searchLabel:'카드 검색', searchPh:'과목, 소주제, 카드 내용으로 검색…', searchNoResults:'검색 결과가 없어요.'
     },
     focus: {
@@ -1602,7 +1603,8 @@ const LANG = {
       progressLabel:'{current}/{total}',
       memorizeBtn:'🧠 Memorize', memorizeTitle:'Memorize spells', exitMemorize:'Close',
       organizedTitle:'Organized Card List', exportPdf:'Export as PDF',
-      viewStudy:'Study', viewCreate:'Create', viewList:'All Cards',
+      viewFilter:'Filter', viewStudy:'Study', viewCreate:'Create', viewList:'All Cards',
+      filterTitle:'Card Filter', filterMatchCount:'{count} cards match this filter', goStudyBtn:'Start Studying',
       searchLabel:'Search cards', searchPh:'Search by subject, subtopic, or card content…', searchNoResults:'No matches found.'
     },
     focus: {
@@ -1901,7 +1903,8 @@ const LANG = {
       progressLabel:'{current}/{total}',
       memorizeBtn:'🧠 Einprägen', memorizeTitle:'Zaubersprüche einprägen', exitMemorize:'Schließen',
       organizedTitle:'Geordnete Kartenliste', exportPdf:'Als PDF speichern',
-      viewStudy:'Lernen', viewCreate:'Erstellen', viewList:'Alle Karten',
+      viewFilter:'Filter', viewStudy:'Lernen', viewCreate:'Erstellen', viewList:'Alle Karten',
+      filterTitle:'Kartenfilter', filterMatchCount:'{count} Karten entsprechen diesem Filter', goStudyBtn:'Lernen starten',
       searchLabel:'Karten durchsuchen', searchPh:'Nach Fach, Unterthema oder Karteninhalt suchen…', searchNoResults:'Keine Treffer gefunden.'
     },
     focus: {
@@ -2200,7 +2203,8 @@ const LANG = {
       progressLabel:'{current}/{total}',
       memorizeBtn:'🧠 Mémoriser', memorizeTitle:'Mémoriser les sortilèges', exitMemorize:'Fermer',
       organizedTitle:'Liste de cartes organisée', exportPdf:'Exporter en PDF',
-      viewStudy:'Réviser', viewCreate:'Créer', viewList:'Toutes les cartes',
+      viewFilter:'Filtrer', viewStudy:'Réviser', viewCreate:'Créer', viewList:'Toutes les cartes',
+      filterTitle:'Filtrer les cartes', filterMatchCount:'{count} cartes correspondent à ce filtre', goStudyBtn:'Commencer à réviser',
       searchLabel:'Rechercher des cartes', searchPh:'Rechercher par matière, sous-sujet ou contenu de carte…', searchNoResults:'Aucun résultat trouvé.'
     },
     focus: {
@@ -3251,12 +3255,16 @@ function defaultState(){
     lastCardType: 'basic',
     lastCardSubtopicBySubject: {},
     cardEditingId: null,
-    // Which of the three Cards-tab sub-views is showing: 'study' (review/
-    // browse panel), 'create' (add/edit form), or 'list' (the organized
-    // 과목→소주제 list + search). Introduced so the tab only ever shows ONE
-    // of these at a time instead of cramming the study panel, the create
-    // form, AND the full organized list onto one screen (the "한 화면에 다
-    // 몰려있음" clutter complaint) — see renderCards().
+    // Which of the four Cards-tab sub-views is showing: 'filter' (mode +
+    // subject/subtopic filter controls, nothing else), 'study' (just the
+    // flip/review card itself), 'create' (add/edit form), or 'list' (the
+    // organized 과목→소주제 list + search). Introduced so the tab only ever
+    // shows ONE of these at a time instead of cramming the study panel, the
+    // create form, AND the full organized list onto one screen (the "한
+    // 화면에 다 몰려있음" clutter complaint) — see renderCards(). The filter
+    // controls used to live inside the study view itself, but were later
+    // split into their own view so studying stays just the card, with
+    // filtering done as a separate step beforehand (see renderCardFilterPanel()).
     cardsViewMode: 'study',
     cardReview: { queue: [], index: 0, flipped: false, mode: 'due', browseSubjectIds: [], browseSubtopics: [], fullscreen: false },
     editingCategoryId: null,
@@ -3762,7 +3770,7 @@ function normalizeState(){
   if(state.lastCardType!=='basic' && state.lastCardType!=='cloze') state.lastCardType = 'basic';
   if(!state.lastCardSubtopicBySubject || typeof state.lastCardSubtopicBySubject!=='object' || Array.isArray(state.lastCardSubtopicBySubject)) state.lastCardSubtopicBySubject = {};
   if(state.cardEditingId===undefined) state.cardEditingId = null;
-  if(state.cardsViewMode!=='study' && state.cardsViewMode!=='create' && state.cardsViewMode!=='list') state.cardsViewMode = 'study';
+  if(state.cardsViewMode!=='study' && state.cardsViewMode!=='create' && state.cardsViewMode!=='list' && state.cardsViewMode!=='filter') state.cardsViewMode = 'study';
   if(typeof state.cardsSearchQuery!=='string') state.cardsSearchQuery = '';
   if(state.editingCategoryId===undefined) state.editingCategoryId = null;
   if(state.editingSubtopicId===undefined) state.editingSubtopicId = null;
@@ -10738,15 +10746,19 @@ function refreshCardReviewQueue(){
   cr.queue = ids;
   cr.index = ids.length ? Math.min(newIndex, ids.length-1) : 0;
 }
-/* Builds the "study" side of the Cards tab — the mode toggle (due/browse),
-   the subject+subtopic filters (browse mode only), and the flip-review
-   card itself. Shared verbatim between the normal split layout in
-   renderCards() and the fullscreen memorize overlay, so the filtering
-   logic and review UI never has to be kept in sync across two copies. */
-function renderCardStudyPanel(){
+/* Builds the standalone "필터" (filter) view of the Cards tab — the mode
+   toggle (오늘 복습/전체 카드보기) and, in browse-all mode, the subject+
+   subtopic multiselect filters. This used to live at the top of
+   renderCardStudyPanel() itself, right above the flip card, but was pulled
+   out into its own sub-view so studying stays just the card with nothing
+   else competing for attention — filtering is a separate step done here
+   first, then App.setCardsView('study') to actually review. Shows a live
+   count of how many cards the current filter matches (and a shortcut
+   button into the study view) so picking a filter here doesn't feel like a
+   dead end. */
+function renderCardFilterPanel(){
   refreshCardReviewQueue();
   const cr = state.cardReview;
-  const queue = cr.queue;
   const browseMode = cr.mode==='all';
 
   const browseSubjectOptions = state.subjects.map(s=>({value:s.id, label:s.name}));
@@ -10755,6 +10767,35 @@ function renderCardStudyPanel(){
   // checklist never lists subtopics that don't apply to the current view.
   const {hasNone: browseHasNoSubtopicCard, names: browseSubtopicNames} = cardSubtopicOptionsFor(cr.browseSubjectIds);
   const browseSubtopicOptions = (browseHasNoSubtopicCard ? [{value:'__none__', label:t('cards.noSubtopicOpt')}] : []).concat(browseSubtopicNames.map(x=>({value:x, label:x})));
+
+  return `
+    <div class="mode-toggle" style="margin-bottom:10px;">
+      <button class="btn ${!browseMode?'':'ghost'} small" onclick="App.setCardReviewMode('due')">${t('cards.modeDue')}</button>
+      <button class="btn ${browseMode?'':'ghost'} small" onclick="App.setCardReviewMode('all')">${t('cards.modeAll')}</button>
+    </div>
+    ${browseMode ? `
+      <div class="row" style="margin-bottom:10px;flex-wrap:wrap;">
+        ${renderCardFilterToggleGroup(t('cards.browseSubjectLabel'), t('cards.allSubjectsOpt'), browseSubjectOptions, cr.browseSubjectIds, 'App.setCardBrowseSubjectAll', 'App.toggleCardBrowseSubject')}
+        ${renderCardFilterToggleGroup(t('cards.subtopicFilterLabel'), t('cards.allSubtopicsOpt'), browseSubtopicOptions, cr.browseSubtopics, 'App.setCardBrowseSubtopicAll', 'App.toggleCardBrowseSubtopic')}
+      </div>
+    ` : ''}
+    <div class="muted" style="font-size:12px;margin-bottom:10px;">${tf('cards.filterMatchCount',{count:cr.queue.length})}</div>
+    <button class="btn" onclick="App.setCardsView('study')">${t('cards.goStudyBtn')}</button>
+  `;
+}
+/* Builds the "study" side of the Cards tab — just the flip-review card
+   itself (progress, edit/delete, flip/prev/next, rate buttons). The mode
+   toggle and subject/subtopic filters used to live at the top of this same
+   panel; they now have their own "필터" sub-view (renderCardFilterPanel()
+   above) so studying isn't sharing the screen with filter controls.
+   Shared verbatim between the normal split layout in renderCards() and the
+   fullscreen memorize overlay, so the review UI never has to be kept in
+   sync across two copies. */
+function renderCardStudyPanel(){
+  refreshCardReviewQueue();
+  const cr = state.cardReview;
+  const queue = cr.queue;
+  const browseMode = cr.mode==='all';
 
   let reviewBlock = `<div class="empty">${browseMode ? t('cards.noneAll') : t('cards.noneToday')}</div>`;
   if(queue.length>0){
@@ -10794,19 +10835,7 @@ function renderCardStudyPanel(){
     `;
   }
 
-  return `
-    <div class="mode-toggle" style="margin-bottom:10px;">
-      <button class="btn ${!browseMode?'':'ghost'} small" onclick="App.setCardReviewMode('due')">${t('cards.modeDue')}</button>
-      <button class="btn ${browseMode?'':'ghost'} small" onclick="App.setCardReviewMode('all')">${t('cards.modeAll')}</button>
-    </div>
-    ${browseMode ? `
-      <div class="row" style="margin-bottom:10px;flex-wrap:wrap;">
-        ${renderCardFilterToggleGroup(t('cards.browseSubjectLabel'), t('cards.allSubjectsOpt'), browseSubjectOptions, cr.browseSubjectIds, 'App.setCardBrowseSubjectAll', 'App.toggleCardBrowseSubject')}
-        ${renderCardFilterToggleGroup(t('cards.subtopicFilterLabel'), t('cards.allSubtopicsOpt'), browseSubtopicOptions, cr.browseSubtopics, 'App.setCardBrowseSubtopicAll', 'App.toggleCardBrowseSubtopic')}
-      </div>
-    ` : ''}
-    ${reviewBlock}
-  `;
+  return reviewBlock;
 }
 function renderCards(){
   const draft = state.cardDraft || null;
@@ -10862,17 +10891,19 @@ function renderCards(){
 
   const browseMode = state.cardReview.mode==='all';
 
-  /* Which of the three sub-views (학습/만들기/전체 목록) is actually shown —
-     see the state.cardsViewMode comment near its declaration for why this
-     exists at all. Editing an existing card always forces the 만들기 view
-     open regardless of whichever tab was last selected, since that's the
-     only place the edit form lives; App.startEditCard/startEditCardFromBrowse
-     also set state.cardsViewMode='create' themselves so the *next* render
-     (and the tab highlighting below) agrees with this one. */
+  /* Which of the four sub-views (필터/학습/만들기/전체 목록) is actually
+     shown — see the state.cardsViewMode comment near its declaration for
+     why this exists at all. Editing an existing card always forces the
+     만들기 view open regardless of whichever tab was last selected, since
+     that's the only place the edit form lives; App.startEditCard/
+     startEditCardFromBrowse also set state.cardsViewMode='create'
+     themselves so the *next* render (and the tab highlighting below)
+     agrees with this one. */
   const view = editingCard ? 'create' : (state.cardsViewMode || 'study');
 
   const tabsHtml = `
     <div class="mode-toggle" style="margin-bottom:14px;">
+      <button class="btn ${view==='filter'?'':'ghost'} small" onclick="App.setCardsView('filter')">${t('cards.viewFilter')}</button>
       <button class="btn ${view==='study'?'':'ghost'} small" onclick="App.setCardsView('study')">${t('cards.viewStudy')}</button>
       <button class="btn ${view==='create'?'':'ghost'} small" onclick="App.setCardsView('create')">${t('cards.viewCreate')}</button>
       <button class="btn ${view==='list'?'':'ghost'} small" onclick="App.setCardsView('list')">${t('cards.viewList')}</button>
@@ -10880,14 +10911,23 @@ function renderCards(){
   `;
 
   let bodyHtml;
-  if(view==='study'){
+  if(view==='filter'){
+    bodyHtml = `
+      <div class="card">
+        <h2 class="section-title">${t('cards.filterTitle')}</h2>
+        ${renderCardFilterPanel()}
+      </div>
+    `;
+  } else if(view==='study'){
     // The raw "every card, most-recent-first" list that used to live under
     // the create/edit form was removed per the user's own earlier request —
     // it only ever showed a partial slice (most recent 50) and felt
     // incomplete. Editing/deleting happens from this panel instead (see the
     // edit/delete row added to renderCardStudyPanel()'s reviewBlock), which
-    // already lets you page through — and, in browse-all mode,
-    // subject/subtopic-filter down to — every card, one at a time.
+    // already lets you page through every card in the current queue one at
+    // a time — the queue itself (due-today vs. browse-all, and whichever
+    // subject/subtopic filter is active) is set up beforehand on the 필터
+    // view (renderCardFilterPanel()), not here.
     bodyHtml = `
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
@@ -10945,7 +10985,7 @@ function renderCards(){
   return `${tabsHtml}${bodyHtml}`;
 }
 App.setCardsView = function(v){
-  if(v!=='study' && v!=='create' && v!=='list') return;
+  if(v!=='study' && v!=='create' && v!=='list' && v!=='filter') return;
   state.cardsViewMode = v;
   saveState(); renderAll();
 };
