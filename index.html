@@ -8837,10 +8837,32 @@ App.nextNotesTopic = function(){
 function getNotesTopLevelLines(container){
   const lines = [];
   let bucket = [];
-  function flushBucket(){
+  /* Loose top-level content with no wrapping <div>/<p> of its own (see the
+     comment on isAtomicWrap below — in practice this is only ever text/
+     inline nodes sitting before the very first Enter in the whole note,
+     most commonly the note's very FIRST heading when it's typed with
+     nothing before it) used to get flushed by moving those nodes into a
+     brand-new, ENTIRELY DETACHED wrapper div — fine when container is a
+     disposable clone (parseAutoSubtopicSections), but when container is
+     the LIVE topicNotesArea (findAutoSectionLineEls, run whenever any
+     auto-subtopic recall item is open — see applyRecallEditsIntoNotesDom),
+     that wrapper was never reattached anywhere: the nodes were simply torn
+     out of the real note and silently discarded the moment anything after
+     them saved. That's exactly how a heading with nothing before it (e.g.
+     the note's first subtopic) could vanish just from opening/toggling a
+     DIFFERENT recall item — reported as "노트 밑에 있는 소주제를 누르면
+     소주제가 없어져". Now the wrapper is inserted back into `container` at
+     the exact spot the loose nodes used to occupy (right before whatever
+     line follows them, or at the end if they were trailing) — content-wise
+     a no-op, but it normalizes that loose content into a real line <div>
+     that's actually part of the document, exactly like pressing Enter
+     there would have produced, instead of orphaning it. */
+  function flushBucket(beforeNode){
     if(bucket.length){
       const wrapper = document.createElement('div');
       bucket.forEach(n=>wrapper.appendChild(n));
+      if(beforeNode && beforeNode.parentNode===container) container.insertBefore(wrapper, beforeNode);
+      else container.appendChild(wrapper);
       lines.push(wrapper);
       bucket = [];
     }
@@ -8865,19 +8887,19 @@ function getNotesTopLevelLines(container){
   }
   Array.from(container.childNodes).forEach(node=>{
     if(node.nodeType===1 && (node.tagName==='DIV'||node.tagName==='P')){
-      flushBucket();
+      flushBucket(node);
       lines.push(node);
     } else if(node.nodeType===1 && node.tagName==='BR'){
-      flushBucket();
+      flushBucket(node);
       lines.push(document.createElement('div')); // explicit blank line
     } else if(isAtomicWrap(node)){
-      flushBucket();
+      flushBucket(node);
       lines.push(node);
     } else {
       bucket.push(node);
     }
   });
-  flushBucket();
+  flushBucket(null);
   return lines;
 }
 /* True only when EVERY non-whitespace character on the line sits inside a
