@@ -9103,6 +9103,92 @@ function findAutoSectionLineEls(topicArea, headingName){
   }
   return headingEl ? {headingEl, contentEls} : null;
 }
+/* An open recall field is populated from node.notes, whose image/arrow/
+   textbox wraps had their position stripped by parseAutoSubtopicSections
+   (see that function's own comment) — on purpose, since the ORIGINAL
+   coordinates were computed against the usually-wider topicNotesArea field.
+   Once that stripped HTML renders inside the recall field's own (narrower)
+   box, the migrateImageWrapIfNeeded/migrateArrowWrapIfNeeded/
+   migrateTextboxWrapIfNeeded MutationObserver immediately recomputes and
+   bakes in fresh coordinates — correct FOR THAT NARROW BOX, but wrong for
+   topicNotesArea. applyRecallEditsIntoNotesDom folds the recall field's
+   current content back into topicNotesArea on every save while the item is
+   open (even when nothing was actually edited there), so without this step
+   that narrow-box position would silently overwrite the correct one — a
+   picture (or arrow/text box) a person carefully placed would visibly jump
+   to a different spot the moment they pressed "전체 저장" (or anything else
+   that saves while the item happens to be open). This restores each
+   wrap's ORIGINAL position-related attributes (from the live topicNotesArea
+   copy about to be replaced) onto its counterpart in the incoming fragment,
+   matching images by their <img src> (a stable identity even if the user
+   reordered surrounding text) and arrows/text boxes by their order among
+   same-type wraps within the section (they carry no content-based identity
+   of their own, and simple text edits around an atomic, non-editable wrap
+   never change its position among same-type wraps). A wrap with no match —
+   genuinely new, added from within the recall field itself — is left alone:
+   its position was already computed relative to topicNotesArea's own
+   coordinate space once inserted (recallArea and topicNotesArea share the
+   same positioned ancestor chain width-wise at the point this runs), so
+   there's nothing stale to restore for it. */
+function restoreOriginalWrapPositions(liveContentEls, frag){
+  const origImgsBySrc = new Map();
+  const origArrowsInOrder = [];
+  const origTextboxesInOrder = [];
+  function collectOriginal(el){
+    if(el.nodeType!==1) return;
+    if(el.classList && el.classList.contains('rt-img-wrap')){
+      const img = el.querySelector('img');
+      const src = img && img.getAttribute('src');
+      if(src) origImgsBySrc.set(src, el.getAttribute('style')||'');
+      return;
+    }
+    if(el.classList && el.classList.contains('rt-arrow-wrap')){
+      origArrowsInOrder.push({
+        style: el.getAttribute('style')||'',
+        ax1: el.dataset.ax1, ay1: el.dataset.ay1, ax2: el.dataset.ax2, ay2: el.dataset.ay2,
+        acx: el.dataset.acx, acy: el.dataset.acy
+      });
+      return;
+    }
+    if(el.classList && el.classList.contains('rt-textbox-wrap')){
+      origTextboxesInOrder.push(el.getAttribute('style')||'');
+      return;
+    }
+    Array.from(el.children||[]).forEach(collectOriginal);
+  }
+  liveContentEls.forEach(collectOriginal);
+  let arrowIdx = 0, textboxIdx = 0;
+  function restore(el){
+    if(el.nodeType!==1) return;
+    if(el.classList && el.classList.contains('rt-img-wrap')){
+      const img = el.querySelector('img');
+      const src = img && img.getAttribute('src');
+      if(src && origImgsBySrc.has(src)) el.setAttribute('style', origImgsBySrc.get(src));
+      return;
+    }
+    if(el.classList && el.classList.contains('rt-arrow-wrap')){
+      if(arrowIdx < origArrowsInOrder.length){
+        const o = origArrowsInOrder[arrowIdx];
+        el.setAttribute('style', o.style);
+        if(o.ax1!==undefined) el.dataset.ax1 = o.ax1;
+        if(o.ay1!==undefined) el.dataset.ay1 = o.ay1;
+        if(o.ax2!==undefined) el.dataset.ax2 = o.ax2;
+        if(o.ay2!==undefined) el.dataset.ay2 = o.ay2;
+        if(o.acx!==undefined) el.dataset.acx = o.acx; else delete el.dataset.acx;
+        if(o.acy!==undefined) el.dataset.acy = o.acy; else delete el.dataset.acy;
+      }
+      arrowIdx++;
+      return;
+    }
+    if(el.classList && el.classList.contains('rt-textbox-wrap')){
+      if(textboxIdx < origTextboxesInOrder.length) el.setAttribute('style', origTextboxesInOrder[textboxIdx]);
+      textboxIdx++;
+      return;
+    }
+    Array.from(el.children||[]).forEach(restore);
+  }
+  Array.from(frag.children).forEach(restore);
+}
 /* Folds any edit made through an OPEN recall-list item (see
    renderAutoSubtopicRecallList) back into the live topicNotesArea DOM,
    BEFORE that field gets read and saved as usual — so the recall list is
@@ -9134,9 +9220,10 @@ function applyRecallEditsIntoNotesDom(topicArea){
     const insertBeforeEl = liveContentEls.length
       ? liveContentEls[liveContentEls.length-1].nextSibling
       : headingEl.nextSibling;
-    liveContentEls.forEach(el=>el.remove());
     const frag = document.createDocumentFragment();
     Array.from(field.childNodes).forEach(n=>frag.appendChild(n.cloneNode(true)));
+    restoreOriginalWrapPositions(liveContentEls, frag);
+    liveContentEls.forEach(el=>el.remove());
     if(insertBeforeEl && topicArea.contains(insertBeforeEl)) topicArea.insertBefore(frag, insertBeforeEl);
     else topicArea.appendChild(frag);
   });
