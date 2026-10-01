@@ -5818,6 +5818,53 @@ function downscaleImageDataUrl(dataUrl, maxDim){
    down. Generic on purpose: it runs for the live editing field
    (.rich-body) exactly the same way it runs for a read-only flashcard
    (.flash) showing the same saved content — see migrateImageWrapIfNeeded. */
+/* Called right after a .rt-img-wrap/.rt-arrow-wrap/.rt-textbox-wrap is
+   migrated to an absolute position it never had before (see
+   migrateImageWrapIfNeeded et al., below). At that exact moment the wrap is
+   removed from document flow, so whatever structural sibling came right
+   after it in the HTML would otherwise render exactly where it would have
+   if the wrap weren't there at all — visually underneath it, since an
+   absolutely-positioned element contributes zero height to the flow. This
+   is most visible for a picture inserted in the wide main note, then
+   dragged by the user to open canvas space further down the page (so it
+   visually clears the text there) — a deliberate placement that relies on
+   the WIDE note simply having extra blank canvas to drag into. When that
+   same content is later parsed into a narrower box sized exactly to its own
+   content (a subtopic's auto-detected recall item, a card back, a PDF/card
+   export...), parseAutoSubtopicSections has already stripped the picture's
+   position (see that function's own comment) specifically because the old
+   absolute coordinates were computed against the wider field and would be
+   nonsensical here — so migrateImageWrapIfNeeded recomputes a fresh
+   position from wherever the picture naturally falls in that box's own
+   flow instead. But "wherever it naturally falls" sits immediately adjacent
+   to its structural neighbors, with no notion of the open canvas space the
+   user depended on in the wide note to avoid covering anything — so the
+   picture can end up landing squarely on top of whatever text structurally
+   follows it, even though the user never arranged anything to overlap.
+   This function pushes that next flowing sibling down (skipping past any
+   other free-floating chips, which don't occupy flow space themselves) just
+   enough for the wrap to fit above it. It only ever fires the first time a
+   wrap is freshly placed without an explicit position of its own — once a
+   wrap actually has position:absolute (a person has dragged it, or this
+   already ran once for it), migrateImageWrapIfNeeded never re-enters the
+   branch that calls this, so a deliberate drag is never fought with. */
+function reserveFlowSpaceAfterWrap(wrap, container, top){
+  if(wrap.parentElement!==container) return;
+  let nextEl = wrap.nextElementSibling;
+  while(nextEl && nextEl.classList && (nextEl.classList.contains('rt-img-wrap')||nextEl.classList.contains('rt-arrow-wrap')||nextEl.classList.contains('rt-textbox-wrap'))){
+    nextEl = nextEl.nextElementSibling;
+  }
+  if(!nextEl || nextEl.parentElement!==container) return;
+  const containerRect = container.getBoundingClientRect();
+  const nextRect = nextEl.getBoundingClientRect();
+  const nextTopLocal = Math.round(nextRect.top - containerRect.top + container.scrollTop);
+  const height = wrap.offsetHeight||0;
+  const neededBottom = top + height + 8;
+  if(neededBottom > nextTopLocal){
+    const existingMargin = parseFloat(window.getComputedStyle(nextEl).marginTop)||0;
+    nextEl.style.marginTop = (existingMargin + (neededBottom - nextTopLocal)) + 'px';
+  }
+}
 function ensureImageContainerFits(container){
   if(!container) return;
   const cs = window.getComputedStyle(container);
@@ -6756,6 +6803,7 @@ function migrateTextboxWrapIfNeeded(wrap){
     wrap.style.left = left+'px';
     wrap.style.top = top+'px';
     if(!wrap.style.width) wrap.style.width = (wrapRect.width || 200)+'px';
+    reserveFlowSpaceAfterWrap(wrap, container, top);
   }
   ensureImageContainerFits(container);
 }
@@ -6779,6 +6827,7 @@ function migrateArrowWrapIfNeeded(wrap){
   if(!container) return;
   const style = wrap.getAttribute('style')||'';
   const isAbsolute = /position\s*:\s*absolute/i.test(style);
+  const wasAbsolute = isAbsolute;
   if(!isAbsolute){
     const containerRect = container.getBoundingClientRect();
     const wrapRect = wrap.getBoundingClientRect();
@@ -6822,6 +6871,10 @@ function migrateArrowWrapIfNeeded(wrap){
     if(next && next.nodeType===3 && /^ +$/.test(next.nodeValue)) next.remove();
   }
   updateArrowWrapGeometry(wrap);
+  if(!wasAbsolute){
+    const topNow = parseFloat(wrap.style.top)||0;
+    reserveFlowSpaceAfterWrap(wrap, container, topNow);
+  }
   ensureImageContainerFits(container);
 }
 /* Backward-compatibility + universal display support: any .rt-img-wrap
@@ -6855,6 +6908,7 @@ function migrateImageWrapIfNeeded(wrap){
     // now that the chip is out of flow, so drop it if present.
     const next = wrap.nextSibling;
     if(next && next.nodeType===3 && /^ +$/.test(next.nodeValue)) next.remove();
+    reserveFlowSpaceAfterWrap(wrap, container, top);
   }
   ensureImageContainerFits(container);
 }
