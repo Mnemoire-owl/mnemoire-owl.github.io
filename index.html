@@ -8930,6 +8930,17 @@ function lineIsFullyBold(lineEl){
 function lineIsBlank(lineEl){
   const text = (lineEl.textContent||'').trim();
   if(text!=='') return false;
+  // getNotesTopLevelLines pushes an atomic wrap (image/arrow/textbox) as its
+  // OWN lineEl when it sits directly at the top level (not nested inside a
+  // line <div>) — so lineEl itself, not just something inside it, can BE the
+  // wrap. querySelector only ever matches descendants, never the element
+  // it's called on, so without this explicit self-check a wrap with no
+  // visible text of its own (an image saved before the move/delete handles
+  // existed has only a resize handle, which carries no text) would be
+  // misread as a blank line — wrongly counting toward the "2 consecutive
+  // blank lines ends the subtopic" rule and truncating the subtopic right
+  // there, losing the wrap and everything after it.
+  if(lineEl.matches && lineEl.matches('.rt-img-wrap,.rt-arrow-wrap,.rt-textbox-wrap')) return false;
   return !lineEl.querySelector('.rt-img-wrap,.rt-arrow-wrap,.rt-textbox-wrap');
 }
 /* Parses sanitized notes HTML into {name, html} sections — one per detected
