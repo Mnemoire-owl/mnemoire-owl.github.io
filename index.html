@@ -9702,57 +9702,66 @@ ${bodyHtml}
 <\/script>
 </body>
 </html>`;
-  // The new tab is opened with window.open('', '_blank') (synchronously,
-  // still inside the click handler that led here) and then NAVIGATED to a
-  // Blob URL via win.location.href — not via document.write()/close(),
-  // and not via a separately-clicked <a target="_blank" rel="noopener">.
-  // Two different, separately diagnosed Safari/WebKit bugs led here:
-  //  1) The ORIGINAL approach (a programmatically-clicked
-  //     <a target="_blank" rel="noopener"> pointing at a Blob URL) gave
-  //     the new tab no opener relationship to this page at all — and
-  //     Safari's blob: URLs are scoped to the browsing-context group that
-  //     created them, so an unrelated (noopener) tab often can't resolve
-  //     one. That showed up as the new tab staying completely blank —
-  //     the first "하얀 화면" report.
-  //  2) Switching straight to document.write()/close() fixed that (the
-  //     tab itself now displays the note correctly), but introduced a
-  //     SECOND, narrower bug reported right after: actually printing or
-  //     Saving as PDF from that tab came out blank even though the tab
-  //     looked fine on screen. Safari's print/Save-as-PDF pass runs over
-  //     a layout snapshot that can diverge from the live on-screen one,
-  //     and a document.write()-authored document doesn't go through the
-  //     same "finished loading" lifecycle a normally-navigated page does
-  //     (a known class of WebKit timing bug around window.print() —
-  //     see WebKit bug 43658 — blank-printed-page issues have also been
-  //     widely reported independent of document.write(), but it's the
-  //     one concrete lever available here).
-  // Keeping the opener link (never setting "noopener" on this tab) AND
-  // using a real navigation (win.location.href to a Blob URL, never
-  // document.write) addresses both at once: the blob resolves because the
-  // opener relationship stays intact, and the printed/saved document goes
-  // through an ordinary load lifecycle because it's genuinely navigated
-  // to, not injected after the fact.
-  const blob = new Blob([doc], {type:'text/html'});
-  const url = URL.createObjectURL(blob);
-  const win = window.open('', '_blank');
-  if(win){
-    win.location.href = url;
-  } else {
-    // Popup blocked (window.open returned null/undefined) — fall back to
-    // the old anchor-click approach so the user still gets the document
-    // instead of silently nothing happening. This path keeps "noopener"
-    // (so it's the less-reliable-in-Safari one from case 1 above), but it
-    // only runs when window.open itself was refused outright.
-    const a = document.createElement('a');
-    a.href = url;
-    a.target = '_blank';
-    a.rel = 'noopener';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-  }
-  setTimeout(()=>URL.revokeObjectURL(url), 60000);
+  // THIRD rewrite of how this document is actually shown to the user.
+  // Rounds 1-2 both tried to open a brand-new TAB/WINDOW (first via a
+  // noopener <a>+Blob URL, then via window.open('','_blank') navigated to
+  // a Blob URL): round 1 fixed "the new tab itself is blank" but round 2's
+  // user report ("새 탭엔 내용이 보이는데, 저장한 PDF는 여전히 하얌" — the tab shows
+  // the note fine, but the actual SAVED PDF FILE, once opened, is empty —
+  // no selectable text at all, reproducible even with a plain-text-only
+  // note with zero images/position:absolute elements) proved neither
+  // theory (blob-URL-tab-resolution, document.write()-vs-navigation
+  // print-lifecycle-timing) was the real root cause: Safari's own print
+  // PREVIEW shows the content correctly, so the DOM/CSS content itself was
+  // never the problem — something about actually WRITING the PDF file from
+  // a brand-new browsing context (a separate tab/window, whatever its
+  // location) is what fails, independent of page content.
+  // The fix: stop using a new tab/window entirely. Render the document in
+  // a full-screen <iframe> overlaid on top of THIS SAME page/tab instead
+  // (same technique long used by cross-browser print libraries like
+  // print.js/printThis specifically because Safari is unreliable with
+  // window.open()-based printing) — window.print()/Save-as-PDF is then
+  // invoked on an iframe that lives in the same browsing context, same
+  // window, same "this is the tab/document the user is actually in" that
+  // Safari's Save-as-PDF has always been reliable for, instead of a
+  // separate popup window where every Safari print/PDF corner case we've
+  // hit so far has lived. No Blob URL, no window.open(), no opener
+  // relationship, no cross-context navigation at all: the iframe's
+  // document is written directly via document.open()/write()/close(),
+  // inherits this page's origin (so App.closePrintableOverlay() below is
+  // reachable from the iframe's own print-bar via window.parent), and the
+  // print/Save-as-PDF buttons inside it still just call window.print() —
+  // which, called from script running inside an iframe, prints only that
+  // iframe's content (the standard, well-documented cross-browser
+  // behavior this whole technique relies on).
+  let overlay = document.getElementById('printableOverlayRoot');
+  if(overlay) overlay.remove();
+  overlay = document.createElement('div');
+  overlay.id = 'printableOverlayRoot';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#fff;display:flex;flex-direction:column;';
+  const bar = document.createElement('div');
+  bar.style.cssText = 'flex:none;display:flex;justify-content:flex-end;padding:8px 10px;background:#1a1712;';
+  const closeBtn = document.createElement('button');
+  closeBtn.textContent = '✕ ' + t('cards.exitMemorize');
+  closeBtn.style.cssText = 'font-family:inherit;font-size:13px;font-weight:600;padding:7px 14px;border-radius:7px;border:1px solid #fff;background:transparent;color:#fff;cursor:pointer;';
+  closeBtn.onclick = function(){ overlay.remove(); };
+  bar.appendChild(closeBtn);
+  const iframe = document.createElement('iframe');
+  iframe.id = 'printableOverlayFrame';
+  iframe.title = title;
+  iframe.style.cssText = 'flex:1 1 auto;width:100%;border:none;background:#fff;';
+  overlay.appendChild(bar);
+  overlay.appendChild(iframe);
+  document.body.appendChild(overlay);
+  const ifdoc = iframe.contentDocument || iframe.contentWindow.document;
+  ifdoc.open();
+  ifdoc.write(doc);
+  ifdoc.close();
 }
+App.closePrintableOverlay = function(){
+  const overlay = document.getElementById('printableOverlayRoot');
+  if(overlay) overlay.remove();
+};
 App.exportNotesPDF = function(scope){
   // saveAllNotes() flushes whatever's currently live in the notes/pretest/
   // subtopic contenteditable fields into state — without this, exporting
