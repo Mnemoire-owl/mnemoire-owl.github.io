@@ -9614,13 +9614,17 @@ function openPrintableDoc(title, bodyHtml){
      with no visible border/background at all. */
   .rt-textbox-wrap{position:absolute;}
   .rt-textbox-body{box-sizing:border-box;width:100%;border:1px solid #ddd4bf;border-radius:6px;background:#fdfcf6;padding:8px 10px;font-size:13px;line-height:1.5;white-space:pre-wrap;overflow-wrap:break-word;}
-  .print-bar{display:flex;justify-content:flex-end;margin-bottom:16px;}
+  .print-bar{display:flex;justify-content:flex-end;gap:8px;margin-bottom:16px;}
   .print-bar button{font-family:'Work Sans',sans-serif;font-size:13px;font-weight:600;padding:8px 16px;border-radius:7px;border:1px solid #1a1712;background:#1a1712;color:#fff;cursor:pointer;}
+  .print-bar button.pb-pdf{background:#fff;color:#1a1712;}
   @media print{ .print-bar{display:none;} body{margin:0;padding:0 8mm;} }
 </style>
 </head>
 <body>
-<div class="print-bar"><button onclick="window.print()">🖨 ${state.settings.language==='ko'?'인쇄 / PDF로 저장':state.settings.language==='de'?'Drucken / Als PDF':state.settings.language==='fr'?'Imprimer / Enregistrer en PDF':'Print / Save as PDF'}</button></div>
+<div class="print-bar">
+<button class="pb-print" onclick="window.print()">🖨 ${state.settings.language==='ko'?'인쇄':state.settings.language==='de'?'Drucken':state.settings.language==='fr'?'Imprimer':'Print'}</button>
+<button class="pb-pdf" onclick="window.print()">📄 ${state.settings.language==='ko'?'PDF로 저장':state.settings.language==='de'?'Als PDF speichern':state.settings.language==='fr'?'Enregistrer en PDF':'Save as PDF'}</button>
+</div>
 <h1>${escapeHtml(title)}</h1>
 ${bodyHtml}
 <script>
@@ -9698,16 +9702,40 @@ ${bodyHtml}
 <\/script>
 </body>
 </html>`;
-  const blob = new Blob([doc], {type:'text/html'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.target = '_blank';
-  a.rel = 'noopener';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(()=>URL.revokeObjectURL(url), 60000);
+  // Open the new tab FIRST (synchronously, still inside the click handler
+  // that led here) and write the document straight into it with
+  // document.write()/close(), instead of navigating a clicked
+  // <a target="_blank"> to a Blob URL. Opening a blob: URL in a new
+  // tab/window is a long-standing, well-documented WebKit/Safari
+  // limitation (the new tab's browsing context frequently fails to
+  // resolve a blob created in the opener's context) — it shows up as the
+  // new tab staying completely blank/white, with nothing in it, which
+  // matches exactly what was reported here ("저장된 pdf에서 하얀 화면 밖에
+  // 안보여"). Chromium/Firefox never had this problem, which is why the
+  // old Blob approach kept testing fine in this sandbox (Chromium-only)
+  // while reportedly failing for the user. document.write() has no such
+  // cross-tab restriction and works identically in Safari/Chrome/Firefox.
+  const win = window.open('', '_blank');
+  if(win){
+    win.document.open();
+    win.document.write(doc);
+    win.document.close();
+  } else {
+    // Popup blocked (window.open returned null/undefined) — fall back to
+    // the old Blob-URL link so the user still gets the document instead of
+    // silently nothing happening. This path is less reliable in Safari
+    // (see above) but only runs when window.open itself was refused.
+    const blob = new Blob([doc], {type:'text/html'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.target = '_blank';
+    a.rel = 'noopener';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(url), 60000);
+  }
 }
 App.exportNotesPDF = function(scope){
   // saveAllNotes() flushes whatever's currently live in the notes/pretest/
