@@ -9702,31 +9702,47 @@ ${bodyHtml}
 <\/script>
 </body>
 </html>`;
-  // Open the new tab FIRST (synchronously, still inside the click handler
-  // that led here) and write the document straight into it with
-  // document.write()/close(), instead of navigating a clicked
-  // <a target="_blank"> to a Blob URL. Opening a blob: URL in a new
-  // tab/window is a long-standing, well-documented WebKit/Safari
-  // limitation (the new tab's browsing context frequently fails to
-  // resolve a blob created in the opener's context) — it shows up as the
-  // new tab staying completely blank/white, with nothing in it, which
-  // matches exactly what was reported here ("저장된 pdf에서 하얀 화면 밖에
-  // 안보여"). Chromium/Firefox never had this problem, which is why the
-  // old Blob approach kept testing fine in this sandbox (Chromium-only)
-  // while reportedly failing for the user. document.write() has no such
-  // cross-tab restriction and works identically in Safari/Chrome/Firefox.
+  // The new tab is opened with window.open('', '_blank') (synchronously,
+  // still inside the click handler that led here) and then NAVIGATED to a
+  // Blob URL via win.location.href — not via document.write()/close(),
+  // and not via a separately-clicked <a target="_blank" rel="noopener">.
+  // Two different, separately diagnosed Safari/WebKit bugs led here:
+  //  1) The ORIGINAL approach (a programmatically-clicked
+  //     <a target="_blank" rel="noopener"> pointing at a Blob URL) gave
+  //     the new tab no opener relationship to this page at all — and
+  //     Safari's blob: URLs are scoped to the browsing-context group that
+  //     created them, so an unrelated (noopener) tab often can't resolve
+  //     one. That showed up as the new tab staying completely blank —
+  //     the first "하얀 화면" report.
+  //  2) Switching straight to document.write()/close() fixed that (the
+  //     tab itself now displays the note correctly), but introduced a
+  //     SECOND, narrower bug reported right after: actually printing or
+  //     Saving as PDF from that tab came out blank even though the tab
+  //     looked fine on screen. Safari's print/Save-as-PDF pass runs over
+  //     a layout snapshot that can diverge from the live on-screen one,
+  //     and a document.write()-authored document doesn't go through the
+  //     same "finished loading" lifecycle a normally-navigated page does
+  //     (a known class of WebKit timing bug around window.print() —
+  //     see WebKit bug 43658 — blank-printed-page issues have also been
+  //     widely reported independent of document.write(), but it's the
+  //     one concrete lever available here).
+  // Keeping the opener link (never setting "noopener" on this tab) AND
+  // using a real navigation (win.location.href to a Blob URL, never
+  // document.write) addresses both at once: the blob resolves because the
+  // opener relationship stays intact, and the printed/saved document goes
+  // through an ordinary load lifecycle because it's genuinely navigated
+  // to, not injected after the fact.
+  const blob = new Blob([doc], {type:'text/html'});
+  const url = URL.createObjectURL(blob);
   const win = window.open('', '_blank');
   if(win){
-    win.document.open();
-    win.document.write(doc);
-    win.document.close();
+    win.location.href = url;
   } else {
     // Popup blocked (window.open returned null/undefined) — fall back to
-    // the old Blob-URL link so the user still gets the document instead of
-    // silently nothing happening. This path is less reliable in Safari
-    // (see above) but only runs when window.open itself was refused.
-    const blob = new Blob([doc], {type:'text/html'});
-    const url = URL.createObjectURL(blob);
+    // the old anchor-click approach so the user still gets the document
+    // instead of silently nothing happening. This path keeps "noopener"
+    // (so it's the less-reliable-in-Safari one from case 1 above), but it
+    // only runs when window.open itself was refused outright.
     const a = document.createElement('a');
     a.href = url;
     a.target = '_blank';
@@ -9734,8 +9750,8 @@ ${bodyHtml}
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    setTimeout(()=>URL.revokeObjectURL(url), 60000);
   }
+  setTimeout(()=>URL.revokeObjectURL(url), 60000);
 }
 App.exportNotesPDF = function(scope){
   // saveAllNotes() flushes whatever's currently live in the notes/pretest/
