@@ -123,15 +123,57 @@
     border-radius:7px;padding:5px 8px;font-size:12px;
   }
 
+  /* The tab bar can hold more tabs than fit on a narrow screen/window, and
+     with its scrollbar hidden (see nav.tabs::-webkit-scrollbar below) there
+     used to be no visible cue -- and no way for a mouse user, as opposed to
+     a touch user who can swipe -- to reach the tabs scrolled out of view.
+     .tabs-wrap adds a pair of small "‹ ›" arrow buttons straddling the nav
+     itself (see #tabsScrollLeft/#tabsScrollRight below and
+     updateTabsScrollButtons()) that scroll it a page at a time and hide
+     themselves once there's nothing further to scroll to in that
+     direction. */
+  .tabs-wrap{
+    position:relative;
+    display:flex;
+    align-items:stretch;
+    border-bottom:1px solid var(--line);
+    margin-bottom:22px;
+  }
   nav.tabs{
     display:flex;
     gap:2px;
-    border-bottom:1px solid var(--line);
-    margin-bottom:22px;
     overflow-x:auto;
     scrollbar-width:none;
+    flex:1 1 auto;
+    min-width:0;
   }
   nav.tabs::-webkit-scrollbar{display:none;}
+  .tabs-scroll-btn{
+    /* Always laid out (display:flex), never display:none -- toggling display
+       would change nav's flex-computed width the instant an arrow appears or
+       disappears, which can shift which part of the (just-scrolled-into-view)
+       tab bar is actually visible right after a scroll. visibility+
+       pointer-events keep the box's width reserved at all times, so showing/
+       hiding an arrow never moves anything else. */
+    flex:none;
+    display:flex;
+    visibility:hidden;
+    pointer-events:none;
+    align-items:center;
+    justify-content:center;
+    width:26px;
+    border:none;
+    background:var(--surface);
+    color:var(--ink-dim);
+    cursor:pointer;
+    font-size:15px;
+    line-height:1;
+    padding:0;
+  }
+  .tabs-scroll-btn.show{visibility:visible;pointer-events:auto;}
+  .tabs-scroll-btn:hover{color:var(--ink);background:var(--surface-2);}
+  .tabs-scroll-btn.tabs-scroll-left{border-right:1px solid var(--line);}
+  .tabs-scroll-btn.tabs-scroll-right{border-left:1px solid var(--line);}
   nav.tabs button{
     display:flex;align-items:center;gap:7px;
     background:transparent;
@@ -1088,7 +1130,11 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   <div class="reward-timer-bar" id="rewardTimerBar"></div>
   <div class="soundscape-bar" id="soundscapeBar"></div>
 
-  <nav class="tabs" id="tabs"></nav>
+  <div class="tabs-wrap" id="tabsWrap">
+    <button type="button" class="tabs-scroll-btn tabs-scroll-left" id="tabsScrollLeft" onclick="App.scrollTabs(-1)">‹</button>
+    <nav class="tabs" id="tabs"></nav>
+    <button type="button" class="tabs-scroll-btn tabs-scroll-right" id="tabsScrollRight" onclick="App.scrollTabs(1)">›</button>
+  </div>
   <main id="panel"></main>
 </div>
 <div id="celebrateLayer"></div>
@@ -1141,7 +1187,8 @@ const LANG = {
       importConfirm:'가져오기를 하면 현재 저장된 모든 데이터가 이 파일 내용으로 교체됩니다. 계속할까요?',
       importSuccess:'데이터를 불러왔어요.',
       importError:'파일을 읽을 수 없어요. 올바른 백업 파일인지 확인해 주세요.',
-      tutorialBtn:'🎓 튜토리얼'
+      tutorialBtn:'🎓 튜토리얼',
+      tabsScrollLeft:'이전 탭 보기', tabsScrollRight:'다음 탭 보기'
     },
     tutorial: {
       next:'다음', prev:'이전', skip:'건너뛰기', done:'완료',
@@ -1442,7 +1489,8 @@ const LANG = {
       importConfirm:'Importing will replace all currently saved data with the contents of this file. Continue?',
       importSuccess:'Data imported.',
       importError:'Could not read that file. Please check it is a valid backup file.',
-      tutorialBtn:'🎓 Tutorial'
+      tutorialBtn:'🎓 Tutorial',
+      tabsScrollLeft:'Scroll to previous tabs', tabsScrollRight:'Scroll to more tabs'
     },
     tutorial: {
       next:'Next', prev:'Back', skip:'Skip', done:'Done',
@@ -1742,7 +1790,8 @@ const LANG = {
       importConfirm:'Beim Importieren werden alle aktuell gespeicherten Daten durch den Inhalt dieser Datei ersetzt. Fortfahren?',
       importSuccess:'Daten importiert.',
       importError:'Datei konnte nicht gelesen werden. Bitte prüfe, ob es sich um eine gültige Sicherungsdatei handelt.',
-      tutorialBtn:'🎓 Tutorial'
+      tutorialBtn:'🎓 Tutorial',
+      tabsScrollLeft:'Zu vorherigen Tabs scrollen', tabsScrollRight:'Zu weiteren Tabs scrollen'
     },
     tutorial: {
       next:'Weiter', prev:'Zurück', skip:'Überspringen', done:'Fertig',
@@ -2042,7 +2091,8 @@ const LANG = {
       importConfirm:"L'importation remplacera toutes les données actuellement enregistrées par le contenu de ce fichier. Continuer ?",
       importSuccess:'Données importées.',
       importError:"Impossible de lire ce fichier. Vérifiez qu'il s'agit d'un fichier de sauvegarde valide.",
-      tutorialBtn:'🎓 Tutoriel'
+      tutorialBtn:'🎓 Tutoriel',
+      tabsScrollLeft:'Faire défiler vers les onglets précédents', tabsScrollRight:"Faire défiler vers d'autres onglets"
     },
     tutorial: {
       next:'Suivant', prev:'Retour', skip:'Passer', done:'Terminé',
@@ -4728,6 +4778,12 @@ function renderChrome(){
   document.getElementById('tutorialBtn').textContent = t('header.tutorialBtn');
   document.getElementById('exportBtn').textContent = t('header.export');
   document.getElementById('importBtn').textContent = t('header.import');
+  const tabsScrollLeftBtn = document.getElementById('tabsScrollLeft');
+  const tabsScrollRightBtn = document.getElementById('tabsScrollRight');
+  tabsScrollLeftBtn.title = t('header.tabsScrollLeft');
+  tabsScrollLeftBtn.setAttribute('aria-label', t('header.tabsScrollLeft'));
+  tabsScrollRightBtn.title = t('header.tabsScrollRight');
+  tabsScrollRightBtn.setAttribute('aria-label', t('header.tabsScrollRight'));
   const themeSelect = document.getElementById('themeSelect');
   if(themeSelect){
     themeSelect.innerHTML = THEME_IDS.map(id=>`<option value="${id}">${escapeHtml(t('theme.'+id+'Label'))}</option>`).join('');
@@ -7328,6 +7384,10 @@ function renderTabs(){
       ${TAB_ICONS[id]()}<span>${t('tabs.'+id)}</span>
     </button>
   `).join('');
+  // The set of tabs (and each one's rendered width, since labels/icons can
+  // change with language/theme) just changed, so the left/right scroll
+  // arrows (see .tabs-wrap above) may need to show/hide.
+  updateTabsScrollButtons();
 }
 /* On narrow screens the tab bar scrolls horizontally with a hidden scrollbar,
    so switching tabs programmatically (e.g. a "go to Rewards" button on the
@@ -7339,6 +7399,47 @@ function scrollActiveTabIntoView(){
   const btn = nav && nav.querySelector('button.active');
   if(btn && btn.scrollIntoView) btn.scrollIntoView({inline:'nearest', block:'nearest', behavior:'smooth'});
 }
+// Scrolls the tab bar a "page" at a time in the given direction (-1 = left,
+// 1 = right) when the user clicks one of the #tabsScrollLeft/#tabsScrollRight
+// arrow buttons added for tab-bar overflow navigation.
+App.scrollTabs = function(dir){
+  const nav = document.getElementById('tabs');
+  if(!nav) return;
+  nav.scrollBy({left: dir * nav.clientWidth * 0.8, behavior:'smooth'});
+};
+// Shows/hides the left/right scroll arrow buttons based on whether the tab
+// bar is actually scrolled away from either edge -- and hides both when the
+// tab bar doesn't overflow its container at all (nothing to scroll to in
+// either direction). Called after every renderTabs() (the tab set/widths may
+// have changed) and on the nav's own 'scroll' event (scrolling, including
+// scrollActiveTabIntoView()'s programmatic scrollIntoView(), fires native
+// 'scroll' events, so the arrows stay in sync automatically) and on window
+// resize (the overflow itself can change).
+function updateTabsScrollButtons(){
+  const nav = document.getElementById('tabs');
+  const leftBtn = document.getElementById('tabsScrollLeft');
+  const rightBtn = document.getElementById('tabsScrollRight');
+  if(!nav || !leftBtn || !rightBtn) return;
+  const overflowing = nav.scrollWidth > nav.clientWidth + 1;
+  const atStart = nav.scrollLeft <= 1;
+  const atEnd = nav.scrollLeft + nav.clientWidth >= nav.scrollWidth - 1;
+  leftBtn.classList.toggle('show', overflowing && !atStart);
+  rightBtn.classList.toggle('show', overflowing && !atEnd);
+}
+// #tabs is a static element in the page markup (renderTabs() only ever
+// replaces its innerHTML, never the element itself), so these listeners are
+// attached exactly once here rather than re-attached on every render.
+(function(){
+  const nav = document.getElementById('tabs');
+  let tabsScrollRaf = false;
+  function scheduleTabsScrollUpdate(){
+    if(tabsScrollRaf) return;
+    tabsScrollRaf = true;
+    requestAnimationFrame(()=>{ tabsScrollRaf = false; updateTabsScrollButtons(); });
+  }
+  if(nav) nav.addEventListener('scroll', scheduleTabsScrollUpdate);
+  window.addEventListener('resize', scheduleTabsScrollUpdate);
+})();
 App.setTab = function(id){
   if(state.activeTab==='output') pauseExamTimer();
   // Leaving the Notes tab for any other tab (not just switching topic/subject
