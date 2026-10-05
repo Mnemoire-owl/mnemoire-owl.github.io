@@ -6938,13 +6938,15 @@ function migrateTextboxWrapIfNeeded(wrap){
   if(!isAbsolute){
     const containerRect = container.getBoundingClientRect();
     const wrapRect = wrap.getBoundingClientRect();
-    const left = Math.max(0, Math.round(wrapRect.left - containerRect.left + container.scrollLeft));
-    const top = Math.max(0, Math.round(wrapRect.top - containerRect.top + container.scrollTop));
+    let left = Math.max(0, Math.round(wrapRect.left - containerRect.left + container.scrollLeft));
+    let top = Math.max(0, Math.round(wrapRect.top - containerRect.top + container.scrollTop));
+    const mapped = mappedRecallPos(wrap, container);
+    if(mapped){ left = Math.round(mapped.left); top = mapped.top; }
     wrap.style.position = 'absolute';
     wrap.style.left = left+'px';
     wrap.style.top = top+'px';
     if(!wrap.style.width) wrap.style.width = (wrapRect.width || 200)+'px';
-    reserveFlowSpaceAfterWrap(wrap, container, top);
+    if(!mapped) reserveFlowSpaceAfterWrap(wrap, container, top);
   }
   ensureImageContainerFits(container);
 }
@@ -6966,6 +6968,7 @@ function migrateTextboxWrapIfNeeded(wrap){
 function migrateArrowWrapIfNeeded(wrap){
   const container = wrap.parentElement;
   if(!container) return;
+  let mappedArrow = false;
   const style = wrap.getAttribute('style')||'';
   const isAbsolute = /position\s*:\s*absolute/i.test(style);
   const wasAbsolute = isAbsolute;
@@ -6975,6 +6978,12 @@ function migrateArrowWrapIfNeeded(wrap){
     const left = Math.max(0, Math.round(wrapRect.left - containerRect.left + container.scrollLeft));
     const top = Math.max(0, Math.round(wrapRect.top - containerRect.top + container.scrollTop));
     const shaft = wrap.querySelector('.rt-arrow-shaft');
+    // Snapshot of the arrow's own saved main-note coordinates, taken before
+    // anything below overwrites them (see the rtMain handling further down).
+    const numOr = v=>{ const n = parseFloat(v); return isFinite(n) ? n : null; };
+    const origArrow = (wrap.dataset.rtMain==='1' && numOr(wrap.dataset.ax1)!==null && numOr(wrap.dataset.ay1)!==null && numOr(wrap.dataset.ax2)!==null && numOr(wrap.dataset.ay2)!==null)
+      ? {ax1:numOr(wrap.dataset.ax1), ay1:numOr(wrap.dataset.ay1), ax2:numOr(wrap.dataset.ax2), ay2:numOr(wrap.dataset.ay2), acx:numOr(wrap.dataset.acx), acy:numOr(wrap.dataset.acy)}
+      : null;
     let x1, y1, x2, y2, cx = null, cy = null;
     if(shaft){
       const d = shaft.getAttribute('d') || '';
@@ -6996,6 +7005,22 @@ function migrateArrowWrapIfNeeded(wrap){
     wrap.dataset.ay1 = String(top + y1);
     wrap.dataset.ax2 = String(left + x2);
     wrap.dataset.ay2 = String(top + y2);
+    // In an open recall field an arrow keeps its MAIN-note coordinates
+    // (data-ax/ay were never touched by parseAutoSubtopicSections), only
+    // shifted vertically to line up with the section's own text — see
+    // recallFieldYShift — instead of the flow-derived anchor just computed.
+    if(wrap.dataset.rtMain==='1'){
+      delete wrap.dataset.rtMain;
+      const dy = recallFieldYShift(container);
+      if(dy!==null && origArrow){
+        wrap.dataset.ax1 = String(origArrow.ax1);
+        wrap.dataset.ay1 = String(origArrow.ay1 + dy);
+        wrap.dataset.ax2 = String(origArrow.ax2);
+        wrap.dataset.ay2 = String(origArrow.ay2 + dy);
+        if(origArrow.acx!==null){ wrap.dataset.acx = String(origArrow.acx); wrap.dataset.acy = String(origArrow.acy + dy); }
+        mappedArrow = true;
+      }
+    }
     // Only re-anchor an explicit curve (a control point already set before
     // this migration ran, per its own dataset) — a never-curved arrow must
     // keep following the dynamic midpoint default in
@@ -7012,11 +7037,58 @@ function migrateArrowWrapIfNeeded(wrap){
     if(next && next.nodeType===3 && /^ +$/.test(next.nodeValue)) next.remove();
   }
   updateArrowWrapGeometry(wrap);
-  if(!wasAbsolute){
+  if(!wasAbsolute && !mappedArrow){
     const topNow = parseFloat(wrap.style.top)||0;
     reserveFlowSpaceAfterWrap(wrap, container, topNow);
   }
   ensureImageContainerFits(container);
+}
+/* Layout of a free-placed item (picture / arrow / text box) inside an OPEN
+   recall field (the "소주제 복습" list under the note), mirrored from where
+   the person actually put it in the main note. Returns the vertical shift
+   (dy) to add to a main-note y coordinate so it lands at the same spot
+   RELATIVE TO THE SECTION'S OWN TEXT: both boxes use the same font/line
+   height/padding, so lining up the first flowing line of the section's
+   content in the main note with the first flowing line in the recall field
+   (the section heading itself is shown only as the row title, not inside
+   the field) keeps every item the same distance from the lines around it.
+   Returns null whenever this can't be worked out (not a recall field, the
+   main note isn't on screen, the heading was renamed/removed...) — callers
+   then fall back to the older flow-derived placement. */
+function recallFieldYShift(container){
+  if(!container || !container.id || container.id.indexOf('recallArea-')!==0) return null;
+  const name = container.getAttribute('data-heading-name');
+  const main = document.getElementById('topicNotesArea');
+  if(!name || !main) return null;
+  const found = findAutoSectionLineEls(main, name);
+  if(!found) return null;
+  const isWrapEl = el=>el.classList && (el.classList.contains('rt-img-wrap')||el.classList.contains('rt-arrow-wrap')||el.classList.contains('rt-textbox-wrap'));
+  const mainRect = main.getBoundingClientRect();
+  const firstMain = found.contentEls.find(el=>!isWrapEl(el));
+  const mainBase = firstMain
+    ? firstMain.getBoundingClientRect().top - mainRect.top + main.scrollTop
+    : found.headingEl.getBoundingClientRect().bottom - mainRect.top + main.scrollTop;
+  const cRect = container.getBoundingClientRect();
+  const firstRecall = Array.prototype.find.call(container.children, el=>el.nodeType===1 && !isWrapEl(el));
+  const recallBase = firstRecall
+    ? firstRecall.getBoundingClientRect().top - cRect.top + container.scrollTop
+    : (parseFloat(getComputedStyle(container).paddingTop)||0) + 1;
+  return recallBase - mainBase;
+}
+/* Position (left, top) for a picture/text box in a recall field from its
+   data-rt-main-left/top stamp (see parseAutoSubtopicSections), or null. */
+function mappedRecallPos(wrap, container){
+  const l = parseFloat(wrap.dataset.rtMainLeft), t = parseFloat(wrap.dataset.rtMainTop);
+  delete wrap.dataset.rtMainLeft; delete wrap.dataset.rtMainTop;
+  if(!isFinite(l) || !isFinite(t)) return null;
+  const dy = recallFieldYShift(container);
+  if(dy===null) return null;
+  // wrap.offsetWidth is useless here — a not-yet-absolute wrap still stretches
+  // to the full line — so measure the picture / text box's own set width.
+  const img = wrap.querySelector('img');
+  const w = img ? (parseFloat(img.style.width) || img.getBoundingClientRect().width || 0) : (parseFloat(wrap.style.width) || 200);
+  const maxLeft = Math.max(0, container.clientWidth - w);
+  return {left: Math.max(0, Math.min(l, maxLeft)), top: Math.max(0, Math.round(t + dy))};
 }
 /* Backward-compatibility + universal display support: any .rt-img-wrap
    that shows up anywhere in the page — freshly loaded from notes/cards
@@ -7037,8 +7109,12 @@ function migrateImageWrapIfNeeded(wrap){
   if(!isAbsolute){
     const containerRect = container.getBoundingClientRect();
     const wrapRect = wrap.getBoundingClientRect();
-    const left = Math.max(0, Math.round(wrapRect.left - containerRect.left + container.scrollLeft));
-    const top = Math.max(0, Math.round(wrapRect.top - containerRect.top + container.scrollTop));
+    let left = Math.max(0, Math.round(wrapRect.left - containerRect.left + container.scrollLeft));
+    let top = Math.max(0, Math.round(wrapRect.top - containerRect.top + container.scrollTop));
+    // In an open recall field, keep the person's own arrangement from the
+    // main note (relative to the section's text) instead of the flow spot.
+    const mapped = mappedRecallPos(wrap, container);
+    if(mapped){ left = Math.round(mapped.left); top = mapped.top; }
     wrap.style.position = 'absolute';
     wrap.style.left = left+'px';
     wrap.style.top = top+'px';
@@ -7049,7 +7125,7 @@ function migrateImageWrapIfNeeded(wrap){
     // now that the chip is out of flow, so drop it if present.
     const next = wrap.nextSibling;
     if(next && next.nodeType===3 && /^ +$/.test(next.nodeValue)) next.remove();
-    reserveFlowSpaceAfterWrap(wrap, container, top);
+    if(!mapped) reserveFlowSpaceAfterWrap(wrap, container, top);
   }
   ensureImageContainerFits(container);
 }
@@ -9205,7 +9281,22 @@ function lineIsBlank(lineEl){
 function parseAutoSubtopicSections(notesHtml){
   const container = document.createElement('div');
   container.innerHTML = notesHtml || '';
+  // Before the (wrong-for-a-narrower-box) absolute coordinates are stripped,
+  // remember where each free-placed item sat in the MAIN note
+  // (data-rt-main-left/top — plain data attributes, which sanitizeRichHtml
+  // leaves alone). migrateImageWrapIfNeeded & co. use these ONLY when the
+  // item lands in an open recall field (see mappedRecallPos), to re-create
+  // the person's own arrangement relative to the section's text instead of
+  // re-deriving a flow position that ends up covering text.
+  const stampMainPos = wrap=>{
+    const l = parseFloat(wrap.style.left), t = parseFloat(wrap.style.top);
+    if(/position\s*:\s*absolute/i.test(wrap.getAttribute('style')||'') && isFinite(l) && isFinite(t)){
+      wrap.dataset.rtMainLeft = String(l);
+      wrap.dataset.rtMainTop = String(t);
+    }
+  };
   container.querySelectorAll('.rt-img-wrap').forEach(wrap=>{
+    stampMainPos(wrap);
     wrap.style.position = '';
     wrap.style.left = '';
     wrap.style.top = '';
@@ -9219,6 +9310,7 @@ function parseAutoSubtopicSections(notesHtml){
   // migrateImageWrapIfNeeded) has everything it needs to re-anchor the
   // arrow to wherever it actually ends up rendering.
   container.querySelectorAll('.rt-arrow-wrap').forEach(wrap=>{
+    if(/position\s*:\s*absolute/i.test(wrap.getAttribute('style')||'')) wrap.dataset.rtMain = '1';
     wrap.style.position = '';
     wrap.style.left = '';
     wrap.style.top = '';
@@ -9232,6 +9324,7 @@ function parseAutoSubtopicSections(notesHtml){
   // container. Its width is deliberately left untouched (unlike position) —
   // the box's own chosen size should carry over into wherever it lands.
   container.querySelectorAll('.rt-textbox-wrap').forEach(wrap=>{
+    stampMainPos(wrap);
     wrap.style.position = '';
     wrap.style.left = '';
     wrap.style.top = '';
