@@ -286,6 +286,17 @@
     background:var(--surface-2);color:var(--ink-dim);font-size:11px;font-weight:700;
     display:flex;align-items:center;justify-content:center;border:1px solid var(--line);
   }
+  .rich-hl-swatch{
+    width:20px;height:20px;border-radius:5px;border:1px solid rgba(0,0,0,.18);
+    cursor:pointer;padding:0;flex:none;transition:transform .1s;
+  }
+  .rich-hl-swatch:hover{transform:scale(1.15);}
+  .rich-hl-clear{
+    background:var(--surface-2);color:var(--ink-dim);font-size:11px;font-weight:700;line-height:1;
+    display:flex;align-items:center;justify-content:center;border:1px dashed var(--ink-dim);
+    text-decoration:line-through;
+  }
+  .rich-body span[style*="background-color"]{border-radius:2px;-webkit-box-decoration-break:clone;box-decoration-break:clone;}
   .rich-toolbar-sep{width:1px;align-self:stretch;background:var(--line);margin:0 2px;}
   .rich-format-btn{
     min-width:24px;height:22px;border-radius:5px;border:1px solid var(--line);
@@ -727,6 +738,25 @@
   @media (max-width:720px){.output-split{grid-template-columns:1fr;}}
   .output-pane{display:flex;flex-direction:column;}
   .output-pane textarea{flex:1;min-height:220px;font-size:14px;line-height:1.6;}
+  /* A note's pictures/arrows/text boxes are placed with absolute left/top
+     pixels measured against the full-width notes editor (.rich-body). Shown
+     in a narrower pane (the Output reference box, the random-draw reveal),
+     the same text wraps onto more lines and the same coordinates land on top
+     of it (or off the edge entirely), so such a note is rendered inside a
+     fixed-width "canvas" matching the editor it was written in and the whole
+     canvas is scaled down to fit (see richRefCanvasHtml/fitRichRefCanvases)
+     -- the arrangement stays exactly as the person laid it out. */
+  .rich-ref-scale{position:relative;overflow:hidden;width:100%;}
+  .rich-ref-canvas{
+    position:relative;box-sizing:border-box;border:1px solid transparent;
+    padding:9px 10px;font-size:14px;line-height:1.55;
+    white-space:pre-wrap;overflow-wrap:break-word;transform-origin:0 0;
+  }
+  .output-split.output-split-stack{grid-template-columns:1fr;}
+  /* A grid/flex item defaults to min-width:auto, i.e. it refuses to shrink below
+     its content -- which would let the fixed-width .rich-ref-canvas inside stretch
+     the pane instead of being scaled down to fit it. */
+  .output-split>*,.output-pane{min-width:0;}
   .reference-box{
     background:var(--surface-2);border:1px solid var(--line);border-radius:8px;
     padding:14px;min-height:220px;font-size:14px;line-height:1.6;overflow-y:auto;
@@ -1457,7 +1487,7 @@ const LANG = {
       recurringNoneToday:'오늘 해당하는 상주 계획이 없어요.', recurringEmpty:'등록된 상주 계획이 없어요.',
       recurringManageTitle:'전체 상주 계획 관리', recurringNotTodayTag:'오늘 아님'
     },
-    richtext: { colorAria:'글자색 선택', clearAria:'기본색으로', boldAria:'굵게', italicAria:'기울임', underlineAria:'밑줄', bulletAria:'글머리 기호 목록', imageAria:'사진 추가', arrowAria:'화살표 추가', textboxAria:'텍스트 상자 추가', textboxPlaceholder:'텍스트 입력', tagAria:'꼬리표 달기', tagPrompt:'이 부분에 달 꼬리표 내용을 입력하세요 (비워두면 삭제돼요):', tagNeedsSelection:'먼저 꼬리표를 달 텍스트를 선택해주세요.', tagEditAria:'꼬리표 수정', tagDeleteAria:'꼬리표 삭제' },
+    richtext: { colorAria:'글자색 선택', highlightAria:'하이라이트', clearHighlightAria:'하이라이트 지우기', clearAria:'기본색으로', boldAria:'굵게', italicAria:'기울임', underlineAria:'밑줄', bulletAria:'글머리 기호 목록', imageAria:'사진 추가', arrowAria:'화살표 추가', textboxAria:'텍스트 상자 추가', textboxPlaceholder:'텍스트 입력', tagAria:'꼬리표 달기', tagPrompt:'이 부분에 달 꼬리표 내용을 입력하세요 (비워두면 삭제돼요):', tagNeedsSelection:'먼저 꼬리표를 달 텍스트를 선택해주세요.', tagEditAria:'꼬리표 수정', tagDeleteAria:'꼬리표 삭제' },
     sidenote: {
       title:'메모장', placeholder:'여기에 자유롭게 적어보세요…', saved:'저장됨',
       collapseAria:'메모장 접기', expandAria:'메모장 펼치기', resizeAria:'너비 조절',
@@ -1758,7 +1788,7 @@ const LANG = {
       recurringNoneToday:'No recurring plans scheduled for today.', recurringEmpty:'No recurring plans yet.',
       recurringManageTitle:'Manage all recurring plans', recurringNotTodayTag:'Not today'
     },
-    richtext: { colorAria:'Choose text color', clearAria:'Reset color', boldAria:'Bold', italicAria:'Italic', underlineAria:'Underline', bulletAria:'Bulleted list', imageAria:'Add image', arrowAria:'Add arrow', textboxAria:'Add text box', textboxPlaceholder:'Type text', tagAria:'Add tag', tagPrompt:'Enter the tag text for this selection (leave blank to remove):', tagNeedsSelection:'Select some text first to tag it.', tagEditAria:'Edit tag', tagDeleteAria:'Delete tag' },
+    richtext: { colorAria:'Choose text color', highlightAria:'Highlight text', clearHighlightAria:'Remove highlight', clearAria:'Reset color', boldAria:'Bold', italicAria:'Italic', underlineAria:'Underline', bulletAria:'Bulleted list', imageAria:'Add image', arrowAria:'Add arrow', textboxAria:'Add text box', textboxPlaceholder:'Type text', tagAria:'Add tag', tagPrompt:'Enter the tag text for this selection (leave blank to remove):', tagNeedsSelection:'Select some text first to tag it.', tagEditAria:'Edit tag', tagDeleteAria:'Delete tag' },
     sidenote: {
       title:'Notes', placeholder:'Jot down anything here…', saved:'Saved',
       collapseAria:'Collapse notes', expandAria:'Expand notes', resizeAria:'Resize',
@@ -2059,7 +2089,7 @@ const LANG = {
       recurringNoneToday:'Heute ist kein fester Plan vorgesehen.', recurringEmpty:'Noch keine festen Pläne angelegt.',
       recurringManageTitle:'Alle festen Pläne verwalten', recurringNotTodayTag:'Nicht heute'
     },
-    richtext: { colorAria:'Textfarbe wählen', clearAria:'Farbe zurücksetzen', boldAria:'Fett', italicAria:'Kursiv', underlineAria:'Unterstrichen', bulletAria:'Aufzählungsliste', imageAria:'Bild hinzufügen', arrowAria:'Pfeil hinzufügen', textboxAria:'Textfeld hinzufügen', textboxPlaceholder:'Text eingeben', tagAria:'Markierung hinzufügen', tagPrompt:'Text für diese Markierung eingeben (leer lassen zum Entfernen):', tagNeedsSelection:'Bitte zuerst Text auswählen, um ihn zu markieren.', tagEditAria:'Markierung bearbeiten', tagDeleteAria:'Markierung löschen' },
+    richtext: { colorAria:'Textfarbe wählen', highlightAria:'Text hervorheben', clearHighlightAria:'Hervorhebung entfernen', clearAria:'Farbe zurücksetzen', boldAria:'Fett', italicAria:'Kursiv', underlineAria:'Unterstrichen', bulletAria:'Aufzählungsliste', imageAria:'Bild hinzufügen', arrowAria:'Pfeil hinzufügen', textboxAria:'Textfeld hinzufügen', textboxPlaceholder:'Text eingeben', tagAria:'Markierung hinzufügen', tagPrompt:'Text für diese Markierung eingeben (leer lassen zum Entfernen):', tagNeedsSelection:'Bitte zuerst Text auswählen, um ihn zu markieren.', tagEditAria:'Markierung bearbeiten', tagDeleteAria:'Markierung löschen' },
     sidenote: {
       title:'Notizen', placeholder:'Hier frei notieren…', saved:'Gespeichert',
       collapseAria:'Notizen einklappen', expandAria:'Notizen ausklappen', resizeAria:'Größe ändern',
@@ -2360,7 +2390,7 @@ const LANG = {
       recurringNoneToday:'Aucun plan récurrent programmé pour aujourd’hui.', recurringEmpty:'Aucun plan récurrent pour l’instant.',
       recurringManageTitle:'Gérer tous les plans récurrents', recurringNotTodayTag:'Pas aujourd’hui'
     },
-    richtext: { colorAria:'Choisir la couleur du texte', clearAria:'Réinitialiser la couleur', boldAria:'Gras', italicAria:'Italique', underlineAria:'Souligné', bulletAria:'Liste à puces', imageAria:'Ajouter une image', arrowAria:'Ajouter une flèche', textboxAria:'Ajouter une zone de texte', textboxPlaceholder:'Saisir un texte', tagAria:'Ajouter une étiquette', tagPrompt:'Saisissez le texte de cette étiquette (laissez vide pour la supprimer) :', tagNeedsSelection:'Sélectionnez d’abord du texte à étiqueter.', tagEditAria:'Modifier l’étiquette', tagDeleteAria:'Supprimer l’étiquette' },
+    richtext: { colorAria:'Choisir la couleur du texte', highlightAria:'Surligner le texte', clearHighlightAria:'Retirer le surlignage', clearAria:'Réinitialiser la couleur', boldAria:'Gras', italicAria:'Italique', underlineAria:'Souligné', bulletAria:'Liste à puces', imageAria:'Ajouter une image', arrowAria:'Ajouter une flèche', textboxAria:'Ajouter une zone de texte', textboxPlaceholder:'Saisir un texte', tagAria:'Ajouter une étiquette', tagPrompt:'Saisissez le texte de cette étiquette (laissez vide pour la supprimer) :', tagNeedsSelection:'Sélectionnez d’abord du texte à étiqueter.', tagEditAria:'Modifier l’étiquette', tagDeleteAria:'Supprimer l’étiquette' },
     sidenote: {
       title:'Notes', placeholder:'Notez quelque chose ici…', saved:'Enregistré',
       collapseAria:'Réduire les notes', expandAria:'Développer les notes', resizeAria:'Redimensionner',
@@ -5005,6 +5035,9 @@ function getSidenoteColors(){ return themeAccentColors(); }
    unlike the muted sidenote palette above which is meant to blend in on
    the floating scratchpad rather than pop as category markers. */
 const RICH_COLORS = ['#DC2626','#2563EB','#16A34A','#9333EA','#EA580C'];
+const RICH_HIGHLIGHTS = ['rgba(250,204,21,0.45)','rgba(74,222,128,0.4)','rgba(244,114,182,0.4)','rgba(96,165,250,0.4)'];
+/* Opaque versions of the same hues, used only for the toolbar swatch faces so they read clearly on dark themes (the applied mark stays semi-transparent). */
+const RICH_HIGHLIGHT_FACES = ['#FACC15','#4ADE80','#F472B6','#60A5FA'];
 function getRichClearColor(){ return cssThemeVar('--ink'); } /* always matches the active theme's --ink */
 /* Converts a "#RRGGBB" string (every color this app ever hands to
    execCommand('foreColor', ...) — swatches and getRichClearColor() alike —
@@ -5071,19 +5104,38 @@ function normalizeRichColorBold(root){
   }
   function styleKeyFor(node){
     const el = node.nodeType===3 ? node.parentElement : node;
-    if(!el) return defaultColor+'|false|false|false';
+    if(!el) return defaultColor+'|false|false|false|';
     const cs = getComputedStyle(el);
-    return cs.color+'|'+(parseInt(cs.fontWeight,10)>=600)+'|'+(cs.fontStyle==='italic')+'|'+(cs.textDecorationLine.indexOf('underline')!==-1);
+    return cs.color+'|'+(parseInt(cs.fontWeight,10)>=600)+'|'+(cs.fontStyle==='italic')+'|'+(cs.textDecorationLine.indexOf('underline')!==-1)+'|'+highlightFor(el);
+  }
+  // background-color is NOT inherited, so a highlighted run's own parent
+  // element may report transparent even though an enclosing inline <span>
+  // carries the highlight — walk up through INLINE ancestors only. A block
+  // (line div/li/text-box body) ends the search: its own background, e.g.
+  // a text box's hover/focus surface, is chrome and never a highlight.
+  function highlightFor(el){
+    let n = el;
+    while(n && n!==root){
+      const cs = getComputedStyle(n);
+      if(cs.display!=='inline') return '';
+      const bg = cs.backgroundColor;
+      if(bg && bg!=='transparent' && !/^rgba\(\s*0\s*,\s*0\s*,\s*0\s*,\s*0\s*\)$/.test(bg)) return bg;
+      n = n.parentElement;
+    }
+    return '';
   }
   function wrapRun(text, key){
     if(!text) return '';
     const parts = key.split('|');
-    const color = parts[0], bold = parts[1]==='true', italic = parts[2]==='true', underline = parts[3]==='true';
+    const color = parts[0], bold = parts[1]==='true', italic = parts[2]==='true', underline = parts[3]==='true', hl = parts[4]||'';
     let html = escapeHtml(text);
     if(underline) html = '<u>'+html+'</u>';
     if(italic) html = '<i>'+html+'</i>';
     if(bold) html = '<b>'+html+'</b>';
-    if(color!==defaultColor) html = '<span style="color:'+color+'">'+html+'</span>';
+    const styles = [];
+    if(color!==defaultColor) styles.push('color:'+color);
+    if(hl) styles.push('background-color:'+hl);
+    if(styles.length) html = '<span style="'+styles.join(';')+'">'+html+'</span>';
     return html;
   }
   function runsToHtml(runs){
@@ -5203,8 +5255,20 @@ function sanitizeRichHtml(html){
           const allowed = attr.value.match(/(?:^|;)\s*(width|max-width|height|display|position|vertical-align|border-radius|top|left|right|bottom)\s*:\s*[^;]+/gi) || [];
           if(allowed.length) el.setAttribute('style', allowed.map(s=>s.replace(/^;\s*/,'')).join(';')); else el.removeAttribute('style');
         } else {
-          const m = attr.value.match(/color\s*:\s*[^;]+/i);
-          if(m) el.setAttribute('style', m[0]); else el.removeAttribute('style');
+          // Keep ONLY `color` and `background-color` (the note highlighter,
+          // App.applyRichHighlight), parsed declaration-by-declaration so a
+          // `background-color:` is never mistaken for a `color:` (the old
+          // loose /color\s*:/ regex matched inside it), and every value is
+          // limited to plain color syntax (hex / rgb() / rgba() / names).
+          const kept = [];
+          attr.value.split(';').forEach(function(decl){
+            const i = decl.indexOf(':');
+            if(i<0) return;
+            const prop = decl.slice(0,i).trim().toLowerCase();
+            const val = decl.slice(i+1).trim();
+            if((prop==='color' || prop==='background-color') && val && /^[#a-z0-9(),.\s%-]+$/i.test(val)) kept.push(prop+':'+val);
+          });
+          if(kept.length) el.setAttribute('style', kept.join(';')); else el.removeAttribute('style');
         }
       }
     });
@@ -5321,6 +5385,13 @@ function richFieldHtml(bodyId, valueHtml, placeholder, minHeight, extraAttrs){
   const swatches = RICH_COLORS.map(hex=>
     `<button type="button" class="rich-swatch" style="background:${hex}" onmousedown="event.preventDefault()" onclick="App.applyRichColor('${bodyId}','${hex}')" aria-label="${t('richtext.colorAria')}"></button>`
   ).join('');
+  // Highlighter: semi-transparent fills so the marked text stays readable
+  // (and the mark itself still looks like a highlight) on both light and
+  // dark themes — see App.applyRichHighlight.
+  const hlSwatches = RICH_HIGHLIGHTS.map((c,i)=>
+    `<button type="button" class="rich-hl-swatch" style="background:${RICH_HIGHLIGHT_FACES[i]}" onmousedown="event.preventDefault()" onclick="App.applyRichHighlight('${bodyId}','${c}')" aria-label="${t('richtext.highlightAria')}" title="${t('richtext.highlightAria')}"></button>`
+  ).join('');
+  const hlClearBtn = `<button type="button" class="rich-hl-swatch rich-hl-clear" onmousedown="event.preventDefault()" onclick="App.applyRichHighlight('${bodyId}','')" aria-label="${t('richtext.clearHighlightAria')}" title="${t('richtext.clearHighlightAria')}">A</button>`;
   const clearBtn = `<button type="button" class="rich-swatch rich-swatch-clear" onmousedown="event.preventDefault()" onclick="App.applyRichColor('${bodyId}','${getRichClearColor()}')" aria-label="${t('richtext.clearAria')}">A</button>`;
   // Image button — a hidden native file input does the actual file
   // picking (accept="image/*" gets the phone/OS camera-roll picker too),
@@ -5350,7 +5421,7 @@ function richFieldHtml(bodyId, valueHtml, placeholder, minHeight, extraAttrs){
   const textboxBtn = `<button type="button" class="rich-format-btn textbox" onmousedown="event.preventDefault()" onclick="App.insertRichTextbox('${bodyId}')" aria-label="${t('richtext.textboxAria')}" title="${t('richtext.textboxAria')}">▭</button>`;
   return `
     <div class="rich-field">
-      <div class="rich-colorbar">${formatBtns}${imageBtn}${arrowBtn}${textboxBtn}${tagBtn}<span class="rich-toolbar-sep"></span>${swatches}${clearBtn}</div>
+      <div class="rich-colorbar">${formatBtns}${imageBtn}${arrowBtn}${textboxBtn}${tagBtn}<span class="rich-toolbar-sep"></span>${swatches}${clearBtn}<span class="rich-toolbar-sep"></span>${hlSwatches}${hlClearBtn}</div>
       <div class="rich-body" id="${bodyId}" contenteditable="true" style="min-height:${minHeight||90}px;" data-placeholder="${escapeAttr(placeholder||'')}" onpaste="App.handleRichBodyPaste(event,'${bodyId}')" ${extraAttrs||''}>${valueHtml||''}</div>
     </div>
   `;
@@ -5394,6 +5465,20 @@ App.applyRichColor = function(bodyId, hex){
   document.execCommand('styleWithCSS', false, true);
   document.execCommand('foreColor', false, hex);
   richActiveColor[bodyId] = hex;
+  body.dispatchEvent(new Event('input', {bubbles:true}));
+};
+// Highlighter. execCommand('hiliteColor') with styleWithCSS on wraps the
+// selection in <span style="background-color:…">; an empty color (the
+// toolbar's strikethrough "A") removes it. Applied to a selection only —
+// there is no "sticky" highlight while typing, so it can't bleed into
+// unrelated text. Saved through normalizeRichColorBold + sanitizeRichHtml,
+// which both understand background-color.
+App.applyRichHighlight = function(bodyId, color){
+  const body = document.getElementById(bodyId);
+  if(!body) return;
+  body.focus({preventScroll:true});
+  document.execCommand('styleWithCSS', false, true);
+  document.execCommand('hiliteColor', false, color || 'transparent');
   body.dispatchEvent(new Event('input', {bubbles:true}));
 };
 App.applyRichFormat = function(bodyId, cmd){
@@ -7477,6 +7562,7 @@ function renderAll(){
   }
   syncTutorialOverlay();
   renderCardMemorizeOverlayIfNeeded();
+  scheduleFitRichRefCanvases();
 }
 
 /* ============ DASHBOARD ============ */
@@ -9559,6 +9645,9 @@ function saveAllNotes(recordHistorySnapshot){
   }
   if(topicArea){
     tp.notes = newNotes;
+    // Remember the editor's width so a read-only view of this note (Output
+    // reference, random draw) can reproduce its layout -- see richRefCanvasHtml.
+    if(topicArea.offsetWidth>200) tp.notesCanvasWidth = topicArea.offsetWidth;
     syncAutoSubtopicsFromNotes(tp);
   }
   const pretestArea = document.getElementById('pretestArea');
@@ -9699,6 +9788,8 @@ function openPrintableDoc(title, bodyHtml){
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Work+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
+  /* Keep note highlighter marks (background-color on a span, see App.applyRichHighlight) when printing/saving as PDF — browsers drop backgrounds by default. */
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
   body{background:#fff;color:#1a1712;font-family:'Work Sans',sans-serif;max-width:720px;margin:40px auto;padding:0 24px 60px;}
   h1{font-family:'Fraunces',serif;font-size:24px;margin:0 0 22px;border-bottom:2px solid #1a1712;padding-bottom:10px;}
   h2{font-family:'Fraunces',serif;font-size:17px;margin:0 0 2px;}
@@ -10220,7 +10311,7 @@ function renderDrawTopicBody(){
             <div class="muted mono" style="font-size:12px;">${t('draw.drawnLabel')}${isSub?' · '+escapeHtml(tp.name):''}</div>
             <div class="name">${escapeHtml(item.name)}</div>
             ${state.draw.revealed
-              ? `<div class="card" style="text-align:left;margin-top:14px;background:var(--surface-2);"><div class="muted" style="font-size:11px;margin-bottom:6px;">${t('draw.notesLabel')}</div>${!richIsEmpty(item.notes)?item.notes:'<span class="muted">'+t('draw.noNotes')+'</span>'}</div>`
+              ? `<div class="card" style="text-align:left;margin-top:14px;background:var(--surface-2);"><div class="muted" style="font-size:11px;margin-bottom:6px;">${t('draw.notesLabel')}</div>${!richIsEmpty(item.notes)?richNotesForReference(item.notes, isSub?0:item.notesCanvasWidth):'<span class="muted">'+t('draw.noNotes')+'</span>'}</div>`
               : `<button class="btn teal" onclick="App.revealDraw()" style="margin-top:12px;">${t('draw.reveal')}</button>`
             }
           </div>`;
@@ -10461,9 +10552,50 @@ App.revealDraw = function(){
 };
 
 /* ============ OUTPUT (active recall practice) ============ */
+/* True when a rich-text note has at least one picture/arrow/text box that is
+   freely positioned with absolute left/top coordinates. */
+function richHasFreePlacedItems(html){
+  return typeof html==='string' && /rt-(?:img|arrow|textbox)-wrap/.test(html) && /position\s*:\s*absolute/i.test(html);
+}
+/* Default width (px) of the notes editor on a desktop-size window; used only
+   when a topic hasn't recorded its own (tp.notesCanvasWidth, stored by
+   saveAllNotes from the real editor's width). */
+const NOTES_CANVAS_DEFAULT_WIDTH = 876;
+function richRefCanvasHtml(html, canvasWidth){
+  const w = Math.round(canvasWidth>200 ? canvasWidth : NOTES_CANVAS_DEFAULT_WIDTH);
+  return `<div class="rich-ref-scale" data-canvas-w="${w}"><div class="rich-ref-canvas" style="width:${w}px;">${html}</div></div>`;
+}
+/* Wraps a note for read-only display in a (possibly narrower) pane: notes
+   with freely-placed pictures/arrows/boxes go through the scaled canvas so
+   their arrangement is preserved; plain notes are returned untouched. */
+function richNotesForReference(html, canvasWidth){
+  return richHasFreePlacedItems(html) ? richRefCanvasHtml(html, canvasWidth) : html;
+}
+/* Scales every .rich-ref-canvas down so its fixed editor-width layout fits the
+   box it's shown in, and gives the box the scaled height (a CSS transform
+   doesn't affect layout, so the box would otherwise keep the unscaled height). */
+function fitRichRefCanvases(){
+  document.querySelectorAll('.rich-ref-scale').forEach(box=>{
+    const canvas = box.firstElementChild;
+    if(!canvas) return;
+    const w = parseFloat(box.dataset.canvasW)||NOTES_CANVAS_DEFAULT_WIDTH;
+    const avail = box.clientWidth;
+    if(!avail) return;
+    const scale = Math.min(1, avail/w);
+    canvas.style.transform = scale<1 ? 'scale('+scale+')' : '';
+    box.style.height = Math.ceil(canvas.offsetHeight*scale)+'px';
+  });
+}
+let _refCanvasRaf = false;
+function scheduleFitRichRefCanvases(){
+  if(_refCanvasRaf) return;
+  _refCanvasRaf = true;
+  requestAnimationFrame(()=>{ _refCanvasRaf = false; fitRichRefCanvases(); });
+}
+window.addEventListener('resize', scheduleFitRichRefCanvases);
 function buildFullTopicNotesHtml(tp){
   let html = `<div style="margin-bottom:${tp.subtopics.length?12:0}px;">
-    ${!richIsEmpty(tp.notes) ? tp.notes : `<span class="muted">${t('draw.noNotes')}</span>`}
+    ${!richIsEmpty(tp.notes) ? richNotesForReference(tp.notes, tp.notesCanvasWidth) : `<span class="muted">${t('draw.noNotes')}</span>`}
   </div>`;
   flattenSubtopics(tp.subtopics).forEach(({node, depth})=>{
     html += `<div style="margin:10px 0 10px ${depth*16}px;padding-left:10px;border-left:2px solid var(--line);">
@@ -10536,7 +10668,7 @@ function renderOutputSequential(){
         <div><label>${t('output.targetLabel')}</label><select onchange="App.setOutputTarget(this.value)">${targetOptions}</select></div>
       </div>
       <h2 class="section-title">${escapeHtml(targetName)}</h2>
-      <div class="output-split" style="margin-top:10px;">
+      <div class="output-split ${state.output.revealed && richHasFreePlacedItems(tp.notes) ? 'output-split-stack' : ''}" style="margin-top:10px;">
         <div class="output-pane">
           <label>${t('output.recallLabel')}</label>
           ${richFieldHtml('outputRecallArea', state.output.recallText, t('output.recallPh'), 220, 'oninput="App.setOutputRecallText(this)"')}
@@ -10700,7 +10832,7 @@ function renderExamQuestion(){
       </div>
       ${timerBlock}
       <h2 class="section-title" style="margin-top:6px;">${escapeHtml(targetName)}</h2>
-      <div class="output-split" style="margin-top:10px;">
+      <div class="output-split ${ex.revealed && !item.subId && richHasFreePlacedItems(tp.notes) ? 'output-split-stack' : ''}" style="margin-top:10px;">
         <div class="output-pane">
           <label>${t('output.recallLabel')}</label>
           ${richFieldHtml('examRecallArea', ex.recallText, t('output.recallPh'), 220, 'oninput="App.examSetRecallText(this)"')}
