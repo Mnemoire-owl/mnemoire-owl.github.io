@@ -11713,7 +11713,11 @@ function renderOrganizedCardsList(){
           <div class="topic-row" style="cursor:pointer;flex-direction:column;align-items:stretch;" onclick="App.toggleOrganizedCard('${c.id}')">
             <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
               <span class="topic-name" style="font-size:13px;">${frontPreview}</span>
-              <span class="muted mono" style="font-size:11px;flex-shrink:0;">${expanded?'▲':'▼'}</span>
+              <span style="display:flex;align-items:center;gap:2px;flex-shrink:0;">
+                <button class="btn ghost small org-card-edit" style="padding:1px 6px;font-size:12px;opacity:.7;" onclick="event.stopPropagation();App.startEditCardFromList('${c.id}')" title="${t('cards.edit')}" aria-label="${t('cards.edit')}">✏️</button>
+                <button class="btn ghost small org-card-delete" style="padding:1px 6px;font-size:12px;opacity:.7;" onclick="event.stopPropagation();App.deleteCard('${c.id}')" title="${t('cards.delete')}" aria-label="${t('cards.delete')}">🗑️</button>
+                <span class="muted mono" style="font-size:11px;margin-left:4px;">${expanded?'▲':'▼'}</span>
+              </span>
             </div>
             ${expanded ? `<div style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--line);font-size:13px;">${backHtml}</div>` : ''}
           </div>
@@ -12022,7 +12026,20 @@ App.addCard = function(){
   skipCardFormCapture = false;
   focusInput(type==='cloze' ? 'cardCloze' : 'cardFront');
 };
-App.startEditCard = function(id){
+/* Where to land after the edit form is saved/cancelled. Edits started from the
+   전체 목록 (list) view or the 학습 (study) panel return there, so a quick
+   fix doesn't strand the person on the 만들기 form. Module-level (transient
+   UI state, not persisted); null = stay on 만들기 as before (e.g. direct
+   App.startEditCard(id) callers). */
+let cardEditReturnView = null;
+function finishCardEditReturn(){
+  if(cardEditReturnView){
+    state.cardsViewMode = cardEditReturnView;
+    cardEditReturnView = null;
+  }
+}
+App.startEditCard = function(id, returnView){
+  cardEditReturnView = (returnView==='list' || returnView==='study') ? returnView : null;
   state.cardEditingId = id;
   state.cardDraft = null;
   // The edit form only exists inside the 만들기 (create) tab's markup — see
@@ -12050,10 +12067,22 @@ App.startEditCard = function(id){
    already false there, so this is equivalent to plain startEditCard(). */
 App.startEditCardFromBrowse = function(id){
   state.cardReview.fullscreen = false;
-  App.startEditCard(id);
+  App.startEditCard(id, 'study');
+};
+/* ✏️ on a row of the 전체 목록 view — one click from "I see the card" to the
+   edit form. The row/subject are force-opened so that when the form is saved
+   or cancelled and we return here, the edited card is right where it was. */
+App.startEditCardFromList = function(id){
+  const c = state.cards.find(x=>x.id===id);
+  if(c){
+    expandedOrganizedCardIds.add(id);
+    openOrganizedSubjectIds.add(c.subjectId);
+  }
+  App.startEditCard(id, 'list');
 };
 App.cancelCardEdit = function(){
   state.cardEditingId = null;
+  finishCardEditReturn();
   // Without this, captureUnsavedCardFormSnapshot() would treat the edit
   // form's still-on-screen content (the existing card being cancelled out
   // of) as if it were unsaved new-card text and resurrect it as the new-card
@@ -12092,6 +12121,7 @@ App.saveCardEdit = function(){
   state.lastCardSubjectId = subjectId;
   state.lastCardSubtopicBySubject[subjectId] = subtopic;
   state.cardEditingId = null;
+  finishCardEditReturn();
   // Same reasoning as cancelCardEdit() above — the edit form's content is
   // still what's on screen at this point and must not be captured as a
   // "new card" draft.
@@ -12106,7 +12136,7 @@ App.deleteCard = function(id){
     const q = state.cardReview.queue;
     const idx = q.indexOf(id);
     if(idx>=0){ q.splice(idx,1); if(state.cardReview.index>=q.length) state.cardReview.index = Math.max(0,q.length-1); }
-    if(state.cardEditingId===id) state.cardEditingId = null;
+    if(state.cardEditingId===id){ state.cardEditingId = null; cardEditReturnView = null; }
     saveState(); renderAll();
   });
 };
