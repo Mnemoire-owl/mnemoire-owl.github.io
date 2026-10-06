@@ -304,6 +304,14 @@
     cursor:pointer;padding:0 6px;flex:none;font-family:inherit;
   }
   .rich-format-btn:hover{border-color:var(--amber);}
+  /* Keyboard "toolbar mode" (Cmd/Ctrl+/ — see richTbMode): explicit ring on
+     the highlighted tool, not :focus-visible, so it also shows in Safari. */
+  .rich-colorbar.rich-tb-on{box-shadow:0 0 0 2px var(--amber), 0 2px 6px -2px rgba(0,0,0,.12);}
+  .rich-colorbar button.rich-tb-active{
+    outline:none;border-color:var(--amber);
+    box-shadow:0 0 0 2px var(--surface), 0 0 0 4px var(--amber);
+    transform:scale(1.18);position:relative;z-index:1;
+  }
   .rich-format-btn.bold{font-weight:700;}
   .rich-format-btn.italic{font-style:italic;}
   .rich-format-btn.underline{text-decoration:underline;}
@@ -4673,90 +4681,105 @@ document.addEventListener('keydown', function(e){
 });
 /* Keyboard access to the formatting toolbar (볼드/이미지/화살표/텍스트 상자/꼬리표/
    글자색/하이라이트 buttons above each rich-text field).
-     Cmd/Ctrl+/  (or Alt+F10) inside a note/card field → focus jumps to that
-                 field's toolbar, remembering the last-used tool per field.
-     ← → ↑ ↓ / Home / End  → move between the tools (wraps around).
-     Enter / Space → hand the caret/selection back to the note and apply the
-                 focused tool to it (so it behaves exactly like a mouse click,
-                 which never steals focus either — see richFieldHtml's
-                 onmousedown preventDefault). Typing can continue right away.
-     Esc, or the shortcut again → back to the note, nothing applied.
-   The selection is snapshotted when the toolbar takes focus, because moving
-   focus to a <button> can otherwise leave the contenteditable without a
-   usable caret. */
-let richToolbarSavedRange = null;
+     Cmd/Ctrl+/  (or Alt+F10) inside a note/card field → "toolbar mode": one
+                 tool is highlighted (remembering the last-used tool per field).
+     ← → ↑ ↓ / Home / End  → move the highlight (wraps around).
+     Enter / Space → apply the highlighted tool to the note's selection/caret
+                 exactly like a mouse click, then leave toolbar mode.
+     Esc, the shortcut again, Tab, a mouse click, or any other key → leave
+                 toolbar mode (other keys also keep working as normal typing).
+   This is a *virtual* mode on purpose: the note keeps real keyboard focus and
+   its selection the whole time, and the highlight is an explicit CSS class.
+   An earlier version moved real focus onto the <button>s and relied on
+   :focus-visible — Safari neither reliably focuses buttons from script nor
+   draws the ring, so the note just seemed to lose/regain focus and nothing
+   showed up. Nothing here depends on button focus. */
+let richTbMode = null;               // {bodyId, idx} while toolbar mode is on
 const richToolbarLastIdx = {};
 function richToolbarButtons(bar){
   return Array.from(bar.querySelectorAll('button')).filter(b=>!b.disabled);
 }
-function richToolbarEnter(body){
-  const field = body.closest('.rich-field');
-  const bar = field && field.querySelector('.rich-colorbar');
-  if(!bar) return;
-  const btns = richToolbarButtons(bar);
-  if(!btns.length) return;
-  const sel = window.getSelection();
-  if(sel && sel.rangeCount && body.contains(sel.anchorNode)) richToolbarSavedRange = sel.getRangeAt(0).cloneRange();
-  else {
-    const r = document.createRange(); r.selectNodeContents(body); r.collapse(false);
-    richToolbarSavedRange = r;
-  }
-  const idx = Math.min(richToolbarLastIdx[body.id] || 0, btns.length-1);
-  btns[idx].focus({preventScroll:true});
+function richTbBar(bodyId){
+  const body = document.getElementById(bodyId);
+  const field = body && body.closest('.rich-field');
+  return field ? field.querySelector('.rich-colorbar') : null;
 }
-function richToolbarReturnToBody(bar){
-  const field = bar.closest('.rich-field');
-  const body = field && field.querySelector('.rich-body');
-  if(!body) return null;
-  body.focus({preventScroll:true});
-  const sel = window.getSelection();
-  let r = richToolbarSavedRange;
-  if(!r || !body.contains(r.startContainer) || !body.contains(r.endContainer)){
-    r = document.createRange(); r.selectNodeContents(body); r.collapse(false);
-  }
-  sel.removeAllRanges(); sel.addRange(r);
-  return body;
+function richTbPaint(){
+  document.querySelectorAll('.rich-tb-active').forEach(b=>b.classList.remove('rich-tb-active'));
+  document.querySelectorAll('.rich-colorbar.rich-tb-on').forEach(b=>b.classList.remove('rich-tb-on'));
+  if(!richTbMode) return;
+  const bar = richTbBar(richTbMode.bodyId);
+  if(!bar){ richTbMode = null; return; }
+  const btns = richToolbarButtons(bar);
+  const b = btns[richTbMode.idx];
+  if(!b){ richTbMode = null; return; }
+  bar.classList.add('rich-tb-on');
+  b.classList.add('rich-tb-active');
+}
+function richTbEnter(body){
+  const bar = richTbBar(body.id);
+  if(!bar) return;
+  const n = richToolbarButtons(bar).length;
+  if(!n) return;
+  richTbMode = {bodyId: body.id, idx: Math.min(richToolbarLastIdx[body.id]||0, n-1)};
+  richTbPaint();
+}
+function richTbExit(){
+  if(!richTbMode) return;
+  richToolbarLastIdx[richTbMode.bodyId] = richTbMode.idx;
+  richTbMode = null;
+  richTbPaint();
 }
 document.addEventListener('keydown', function(e){
+  const isShortcut = ((e.metaKey||e.ctrlKey) && !e.altKey && (e.key==='/' || e.code==='Slash' || e.keyCode===191)) || (e.altKey && e.key==='F10');
   const tgt = e.target;
-  if(!tgt || !tgt.closest) return;
-  const isShortcut = ((e.metaKey||e.ctrlKey) && !e.altKey && (e.key==='/' || e.code==='Slash')) || (e.altKey && e.key==='F10');
-  const inBody = tgt.classList && tgt.classList.contains('rich-body');
-  const bar = tgt.closest('.rich-colorbar');
-  if(isShortcut){
-    if(inBody){ e.preventDefault(); richToolbarEnter(tgt); }
-    else if(bar){ e.preventDefault(); richToolbarReturnToBody(bar); }
+  if(!richTbMode){
+    if(isShortcut && tgt && tgt.classList && tgt.classList.contains('rich-body')){
+      e.preventDefault(); e.stopPropagation();
+      richTbEnter(tgt);
+    }
     return;
   }
-  if(!bar || !tgt.matches('button')) return;
-  const btns = richToolbarButtons(bar);
-  const i = btns.indexOf(tgt);
-  if(i<0) return;
-  const bodyEl = bar.closest('.rich-field').querySelector('.rich-body');
+  // --- toolbar mode is on ---
+  if(['Shift','Control','Alt','Meta','CapsLock'].includes(e.key)) return;
+  const bar = richTbBar(richTbMode.bodyId);
+  const btns = bar ? richToolbarButtons(bar) : [];
+  if(!btns.length){ richTbExit(); return; }
+  if(isShortcut || e.key==='Escape'){
+    e.preventDefault(); e.stopPropagation();
+    richTbExit();
+    return;
+  }
+  const i = richTbMode.idx;
   let ni = null;
   if(e.key==='ArrowRight' || e.key==='ArrowDown') ni = (i+1)%btns.length;
   else if(e.key==='ArrowLeft' || e.key==='ArrowUp') ni = (i-1+btns.length)%btns.length;
   else if(e.key==='Home') ni = 0;
   else if(e.key==='End') ni = btns.length-1;
   if(ni!==null){
-    e.preventDefault();
-    btns[ni].focus({preventScroll:true});
-    if(bodyEl) richToolbarLastIdx[bodyEl.id] = ni;
-    return;
-  }
-  if(e.key==='Escape'){
     e.preventDefault(); e.stopPropagation();
-    if(bodyEl) richToolbarLastIdx[bodyEl.id] = i;
-    richToolbarReturnToBody(bar);
+    richTbMode.idx = ni;
+    richToolbarLastIdx[richTbMode.bodyId] = ni;
+    richTbPaint();
     return;
   }
   if(e.key==='Enter' || e.key===' ' || e.key==='Spacebar'){
     e.preventDefault(); e.stopPropagation();
-    if(bodyEl) richToolbarLastIdx[bodyEl.id] = i;
-    richToolbarReturnToBody(bar);
-    tgt.click();
+    const bodyId = richTbMode.bodyId;
+    const btn = btns[i];
+    richTbExit();
+    const body = document.getElementById(bodyId);
+    if(body && document.activeElement!==body) body.focus({preventScroll:true});
+    btn.click();
+    return;
   }
+  // anything else (typing, Tab, …) just ends toolbar mode and behaves normally
+  richTbExit();
 }, true);
+document.addEventListener('mousedown', function(){ richTbExit(); }, true);
+document.addEventListener('focusout', function(e){
+  if(richTbMode && e.target && e.target.id===richTbMode.bodyId) richTbExit();
+});
 
 // Cmd/Ctrl+S saves the current topic's notes (same as clicking the Notes
 // tab's "전체 저장" button) instead of triggering the browser's native
