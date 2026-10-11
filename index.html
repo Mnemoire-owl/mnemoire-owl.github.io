@@ -11140,6 +11140,14 @@ App.toggleOutputReveal = function(){
 App.nextOutputTarget = function(){
   const s = state.subjects.find(x=>x.id===state.output.subjectId);
   if(!s || s.topics.length===0) return;
+  // "Next" also presses "save this output" for whatever is written on the
+  // current target (does nothing if both fields are empty), then moves on.
+  const curTp = s.topics.find(x=>x.id===state.output.topicId);
+  if(curTp){
+    const curTargetId = state.output.targetId || '';
+    const curNode = curTargetId ? findSubtopicNode(curTp.subtopics, curTargetId) : null;
+    commitOutputAttempt(s.id, curTp.id, curNode ? curTargetId : '', s.name, curNode ? curNode.name : curTp.name);
+  }
   const flat = [];
   s.topics.forEach(tp=>{
     flat.push({ topicId: tp.id, targetId: '' });
@@ -11154,11 +11162,14 @@ App.nextOutputTarget = function(){
   saveState(); renderAll();
   window.scrollTo({top:0, behavior:'smooth'});
 };
-App.saveOutputAttempt = function(sid, tid, targetId, subjectName, targetName){
+// Stores the on-screen attempt in state.outputAttempts and clears the
+// inputs/draft. Returns false (and changes nothing) if both fields are empty.
+// Does not render or save state — callers do that.
+function commitOutputAttempt(sid, tid, targetId, subjectName, targetName){
   const recallText = state.output.recallText||'';
   const gapArea = document.getElementById('gapNoteArea');
   const gapText = gapArea ? sanitizeRichHtml(normalizeRichColorBold(gapArea)) : '';
-  if(richIsEmpty(recallText) && richIsEmpty(gapText)) return;
+  if(richIsEmpty(recallText) && richIsEmpty(gapText)) return false;
   const s = state.subjects.find(x=>x.id===sid);
   const tp = s && s.topics.find(x=>x.id===tid);
   const referenceHtml = tp ? buildFullTopicNotesHtml(tp) : '';
@@ -11172,6 +11183,10 @@ App.saveOutputAttempt = function(sid, tid, targetId, subjectName, targetName){
   state.output.recallText = '';
   if(state.outputDrafts) delete state.outputDrafts[outputDraftKey(sid, tid, targetId)];
   if(gapArea) gapArea.innerHTML = '';
+  return true;
+}
+App.saveOutputAttempt = function(sid, tid, targetId, subjectName, targetName){
+  if(!commitOutputAttempt(sid, tid, targetId, subjectName, targetName)) return;
   flashStatus('outputAttemptSaveStatus');
   saveState(); renderAll();
 };
