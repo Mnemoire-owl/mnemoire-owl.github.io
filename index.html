@@ -1405,8 +1405,8 @@ const LANG = {
       recDailyLabel:'최근 7일 일평균', recWeeklyLabel:'최근 4주 주간평균',
       recSuggested:'추천 집중/휴식', recApply:'적용하기',
       recConfidence:{low:'데이터 적음', medium:'보통', high:'신뢰도 높음'},
-      recNotEnough:'스톱워치로 3번 이상 집중해 보시면, 그 기록을 바탕으로 딱 맞는 뽀모도로 시간을 추천해 드릴게요.',
-      recExplain:'스톱워치로 한 번에 집중했던 시간의 중앙값을 기준으로, 약간 짧게 잡아 끝까지 완주하는 성공 경험이 쌓이도록 계산했어요. 데이터가 쌓일수록 추천이 더 정확해져요.',
+      recNotEnough:'스톱워치로 5분 넘게 3번 이상 집중해 보시면, 그 기록을 바탕으로 딱 맞는 뽀모도로 시간을 추천해 드릴게요.',
+      recExplain:'스톱워치로 한 번에 집중했던 시간(5분 이하는 제외)의 중앙값을 기준으로, 약간 짧게 잡아 끝까지 완주하는 성공 경험이 쌓이도록 계산했어요. 데이터가 쌓일수록 추천이 더 정확해져요.',
       lastSitting:'방금 집중 시간', pausedBreak:'휴식 중 정지',
       linkedNote:'⏱ / ⏳ 상단의 시작 버튼 하나로 뽀모도로와 실제 공부시간이 함께 시작돼요. 집중 시간이 다 되면 알람만 울리고 자동으로 휴식으로 넘어가지 않아요 — 계속 앉아있으면 \'초과 집중\'으로 시간이 계속 흐르고, 그 시간도 전부 실제 공부시간에 쌓여요. 준비되면 직접 \"휴식 시작\"을 눌러야 휴식이 시작되고, 휴식이 끝나면 다음 집중 구간으로 자동으로 넘어가요.',
       soundTitle:'백색소음 · 배경음', soundSubtitle:'집중에 도움이 되는 배경음을 틀어보세요. 브라우저에서 실시간으로 만들어져서 별도 음원 없이 재생돼요.',
@@ -1706,8 +1706,8 @@ const LANG = {
       recDailyLabel:'7-day daily average', recWeeklyLabel:'4-week weekly average',
       recSuggested:'Suggested focus / break', recApply:'Apply',
       recConfidence:{low:'Not much data', medium:'Moderate', high:'High confidence'},
-      recNotEnough:'Use the stopwatch for at least 3 sessions and we\'ll recommend a pomodoro length based on your actual attention span.',
-      recExplain:'Based on the median length of your stopwatch sessions, set a little shorter so you can reliably finish the full interval and build momentum. The more you log, the more accurate this gets.',
+      recNotEnough:'Use the stopwatch for at least 3 sessions longer than 5 minutes and we\'ll recommend a pomodoro length based on your actual attention span.',
+      recExplain:'Based on the median length of your stopwatch sessions (sessions of 5 minutes or less are ignored), set a little shorter so you can reliably finish the full interval and build momentum. The more you log, the more accurate this gets.',
       lastSitting:'Just focused for', pausedBreak:'paused for break',
       linkedNote:"⏱ / ⏳ One start button up top runs both. Once the focus time is up, an alarm plays but it won't switch to a break on its own — staying seated keeps the timer running in \"overtime,\" and that time still counts as real study time. Press \"Start break\" when you're ready, and it'll automatically return to the next focus interval once the break ends.",
       soundTitle:'White noise · Ambience', soundSubtitle:'Play a background sound to help you focus. It\'s generated live in your browser, no audio files needed.',
@@ -2007,8 +2007,8 @@ const LANG = {
       recDailyLabel:'Tagesdurchschnitt (7 Tage)', recWeeklyLabel:'Wochendurchschnitt (4 Wochen)',
       recSuggested:'Empfohlen: Fokus / Pause', recApply:'Übernehmen',
       recConfidence:{low:'Wenig Daten', medium:'Mittel', high:'Hohe Sicherheit'},
-      recNotEnough:'Nutze die Stoppuhr mindestens dreimal — danach empfehlen wir dir eine Pomodoro-Länge auf Basis deiner tatsächlichen Konzentrationsspanne.',
-      recExplain:'Berechnet aus dem Median deiner Stoppuhr-Sitzungen, etwas kürzer angesetzt, damit du das Intervall zuverlässig durchhältst. Je mehr Daten du sammelst, desto genauer wird die Empfehlung.',
+      recNotEnough:'Nutze die Stoppuhr mindestens dreimal länger als 5 Minuten — danach empfehlen wir dir eine Pomodoro-Länge auf Basis deiner tatsächlichen Konzentrationsspanne.',
+      recExplain:'Berechnet aus dem Median deiner Stoppuhr-Sitzungen (Sitzungen bis 5 Minuten zählen nicht mit), etwas kürzer angesetzt, damit du das Intervall zuverlässig durchhältst. Je mehr Daten du sammelst, desto genauer wird die Empfehlung.',
       lastSitting:'Gerade fokussiert', pausedBreak:'in Pause gestoppt',
       linkedNote:'⏱ / ⏳ Ein Start-Button oben startet beide zusammen. Sobald die Fokuszeit abgelaufen ist, ertönt nur ein Alarm — es wird nicht automatisch zur Pause gewechselt. Bleibst du sitzen, läuft der Timer im \'Überstunden\'-Modus weiter, und diese Zeit zählt ebenfalls als echte Lernzeit. Klicke selbst auf \"Pause starten\", wenn du bereit bist; nach der Pause geht es automatisch mit der nächsten Fokusphase weiter.',
       soundTitle:'Weißes Rauschen · Ambiente', soundSubtitle:'Spiele einen Hintergrundklang zum Fokussieren ab. Er wird live im Browser erzeugt, keine Audiodateien nötig.',
@@ -2308,8 +2308,8 @@ const LANG = {
       recDailyLabel:'Moyenne quotidienne sur 7 jours', recWeeklyLabel:'Moyenne hebdomadaire sur 4 semaines',
       recSuggested:'Concentration / pause suggérées', recApply:'Appliquer',
       recConfidence:{low:'Peu de données', medium:'Modéré', high:'Confiance élevée'},
-      recNotEnough:"Utilisez le chronomètre pendant au moins 3 sessions et nous vous recommanderons une durée de pomodoro basée sur votre capacité d'attention réelle.",
-      recExplain:"Basé sur la durée médiane de vos sessions de chronomètre, réglé un peu plus court pour que vous puissiez terminer l'intervalle complet de façon fiable et prendre de l'élan. Plus vous enregistrez de sessions, plus cette estimation devient précise.",
+      recNotEnough:"Utilisez le chronomètre pendant au moins 3 sessions de plus de 5 minutes et nous vous recommanderons une durée de pomodoro basée sur votre capacité d'attention réelle.",
+      recExplain:"Basé sur la durée médiane de vos sessions de chronomètre (les sessions de 5 minutes ou moins sont ignorées), réglé un peu plus court pour que vous puissiez terminer l'intervalle complet de façon fiable et prendre de l'élan. Plus vous enregistrez de sessions, plus cette estimation devient précise.",
       lastSitting:'Vous venez de vous concentrer pendant', pausedBreak:'en pause pour la pause',
       linkedNote:"⏱ / ⏳ Un seul bouton de démarrage en haut fait tourner les deux. Une fois le temps de concentration écoulé, une alarme sonne mais ne passe pas automatiquement en pause — rester assis maintient le minuteur en marche en « heures supplémentaires », et ce temps compte toujours comme du temps d'étude réel. Appuyez sur « Démarrer la pause » quand vous êtes prêt(e), et cela reviendra automatiquement au prochain intervalle de concentration une fois la pause terminée.",
       soundTitle:'Bruit blanc · Ambiance', soundSubtitle:"Jouez un son de fond pour vous aider à vous concentrer. Il est généré en direct dans votre navigateur, aucun fichier audio nécessaire.",
@@ -13582,8 +13582,11 @@ App.revertToStopwatchCheckpoint = function(checkpointId){
 };
 
 /* ============ POMODORO RECOMMENDATION ============ */
+/* Sittings of 5 minutes or less are left out of the pomodoro recommendation
+   (they are usually accidental starts / quick checks, not real focus spans). */
+const REC_MIN_SITTING_SECONDS = 300;
 function analyzeFocus(){
-  const sessions = state.focusSessions.filter(f=>f.source==='stopwatch' && f.seconds>0).slice(-15);
+  const sessions = state.focusSessions.filter(f=>f.source==='stopwatch' && f.seconds>REC_MIN_SITTING_SECONDS).slice(-15);
   const values = sessions.map(f=>f.seconds).sort((a,b)=>a-b);
   const medianSeconds = values.length ? values[Math.floor((values.length-1)/2)] : null;
   const avgSeconds = values.length ? Math.round(values.reduce((a,b)=>a+b,0)/values.length) : null;
