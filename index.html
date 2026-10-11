@@ -11148,10 +11148,14 @@ App.nextOutputTarget = function(){
     const curNode = curTargetId ? findSubtopicNode(curTp.subtopics, curTargetId) : null;
     commitOutputAttempt(s.id, curTp.id, curNode ? curTargetId : '', s.name, curNode ? curNode.name : curTp.name);
   }
+  // When the practice target is the whole topic memo (targetId ''), "next"
+  // goes straight to the next topic and skips the subtopics; when a subtopic
+  // is selected it keeps stepping through the subtopics as before.
+  const wholeTopicMode = !state.output.targetId;
   const flat = [];
   s.topics.forEach(tp=>{
     flat.push({ topicId: tp.id, targetId: '' });
-    flattenSubtopics(tp.subtopics).forEach(({node:st})=> flat.push({ topicId: tp.id, targetId: st.id }));
+    if(!wholeTopicMode) flattenSubtopics(tp.subtopics).forEach(({node:st})=> flat.push({ topicId: tp.id, targetId: st.id }));
   });
   if(flat.length===0) return;
   const curIndex = flat.findIndex(f=>f.topicId===state.output.topicId && f.targetId===(state.output.targetId||''));
