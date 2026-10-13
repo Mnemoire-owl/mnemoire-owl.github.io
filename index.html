@@ -3193,6 +3193,7 @@ App.authSubmit = async function(){
   }
 };
 App.authLogout = async function(){
+  try{ if(typeof flushPendingSave==='function') flushPendingSave(); }catch(e){}
   try{ await sbClient.auth.signOut(); }catch(e){}
 };
 let appStarted = false;
@@ -4159,10 +4160,34 @@ let saveRetryCount = 0;
 // "저장 실패" when it's had several tries in a row and still can't reach the
 // cloud; never shown for a single blip that resolves on its own retry.
 let lastSaveErrorMessage = null;
+/* Cloud writes are batched: every saveState() call just (re)arms a trailing
+   debounce, and a max-wait timer guarantees a save at least every
+   SAVE_MAX_WAIT_MS during continuous activity. Each write uploads the WHOLE
+   state, so writing after every keystroke pause (the old 250ms debounce)
+   exhausted Supabase's small-instance Disk IO budget (statement timeouts,
+   "클라우드 저장 실패"). saveStateNow()/flushPendingSave() skip the wait for
+   explicit user saves, tab switches, logout and page hide/close. */
+const SAVE_DEBOUNCE_MS = 2500;
+const SAVE_MAX_WAIT_MS = 10000;
+let saveMaxWaitTimer = null;
+function fireSaveNow(){
+  clearTimeout(saveTimeout); clearTimeout(saveMaxWaitTimer);
+  saveTimeout = null; saveMaxWaitTimer = null;
+  attemptSaveState();
+}
 function saveState(){
   clearTimeout(saveTimeout);
-  saveTimeout = setTimeout(()=>{ attemptSaveState(); }, 250);
+  saveTimeout = setTimeout(fireSaveNow, SAVE_DEBOUNCE_MS);
+  if(!saveMaxWaitTimer) saveMaxWaitTimer = setTimeout(fireSaveNow, SAVE_MAX_WAIT_MS);
 }
+function saveStateNow(){ fireSaveNow(); }
+function flushPendingSave(){
+  if(saveTimeout || saveMaxWaitTimer) fireSaveNow();
+}
+document.addEventListener('visibilitychange', function(){
+  if(document.visibilityState==='hidden') flushPendingSave();
+});
+window.addEventListener('pagehide', flushPendingSave);
 async function attemptSaveState(){
   clearTimeout(saveRetryTimer);
   let result;
@@ -7754,7 +7779,7 @@ App.setTab = function(id){
   // or unsaved edits are silently lost.
   if(state.activeTab==='notes') saveAllNotes();
   state.activeTab = id;
-  saveState();
+  saveStateNow();
   renderAll();
   const ex = state.output.exam;
   if(id==='output' && state.output.mode==='exam' && ex.active && ex.running && !ex.revealed){
@@ -9788,14 +9813,14 @@ function scheduleNotesAutosave(){
   notesAutosaveDebounceTimer = setTimeout(()=>{
     clearTimeout(notesAutosaveMaxWaitTimer);
     notesAutosaveMaxWaitTimer = null;
-    saveState();
+    saveStateNow();
   }, 4000);
   if(!notesAutosaveMaxWaitTimer){
     notesAutosaveMaxWaitTimer = setTimeout(()=>{
       clearTimeout(notesAutosaveDebounceTimer);
       notesAutosaveDebounceTimer = null;
       notesAutosaveMaxWaitTimer = null;
-      saveState();
+      saveStateNow();
     }, 20000);
   }
 }
@@ -9921,6 +9946,7 @@ App.saveAllNotes = function(){
     awardXp(3);
   }
   flashStatus('notesSaveStatus');
+  saveStateNow(); // explicit "전체 저장" click: don't wait for the batching debounce
 };
 /* Which topic's save-history panel is currently open (see
    App.toggleNotesHistoryPanel/renderNotesHistoryPanel) — transient UI
