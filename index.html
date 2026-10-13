@@ -1452,7 +1452,7 @@ const LANG = {
       empty:'아직 설정한 장기 목표가 없어요.', dateHint:'설정하고 나면 목표 날짜가 되기 전까지는 바꿀 수 없어요.',
       statusActive:'진행 중', daysLeft:'D-{n}', dueToday:'오늘이 목표 날짜예요',
       overdueHint:'목표한 날짜가 됐어요. 이뤘나요?', achievedBtn:'✅ 달성했어요', notAchievedBtn:'아직 못 했어요',
-      statusAchieved:'달성', statusFailed:'미달성', achievedOn:'{date}에 달성', failedOn:'{date}에 미달성으로 기록',
+      statusAchieved:'달성', statusFailed:'미달성', achievedOn:'{date}에 달성', achievedOnTime:'목표 {planned}일 안에 달성', achievedLate:'목표 {planned}일 + {extra}일 더 걸림 → 총 {total}일', achievedExtraOnly:'목표일보다 {extra}일 더 걸림', overdueDays:'목표일에서 {n}일 지났어요', lateHint:'늦었더라도 이루면 나중에 달성으로 표시할 수 있어요.', lateAchievedBtn:'나중에라도 달성했어요', failedOn:'{date}에 미달성으로 기록',
       createdOn:'{date}에 설정', giveUp:'포기'
     },
     guide: {
@@ -1473,7 +1473,7 @@ const LANG = {
         {title:'11. 보상 — 공부하며 조금씩 즐기기', body:'공부를 시작하기 전에 보고 싶은 유튜브 영상이나 원하는 보상(간식, 게임 한 판 등)을 미리 등록해두세요. 각 보상마다 "몇 뽀모도로 사이클을 채워야 열리는지"를 직접 정할 수 있어요 (예: 2사이클 후 열림). 뽀모도로 집중 구간을 하나 마칠 때마다 오늘의 사이클 수가 올라가고, 조건을 채운 보상은 자동으로 잠금이 풀려서 알림이 떠요. 사이클 수는 매일 자정에 초기화되지만, 등록해둔 보상 목록 자체는 계속 남아있어요.'},
         {title:'12. 백업 — 내보내기 / 가져오기', body:'화면 상단 헤더에 "내보내기" / "가져오기" 버튼이 있어요. <strong>내보내기</strong>를 누르면 지금까지의 모든 데이터(과목·노트·카드·오답노트·레벨 등)를 JSON 파일로 다운로드할 수 있어요. <strong>가져오기</strong>로 그 파일을 다시 불러오면 지금 저장된 데이터를 그 파일 내용으로 통째로 교체해요 (되돌릴 수 없으니 확인 메시지가 한 번 더 떠요). 정기적으로 내보내기 해두면 실수로 데이터를 잃어버릴 걱정이 줄어들어요.'},
         {title:'13. 신뢰도 · 복습 시급도 · 복습 모드', body:'노트 탭에서 표시한 자신감(😰🤔😎)과 별개로, 앱이 자동으로 "복습이 얼마나 급한지"도 추적해요 — 노트를 저장하거나, 랜덤 뽑기·아웃풋에서 정답을 확인할 때마다 "마지막으로 복습한 날"이 갱신되고, 회독을 많이 마칠수록 다음 복습까지 여유 기간이 늘어나요(3→7→14→30일). 이 기간이 지나면 회독 진행 탭에 ⏰ 표시가 뜨고, 계획 탭의 "오늘 복습할 것"에 개수로 집계돼요. "지금 복습하기" 버튼을 누르면 복습이 시급한 주제들을 순서대로 하나씩 보여주는 <strong>복습 모드</strong>가 시작돼요 — 노트 탭 상단에 진행 상황(예: 1/3)이 뜨고, "다음 복습 주제로" 버튼으로 이어서 진행하거나 "복습 종료"로 언제든 빠져나올 수 있어요.'},
-        {title:'14. 장기 목표 — 오래 걸리는 목표 정하기', body:'계획 탭 위쪽에서 장기 목표를 하나 만들 수 있어요. 목표 이름과 "이 날짜까지 이루겠다"는 목표 날짜를 함께 정하면, 그 날짜가 되기 전까지는 내용을 바꿀 수 없어요 (오타를 냈거나 마음이 바뀌었다면 "포기"로 지우고 새로 만들 수는 있어요). 목표한 날짜가 되면 "달성했어요" / "아직 못 했어요" 버튼이 나타나서 스스로 체크할 수 있고, 달성으로 표시하면 보너스 경험치와 함께 지금 켜둔 테마에 어울리는 아이콘(🔮/🏅/🎗️/⚖️/🧪)이 붙은 성취 표시가 남아요.'},
+        {title:'14. 장기 목표 — 오래 걸리는 목표 정하기', body:'계획 탭 위쪽에서 장기 목표를 하나 만들 수 있어요. 목표 이름과 "이 날짜까지 이루겠다"는 목표 날짜를 함께 정하면, 그 날짜가 되기 전까지는 내용을 바꿀 수 없어요 (오타를 냈거나 마음이 바뀌었다면 "포기"로 지우고 새로 만들 수는 있어요). 목표한 날짜가 되면 "달성했어요" / "아직 못 했어요" 버튼이 나타나서 스스로 체크할 수 있고, 달성으로 표시하면 보너스 경험치와 함께 지금 켜둔 테마에 어울리는 아이콘(🔮/🏅/🎗️/⚖️/🧪)이 붙은 성취 표시가 남아요. 기간 안에 못 했더라도 "미달성"은 끝이 아니에요 — 나중에 이루면 "나중에라도 달성했어요"를 눌러 달성으로 바꿀 수 있고, 그때는 "목표 30일 + 5일 더 걸림 → 총 35일"처럼 목표했던 기간에 더 걸린 시간을 더해서 보여줘요.'},
         {title:'15. 달력 — 공부 기록과 일정 한눈에 보기', body:'대시보드에 달력이 추가됐어요. 각 날짜 칸에는 그날 스톱워치로 집중한 시간이 과목별 색깔 막대로 표시돼서, 하루에 어떤 과목을 얼마나 공부했는지 비율로 한눈에 볼 수 있어요 (과목 색상은 "과목 관리"에서 과목을 추가·수정할 때 원하는 색으로 바꿀 수 있어요). 날짜를 클릭하면 그날의 과목별 공부 시간과 등록된 일정이 아래에 자세히 나와요. 시험이나 약속처럼 날짜(선택적으로 시간까지)가 정해진 일정을 등록해두면, 달력 위 "다가오는 일정" 카드에 D-day로 표시돼요 — 시간을 함께 등록했다면 하루 앞으로 다가왔을 때부터는 "n시간 m분 남음"처럼 시간 단위로 바뀌어서 보여줘요.'},
         {title:'16. 상주 계획 — 매일 반복하는 계획 만들기', body:'계획 탭의 "오늘의 계획" 아래에 "상주 계획" 카드가 있어요. 여기 등록한 항목은 그날 완료 체크를 해도 사라지지 않고, 다음에 해당 요일이 돌아오면 다시 미완료 상태로 나타나요 (완료 기록은 날짜별로 따로 저장돼요). 등록할 때 월화수목금토일 중 반복할 요일을 골라두면, 그 요일에만 계획 목록에 보여요 — 예를 들어 월화수목금만 체크해두면 평일에만 보이고 토·일에는 안 보여요. 요일을 하나도 안 고르면 매일 보이는 걸로 처리돼요. 오늘 해당하지 않는 상주 계획도 "전체 상주 계획 관리"를 펼치면 계속 볼 수 있어서, 언제든 요일을 바꾸거나 삭제할 수 있어요.'}
       ]
@@ -1754,7 +1754,7 @@ const LANG = {
       empty:'No long-term goals set yet.', dateHint:"Once set, this can't be changed until the target date.",
       statusActive:'In progress', daysLeft:'D-{n}', dueToday:"Today's the target date",
       overdueHint:'The target date has arrived. Did you achieve it?', achievedBtn:'✅ Achieved it', notAchievedBtn:'Not yet',
-      statusAchieved:'Achieved', statusFailed:'Not achieved', achievedOn:'Achieved on {date}', failedOn:'Marked not achieved on {date}',
+      statusAchieved:'Achieved', statusFailed:'Not achieved', achievedOn:'Achieved on {date}', achievedOnTime:'Achieved within the {planned}-day goal', achievedLate:'Goal {planned} days + {extra} extra days → {total} days total', achievedExtraOnly:'Took {extra} days past the target date', overdueDays:'{n} days past the target date', lateHint:'If you get there later, you can still mark it achieved.', lateAchievedBtn:'Achieved it, later', failedOn:'Marked not achieved on {date}',
       createdOn:'Set on {date}', giveUp:'Give up'
     },
     guide: {
@@ -1775,7 +1775,7 @@ const LANG = {
         {title:'11. Rewards — small wins along the way', body:'Before you start studying, register anything you want as a reward — a YouTube video, a snack, a short game break, whatever motivates you — and pick how many pomodoro cycles it should take to unlock (e.g. unlocked after 2 cycles). Every time you finish a pomodoro focus interval, today\'s cycle count goes up, and any reward whose requirement is met unlocks automatically with a notification. The cycle count resets each night, but your saved reward list stays.'},
         {title:'12. Backup — export / import', body:'The header has "Export" and "Import" buttons. <strong>Export</strong> downloads everything (subjects, notes, cards, gaps, level, etc.) as a JSON file. <strong>Import</strong> lets you load that file back in, replacing all currently saved data (a confirmation dialog appears first since this can\'t be undone). Exporting regularly is a good habit — it protects you from accidentally losing data.'},
         {title:'13. Confidence · review urgency · review mode', body:'Separately from the confidence rating you set in Notes, the app automatically tracks how overdue each topic is for review — saving notes, or revealing an answer in Random Draw or Output, all refresh its "last reviewed" date, and the gap before the next check-in grows as you complete more reading passes (3→7→14→30 days). Once that window passes, a ⏰ appears in Reading Cycle and the topic is counted in the Plan tab\'s "What to review today." Clicking "Review now" starts a <strong>review mode</strong> that walks you through overdue topics one at a time — the Notes tab shows your progress (e.g. 1/3), with "Next review topic" to continue or "End review" to stop anytime.'},
-        {title:'14. Long-term Goals — Setting a goal for the long haul', body:'At the top of the Plan tab you can set a long-term goal: a title plus the date by which you\'ll achieve it. Once set, neither can be changed until that date arrives (if you made a mistake or changed your mind, "Give up" removes it so you can start over). On or after the target date, "Achieved it" / "Not yet" buttons appear so you can check it off yourself — marking it achieved grants bonus XP and leaves behind an achievement mark with an icon matching your current theme (🔮/🏅/🎗️/⚖️/🧪).'},
+        {title:'14. Long-term Goals — Setting a goal for the long haul', body:'At the top of the Plan tab you can set a long-term goal: a title plus the date by which you\'ll achieve it. Once set, neither can be changed until that date arrives (if you made a mistake or changed your mind, "Give up" removes it so you can start over). On or after the target date, "Achieved it" / "Not yet" buttons appear so you can check it off yourself — marking it achieved grants bonus XP and leaves behind an achievement mark with an icon matching your current theme (🔮/🏅/🎗️/⚖️/🧪). Missing the deadline isn\'t final: if you get there later, "Achieved it, later" turns it into an achievement, and the card shows the planned period plus the extra time it took, e.g. "Goal 30 days + 5 extra days → 35 days total".'},
         {title:'15. Calendar — study log and events at a glance', body:'The Dashboard now includes a calendar. Each day\'s cell shows a color bar for the stopwatch focus time logged that day, split by subject, so you can see at a glance which subjects you studied and in what proportion (pick each subject\'s color when adding or editing it in Subject Management). Click a date to see that day\'s subject breakdown and any events recorded, in detail, below. Record events like exams or appointments with a date (and optionally a time), and they\'ll show as a D-day countdown in the "Upcoming events" card above the calendar — once one is within a day and has a time set, the countdown switches to showing "Nh Nm left" instead.'},
         {title:'16. Recurring Plans — set up plans that repeat every day', body:'Below "Today\'s plan" in the Plan tab is a "Recurring plans" card. Anything you add there doesn\'t disappear when you check it off that day — it comes back unchecked the next time its scheduled weekday rolls around (each day\'s completion is tracked separately). When adding one, pick which days of the week it repeats on; it only shows in the plan list on those days — for example, checking only Mon-Fri means it appears on weekdays and stays hidden on Sat/Sun. Leaving every day unchecked means it shows every day. Recurring plans not scheduled for today still stay reachable by expanding "Manage all recurring plans," so you can change their days or delete them anytime.'}
       ]
@@ -2056,7 +2056,7 @@ const LANG = {
       empty:'Noch keine langfristigen Ziele gesetzt.', dateHint:'Einmal gesetzt, kann dies bis zum Zieldatum nicht geändert werden.',
       statusActive:'In Bearbeitung', daysLeft:'D-{n}', dueToday:'Heute ist das Zieldatum',
       overdueHint:'Das Zieldatum ist erreicht. Hast du es geschafft?', achievedBtn:'✅ Geschafft', notAchievedBtn:'Noch nicht',
-      statusAchieved:'Geschafft', statusFailed:'Nicht geschafft', achievedOn:'Geschafft am {date}', failedOn:'Am {date} als nicht geschafft markiert',
+      statusAchieved:'Geschafft', statusFailed:'Nicht geschafft', achievedOn:'Geschafft am {date}', achievedOnTime:'Innerhalb des {planned}-Tage-Ziels geschafft', achievedLate:'Ziel {planned} Tage + {extra} Tage länger → insgesamt {total} Tage', achievedExtraOnly:'{extra} Tage über dem Zieldatum', overdueDays:'{n} Tage nach dem Zieldatum', lateHint:'Wenn du es später schaffst, kannst du es trotzdem als geschafft markieren.', lateAchievedBtn:'Doch noch geschafft', failedOn:'Am {date} als nicht geschafft markiert',
       createdOn:'Gesetzt am {date}', giveUp:'Aufgeben'
     },
     guide: {
@@ -2077,7 +2077,7 @@ const LANG = {
         {title:'11. Belohnungen — kleine Erfolge zwischendurch', body:'Lege vor dem Lernen fest, was du dir als Belohnung gönnen möchtest — ein YouTube-Video, einen Snack, eine kurze Spielpause, was auch immer motiviert — und bestimme, nach wie vielen Pomodoro-Zyklen sie sich freischaltet (z. B. nach 2 Zyklen). Jedes Mal, wenn eine Pomodoro-Fokusphase abgeschlossen wird, steigt der heutige Zyklenzähler, und jede Belohnung, deren Bedingung erfüllt ist, schaltet sich automatisch mit einer Benachrichtigung frei. Der Zykluszähler wird jede Nacht zurückgesetzt, die gespeicherte Liste der Belohnungen bleibt aber erhalten.'},
         {title:'12. Backup — Exportieren / Importieren', body:'Im Header gibt es "Exportieren"- und "Importieren"-Buttons. <strong>Exportieren</strong> lädt alle Daten (Fächer, Notizen, Karten, Fehlernotizen, Level usw.) als JSON-Datei herunter. <strong>Importieren</strong> lädt diese Datei wieder — dabei werden alle aktuell gespeicherten Daten ersetzt (eine Bestätigung erscheint vorher, da dies nicht rückgängig gemacht werden kann). Regelmäßiges Exportieren schützt vor versehentlichem Datenverlust.'},
         {title:'13. Sicherheit · Wiederholungsdringlichkeit · Wiederholungsmodus', body:'Unabhängig von der Sicherheits-Einstellung in den Notizen verfolgt die App automatisch, wie überfällig jedes Thema für eine Wiederholung ist — Notizen speichern oder eine Antwort in Zufallsauswahl/Abruf aufdecken aktualisiert jeweils das „zuletzt wiederholt"-Datum, und der Abstand bis zur nächsten Prüfung wächst mit jedem abgeschlossenen Lesedurchgang (3→7→14→30 Tage). Ist dieses Fenster abgelaufen, erscheint ein ⏰ im Lesezyklus, und das Thema zählt im Plan-Tab unter „Was heute zu wiederholen ist". Ein Klick auf "Jetzt wiederholen" startet einen <strong>Wiederholungsmodus</strong>, der überfällige Themen nacheinander zeigt — der Notizen-Tab zeigt den Fortschritt (z. B. 1/3), mit "Nächstes Wiederholungsthema" zum Weitermachen oder "Wiederholung beenden" zum jederzeitigen Ausstieg.'},
-        {title:'14. Langfristige Ziele — Ein Ziel für die lange Strecke setzen', body:'Oben im Plan-Tab kannst du ein langfristiges Ziel setzen: einen Titel und das Datum, bis zu dem du es erreichen willst. Einmal gesetzt, kann keins von beidem bis zu diesem Datum geändert werden (bei einem Tippfehler oder wenn du es dir anders überlegst, entfernt "Aufgeben" das Ziel, sodass du neu anfangen kannst). Am oder nach dem Zieldatum erscheinen die Buttons "Geschafft" / "Noch nicht", mit denen du selbst einträgst, ob du es erreicht hast — als geschafft markiert bringt Bonus-XP und hinterlässt ein Erfolgszeichen mit einem Symbol passend zu deinem aktuellen Design (🔮/🏅/🎗️/⚖️/🧪).'},
+        {title:'14. Langfristige Ziele — Ein Ziel für die lange Strecke setzen', body:'Oben im Plan-Tab kannst du ein langfristiges Ziel setzen: einen Titel und das Datum, bis zu dem du es erreichen willst. Einmal gesetzt, kann keins von beidem bis zu diesem Datum geändert werden (bei einem Tippfehler oder wenn du es dir anders überlegst, entfernt "Aufgeben" das Ziel, sodass du neu anfangen kannst). Am oder nach dem Zieldatum erscheinen die Buttons "Geschafft" / "Noch nicht", mit denen du selbst einträgst, ob du es erreicht hast — als geschafft markiert bringt Bonus-XP und hinterlässt ein Erfolgszeichen mit einem Symbol passend zu deinem aktuellen Design (🔮/🏅/🎗️/⚖️/🧪). Die Frist zu verpassen ist nicht endgültig: Schaffst du es später, macht "Doch noch geschafft" daraus einen Erfolg, und die Karte zeigt den geplanten Zeitraum plus die zusätzliche Zeit, z. B. „Ziel 30 Tage + 5 Tage länger → insgesamt 35 Tage“.'},
         {title:'15. Kalender — Lernprotokoll und Termine auf einen Blick', body:'Die Übersicht enthält jetzt einen Kalender. Jede Tageszelle zeigt einen Farbbalken für die an diesem Tag erfasste Stoppuhr-Fokuszeit, aufgeteilt nach Fach, damit du auf einen Blick siehst, welche Fächer du gelernt hast und in welchem Verhältnis (die Farbe jedes Fachs legst du beim Hinzufügen oder Bearbeiten in der Fächerverwaltung fest). Klicke auf ein Datum, um die Aufteilung nach Fach sowie alle erfassten Termine dieses Tages im Detail unten zu sehen. Erfasse Termine wie Prüfungen oder Verabredungen mit einem Datum (und optional einer Uhrzeit) — sie erscheinen als D-Day-Countdown in der Karte "Bevorstehende Termine" über dem Kalender; sobald ein Termin innerhalb eines Tages liegt und eine Uhrzeit hat, wechselt der Countdown zu "noch NStd NMin".'},
         {title:'16. Feste Pläne — täglich wiederkehrende Pläne anlegen', body:'Unter "Heutiger Plan" im Plan-Tab gibt es eine Karte "Feste Pläne". Was du dort hinzufügst, verschwindet nicht, wenn du es an diesem Tag abhakst — es erscheint bei der nächsten festgelegten Wochentag-Wiederkehr wieder ungehakt (die Erledigung wird für jeden Tag separat gespeichert). Beim Hinzufügen wählst du, an welchen Wochentagen es wiederkehrt; es erscheint nur an diesen Tagen im Plan — wählst du z. B. nur Mo-Fr, taucht es werktags auf und bleibt Sa/So verborgen. Wählst du keinen Tag aus, erscheint es jeden Tag. Feste Pläne, die heute nicht vorgesehen sind, bleiben trotzdem über "Alle festen Pläne verwalten" erreichbar, sodass du ihre Tage jederzeit ändern oder sie löschen kannst.'}
       ]
@@ -2358,7 +2358,7 @@ const LANG = {
       empty:"Aucun objectif à long terme défini pour l'instant.", dateHint:"Une fois défini, ceci ne peut pas être modifié avant la date cible.",
       statusActive:'En cours', daysLeft:'J-{n}', dueToday:"Aujourd'hui est la date cible",
       overdueHint:"La date cible est arrivée. L'avez-vous atteint ?", achievedBtn:'✅ Atteint', notAchievedBtn:'Pas encore',
-      statusAchieved:'Atteint', statusFailed:'Non atteint', achievedOn:'Atteint le {date}', failedOn:'Marqué non atteint le {date}',
+      statusAchieved:'Atteint', statusFailed:'Non atteint', achievedOn:'Atteint le {date}', achievedOnTime:'Atteint dans les {planned} jours prévus', achievedLate:'Objectif {planned} jours + {extra} jours de plus → {total} jours au total', achievedExtraOnly:'{extra} jours après la date cible', overdueDays:'{n} jours après la date cible', lateHint:'Si vous y arrivez plus tard, vous pouvez encore le marquer comme atteint.', lateAchievedBtn:'Atteint, mais plus tard', failedOn:'Marqué non atteint le {date}',
       createdOn:'Défini le {date}', giveUp:'Abandonner'
     },
     guide: {
@@ -2379,7 +2379,7 @@ const LANG = {
         {title:'11. Récompenses — de petites victoires en chemin', body:"Avant de commencer à étudier, enregistrez tout ce que vous voulez comme récompense — une vidéo YouTube, une collation, une courte pause jeu, tout ce qui vous motive — et choisissez le nombre de cycles pomodoro nécessaires pour la débloquer (ex. débloquée après 2 cycles). Chaque fois que vous terminez un intervalle de concentration pomodoro, le compteur de cycles du jour augmente, et toute récompense dont la condition est remplie se débloque automatiquement avec une notification. Le compteur de cycles se réinitialise chaque nuit, mais votre liste de récompenses enregistrées reste."},
         {title:'12. Sauvegarde — exporter / importer', body:"L'en-tête contient les boutons « Exporter » et « Importer ». <strong>Exporter</strong> télécharge tout (matières, notes, cartes, lacunes, niveau, etc.) sous forme de fichier JSON. <strong>Importer</strong> vous permet de recharger ce fichier, en remplaçant toutes les données actuellement enregistrées (une boîte de dialogue de confirmation apparaît d'abord, car cette action est irréversible). Exporter régulièrement est une bonne habitude — cela vous protège d'une perte de données accidentelle."},
         {title:'13. Confiance · urgence de révision · mode révision', body:"Indépendamment de la note de confiance que vous définissez dans Notes, l'application suit automatiquement le retard de révision de chaque sujet — enregistrer des notes, ou révéler une réponse dans Tirage au hasard ou Invocation, actualisent tous sa date de « dernière révision », et l'intervalle avant la prochaine vérification s'allonge à mesure que vous terminez plus de passages de lecture (3→7→14→30 jours). Une fois cette fenêtre dépassée, un ⏰ apparaît dans Pèlerinage et le sujet est compté dans « Quoi réviser aujourd'hui » de l'onglet Plan. Cliquer sur « Réviser maintenant » démarre un <strong>mode révision</strong> qui vous fait parcourir les sujets en retard un par un — l'onglet Notes affiche votre progression (ex. 1/3), avec « Sujet suivant à réviser » pour continuer ou « Terminer la révision » pour arrêter à tout moment."},
-        {title:'14. Objectifs à long terme — se fixer un objectif sur la durée', body:"En haut de l'onglet Plan, vous pouvez définir un objectif à long terme : un titre plus la date à laquelle vous l'atteindrez. Une fois définis, ni l'un ni l'autre ne peuvent être modifiés avant que cette date n'arrive (si vous avez fait une erreur ou changé d'avis, « Abandonner » le supprime pour que vous puissiez recommencer). À la date cible ou après, des boutons « Atteint » / « Pas encore » apparaissent pour que vous puissiez le cocher vous-même — le marquer comme atteint accorde un bonus d'XP et laisse une marque de réussite avec une icône correspondant à votre thème actuel (🔮/🏅/🎗️/⚖️/🧪)."},
+        {title:'14. Objectifs à long terme — se fixer un objectif sur la durée', body:"En haut de l'onglet Plan, vous pouvez définir un objectif à long terme : un titre plus la date à laquelle vous l'atteindrez. Une fois définis, ni l'un ni l'autre ne peuvent être modifiés avant que cette date n'arrive (si vous avez fait une erreur ou changé d'avis, « Abandonner » le supprime pour que vous puissiez recommencer). À la date cible ou après, des boutons « Atteint » / « Pas encore » apparaissent pour que vous puissiez le cocher vous-même — le marquer comme atteint accorde un bonus d'XP et laisse une marque de réussite avec une icône correspondant à votre thème actuel (🔮/🏅/🎗️/⚖️/🧪). Manquer l'échéance n'est pas définitif : si vous y arrivez plus tard, « Atteint, mais plus tard » le transforme en réussite, et la carte affiche la durée prévue plus le temps supplémentaire, p. ex. « Objectif 30 jours + 5 jours de plus → 35 jours au total »."},
         {title:"15. Calendrier — journal d'étude et événements en un coup d’œil", body:"Le tableau de bord inclut désormais un calendrier. Chaque case de jour affiche une barre de couleur pour le temps de concentration du chronomètre enregistré ce jour-là, réparti par matière, pour que vous puissiez voir en un coup d'œil quelles matières vous avez étudiées et dans quelle proportion (choisissez la couleur de chaque matière lors de son ajout ou modification dans la Gestion des matières). Cliquez sur une date pour voir la répartition par matière de ce jour et tout événement enregistré, en détail, en dessous. Enregistrez des événements comme des examens ou rendez-vous avec une date (et éventuellement une heure), et ils s'afficheront en compte à rebours jour J dans la carte « Événements à venir » au-dessus du calendrier — une fois qu'un événement est à moins d'un jour et a une heure définie, le compte à rebours passe à « Nh Nmin restantes »."},
         {title:'16. Plans récurrents — configurez des plans qui se répètent chaque jour', body:"Sous « Plan du jour » dans l'onglet Plan se trouve une carte « Plans récurrents ». Tout ce que vous y ajoutez ne disparaît pas une fois coché ce jour-là — cela revient décoché la prochaine fois que son jour de la semaine programmé revient (l'accomplissement de chaque jour est suivi séparément). Lors de l'ajout, choisissez les jours de la semaine où il se répète ; il n'apparaît dans la liste du plan que ces jours-là — par exemple, ne cocher que Lun-Ven signifie qu'il apparaît en semaine et reste caché le week-end. Ne cocher aucun jour signifie qu'il apparaît tous les jours. Les plans récurrents non programmés pour aujourd'hui restent accessibles en dépliant « Gérer tous les plans récurrents », pour que vous puissiez changer leurs jours ou les supprimer à tout moment."}
       ]
@@ -3884,6 +3884,7 @@ function normalizeState(){
     if(gl.status===undefined) gl.status = 'active';
     if(gl.resolvedAt===undefined) gl.resolvedAt = null;
     if(gl.createdAt===undefined) gl.createdAt = gl.targetDate || todayISO();
+    if(gl.missedAt===undefined) gl.missedAt = null; // set when a goal recorded as 'failed' is later marked achieved
   });
   /* Calendar events (exams/appointments) are simple standalone records —
      nothing else in the app references them, so there's no migration logic
@@ -4493,7 +4494,7 @@ App.addGoal = function(){
   const targetDate = dateEl.value;
   const today = todayISO();
   if(!title || !targetDate || targetDate <= today) return;
-  state.goals.push({id:uid(), title, targetDate, createdAt: today, status:'active', resolvedAt:null});
+  state.goals.push({id:uid(), title, targetDate, createdAt: today, status:'active', resolvedAt:null, missedAt:null});
   titleEl.value = '';
   dateEl.value = '';
   saveState(); renderAll();
@@ -4501,9 +4502,17 @@ App.addGoal = function(){
 };
 App.resolveGoal = function(id, achieved){
   const gl = state.goals.find(x=>x.id===id);
-  if(!gl || gl.status!=='active') return;
+  if(!gl) return;
+  /* A goal marked 'failed' isn't final: it can still be marked achieved
+     later (late achievement). The extra time past the target date is derived
+     from resolvedAt vs targetDate, so nothing else needs to be stored except
+     missedAt (when it had been recorded as not achieved). A failed goal can
+     never be "failed" again, and an achieved goal is final. */
+  if(gl.status==='achieved') return;
+  if(gl.status==='failed' && !achieved) return;
   const today = todayISO();
   if(today < gl.targetDate) return; // guards against the buttons being reached before unlock (shouldn't happen via the UI)
+  if(gl.status==='failed') gl.missedAt = gl.resolvedAt || today;
   gl.status = achieved ? 'achieved' : 'failed';
   gl.resolvedAt = today;
   if(achieved){
@@ -4520,6 +4529,16 @@ App.deleteGoal = function(id){
     saveState(); renderAll();
   });
 };
+/* Planned period (createdAt -> targetDate) plus any extra time it took past
+   the target date (targetDate -> resolvedAt), all derived from stored dates. */
+function goalTimeSummary(gl){
+  const planned = Math.max(0, daysBetween(gl.createdAt || gl.targetDate, gl.targetDate));
+  const extra = Math.max(0, daysBetween(gl.targetDate, gl.resolvedAt || gl.targetDate));
+  return {planned, extra, total: planned+extra};
+}
+function goalOverdueDays(gl, today){
+  return Math.max(0, daysBetween(gl.targetDate, today));
+}
 function renderGoalsSection(){
   const today = todayISO();
   const rows = sortedGoals().map(gl=>{
@@ -4528,14 +4547,22 @@ function renderGoalsSection(){
     if(gl.status==='achieved'){
       statusHtml = `
         <span class="badge-chip">${currentGoalIcon()} ${escapeHtml(t('game.badgesLabel'))}</span>
-        <div class="muted mono" style="font-size:11px;margin-top:6px;">${tf('goals.achievedOn',{date:gl.resolvedAt})}</div>`;
+        <div class="muted mono" style="font-size:11px;margin-top:6px;">${tf('goals.achievedOn',{date:gl.resolvedAt})}</div>
+        <div class="goal-time-summary" style="font-size:12px;margin-top:4px;">${(function(){
+          const sm = goalTimeSummary(gl);
+          if(sm.extra<=0) return '⏱ ' + tf('goals.achievedOnTime',{planned:sm.planned});
+          if(sm.planned<=0) return '⏱ ' + tf('goals.achievedExtraOnly',{extra:sm.extra});
+          return '⏱ ' + tf('goals.achievedLate',{planned:sm.planned, extra:sm.extra, total:sm.total});
+        })()}</div>`;
     } else if(gl.status==='failed'){
       statusHtml = `
         <span class="badge-chip locked">☆ ${escapeHtml(t('goals.statusFailed'))}</span>
-        <div class="muted mono" style="font-size:11px;margin-top:6px;">${tf('goals.failedOn',{date:gl.resolvedAt})}</div>`;
+        <div class="muted mono" style="font-size:11px;margin-top:6px;">${tf('goals.failedOn',{date:gl.resolvedAt})}</div>
+        <div class="muted" style="font-size:12px;margin:8px 0;">⏰ ${tf('goals.overdueDays',{n:goalOverdueDays(gl,today)})} ${t('goals.lateHint')}</div>
+        <button class="btn teal small" onclick="App.resolveGoal('${gl.id}',true)">${t('goals.lateAchievedBtn')}</button>`;
     } else if(checkable){
       statusHtml = `
-        <div class="muted" style="font-size:12px;margin-bottom:8px;">⏰ ${t('goals.overdueHint')}</div>
+        <div class="muted" style="font-size:12px;margin-bottom:8px;">⏰ ${t('goals.overdueHint')}${goalOverdueDays(gl,today)>0 ? ' · '+tf('goals.overdueDays',{n:goalOverdueDays(gl,today)}) : ''}</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
           <button class="btn teal small" onclick="App.resolveGoal('${gl.id}',true)">${t('goals.achievedBtn')}</button>
           <button class="btn ghost small" onclick="App.resolveGoal('${gl.id}',false)">${t('goals.notAchievedBtn')}</button>
