@@ -6293,7 +6293,80 @@ function computeRichInsertionSpot(bodyId, anchorRange){
       if(node && node.parentNode === body) insertAfterEl = node;
     }
   }
-  return {left:left, top:top, insertAfterEl:insertAfterEl};
+  /* Was the caret at the very END of a fully-bold line (a subtopic heading)?
+     Remembered so insertImageChipAtSelection can drop the caret onto a fresh
+     line below it afterwards — see continueBelowHeadingAfterWrap. */
+  let atHeadingEnd = false;
+  try{
+    if(insertAfterEl && insertAfterEl.parentNode===body && rangeForInsertion){
+      const run = getLineRunAt(body, insertAfterEl);
+      if(runIsBoldHeading(run)){
+        const tail = document.createRange();
+        tail.setStart(rangeForInsertion.endContainer, rangeForInsertion.endOffset);
+        tail.setEndAfter(run[run.length-1]);
+        atHeadingEnd = tail.toString().trim()==='';
+      }
+    }
+  } catch(e){ atHeadingEnd = false; }
+  return {left:left, top:top, insertAfterEl:insertAfterEl, atHeadingEnd:atHeadingEnd};
+}
+/* The run of top-level nodes that visually make up one text line around
+   `node` (a direct child of body): a lone <div>/<p>/<br>/free item is its
+   own line; otherwise it's the stretch of loose inline nodes (text, <b>...)
+   sitting between line breaks, which is how the very first line of a note
+   exists before the first Enter is ever pressed. */
+function getLineRunAt(body, node){
+  const stops = n=> isBlockLineEl(n) || isFreeWrapEl(n) || (n.nodeType===1 && n.tagName==='BR');
+  if(stops(node)) return [node];
+  const run = [node];
+  for(let p=node.previousSibling; p && !stops(p); p=p.previousSibling) run.unshift(p);
+  for(let n=node.nextSibling; n && !stops(n); n=n.nextSibling) run.push(n);
+  return run;
+}
+function runIsBoldHeading(run){
+  const tmp = document.createElement('div');
+  run.forEach(n=>tmp.appendChild(n.cloneNode(true)));
+  tmp.querySelectorAll(FREE_WRAP_SEL).forEach(w=>w.remove());
+  return (tmp.textContent||'').trim()!=='' && lineIsFullyBold(tmp);
+}
+/* Set by continueBelowHeadingAfterWrap when it relocated the caret, so a
+   caller that would otherwise restore the pre-dialog selection (the file-
+   picker path) knows not to undo it. */
+let imageInsertMovedCaret = false;
+/* A picture is position:absolute, so it takes up NO space in the text flow:
+   right after dropping one beside a bold heading, the caret is still at the
+   end of the heading's own line, and typing "on the next line" actually
+   extends the heading itself (making it no longer a fully-bold line, or
+   gluing the text onto the heading's name) — so what was typed never lands
+   in that heading's subtopic. Mirror what pressing Enter would have done:
+   put the caret on an empty, un-bolded line right below the heading
+   (reusing the blank line that's already there if there is one). Left
+   alone when real content already follows the picture, so nothing typed
+   ever gets spliced in front of existing text. */
+function continueBelowHeadingAfterWrap(body, wrapEl){
+  let n = wrapEl.nextSibling;
+  while(n && isFreeWrapEl(n)) n = n.nextSibling;
+  let target = null;
+  if(!n){
+    target = document.createElement('div');
+    target.appendChild(document.createElement('br'));
+    body.appendChild(target);
+  } else if(isBlockLineEl(n) && lineIsBlank(n)){
+    target = n;
+  } else {
+    return;
+  }
+  const sel = window.getSelection();
+  if(!sel) return;
+  body.focus({preventScroll:true});
+  const r = document.createRange();
+  r.setStart(target, 0);
+  r.collapse(true);
+  sel.removeAllRanges();
+  sel.addRange(r);
+  delete richActiveBold[body.id];
+  delete richActiveColor[body.id];
+  imageInsertMovedCaret = true;
 }
 function insertImageChipAtSelection(bodyId, dataUrl, spot){
   const body = document.getElementById(bodyId);
@@ -6341,6 +6414,10 @@ function insertImageChipAtSelection(bodyId, dataUrl, spot){
   } else {
     body.appendChild(wrapEl);
   }
+  imageInsertMovedCaret = false;
+  if(spot.atHeadingEnd && insertAfterEl && wrapEl.parentNode===body && insertAfterEl.parentNode===body){
+    continueBelowHeadingAfterWrap(body, wrapEl);
+  }
   ensureImageContainerFits(body);
   body.dispatchEvent(new Event('input', {bubbles:true}));
   // Handed back so a caller (App.insertRichImage / App.handleRichBodyPaste)
@@ -6376,6 +6453,19 @@ App.insertRichImage = function(event, bodyId){
       const body = document.getElementById(bodyId);
       if(body) body.focus();
       const imgEl = insertImageChipAtSelection(bodyId, dataUrl, pendingRichImageSpot);
+      // The native file dialog can leave the caret reset (Safari tends to
+      // drop it at the very start of the field) — put it back where the
+      // person was, unless the insert already parked it on a fresh line.
+      if(body && pendingRichImageRange && !imageInsertMovedCaret){
+        try{
+          const rs = pendingRichImageRange;
+          if(body.contains(rs.startContainer) && body.contains(rs.endContainer)){
+            const sel2 = window.getSelection();
+            sel2.removeAllRanges();
+            sel2.addRange(rs);
+          }
+        } catch(e){}
+      }
       pendingRichImageRange = null;
       pendingRichImageSpot = null;
       uploadAndSwapImageSrc(imgEl, dataUrl, bodyId);
@@ -9322,7 +9412,71 @@ App.nextNotesTopic = function(){
    (an empty line is a lone <div><br></div>), and Shift+Enter inserts a <br>
    without starting a new top-level node. Returns an array of elements whose
    .textContent/.innerHTML represent one line each, in document order. */
+/* Free-placed items (picture / arrow / text box — .rt-img-wrap etc.) are
+   modeled everywhere in the subtopic parsing as their OWN top-level
+   "line", never nested inside a text line. Our own insertion code always
+   puts them there, but the BROWSER can end up nesting one inside a text
+   line afterward — most notably WebKit/Safari when Enter is pressed (or
+   text is typed) right after a picture dropped next to a bold heading:
+   it wraps the heading AND the neighboring wrap in one <div>
+   (`<div><b>Heading</b>[wrap]</div>`), or leaves typed text in the same
+   block (`<div><b>Heading</b>[wrap]text</div>`). The wrap's own handle
+   glyphs (⠿ ×) then count as non-bold text inside that line, so the
+   heading stops being a "fully bold" line and the whole subtopic (or at
+   least everything typed after the picture) silently drops out.
+   This restores the invariant the rest of the parsing assumes: every
+   free-placed item is a direct child of `container`. When the wrap is a
+   direct child of a text line it also acts as the line break it visually
+   is (the line is split around it — `A[wrap]B` becomes `A`,`[wrap]`,`B`),
+   exactly like loose text on either side of a top-level wrap already
+   behaves. Deeper-nested wraps are just lifted out after their line.
+   A line left holding nothing but a placeholder <br> is dropped (the wrap
+   itself now stands in as that line, so the blank-line count is
+   unchanged). Skipped for a line the live caret is currently inside, so
+   it can never yank the node the person is typing in. */
+const FREE_WRAP_SEL = '.rt-img-wrap,.rt-arrow-wrap,.rt-textbox-wrap';
+function isFreeWrapEl(n){ return !!(n && n.nodeType===1 && n.matches && n.matches(FREE_WRAP_SEL)); }
+function isBlockLineEl(n){ return !!(n && n.nodeType===1 && (n.tagName==='DIV'||n.tagName==='P')); }
+function nodeHasRealContent(n){
+  if(n.nodeType===3) return (n.textContent||'').trim()!=='';
+  if(n.nodeType!==1) return false;
+  if(n.tagName==='BR') return false;
+  return true;
+}
+function hoistNestedFreeWraps(container){
+  const live = container.isConnected;
+  const sel = live ? window.getSelection() : null;
+  const anchors = new Map();
+  Array.from(container.querySelectorAll(FREE_WRAP_SEL)).forEach(wrap=>{
+    if(wrap.parentNode===container) return;
+    const owner = wrap.parentNode && wrap.parentNode.closest ? wrap.parentNode.closest(FREE_WRAP_SEL) : null;
+    if(owner && container.contains(owner)) return; // belongs to a text box's own content
+    let top = wrap;
+    while(top.parentNode && top.parentNode!==container) top = top.parentNode;
+    if(top.parentNode!==container) return;
+    if(sel && sel.anchorNode && top.contains(sel.anchorNode)) return;
+    if(wrap.parentNode===top && isBlockLineEl(top)){
+      const tailNodes = [];
+      for(let x=wrap.nextSibling; x; x=x.nextSibling) tailNodes.push(x);
+      let tail = null;
+      if(tailNodes.some(nodeHasRealContent)){
+        tail = top.cloneNode(false);
+        tailNodes.forEach(x=>tail.appendChild(x));
+      } else {
+        tailNodes.forEach(x=>x.remove());
+      }
+      container.insertBefore(wrap, top.nextSibling);
+      if(tail) container.insertBefore(tail, wrap.nextSibling);
+      if(!Array.from(top.childNodes).some(nodeHasRealContent)) top.remove();
+    } else {
+      const anchor = anchors.get(top) || top;
+      container.insertBefore(wrap, anchor.nextSibling);
+      anchors.set(top, wrap);
+    }
+  });
+}
 function getNotesTopLevelLines(container){
+  hoistNestedFreeWraps(container);
   const lines = [];
   let bucket = [];
   /* Loose top-level content with no wrapping <div>/<p> of its own (see the
