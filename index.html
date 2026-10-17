@@ -6279,6 +6279,7 @@ function computeRichInsertionSpot(bodyId, anchorRange){
   // back to null (append at the very end) whenever no usable range/line can
   // be found, e.g. an empty field with no selection at all.
   let insertAfterEl = null;
+  let insertAtStart = false;
   const rangeForInsertion = (anchorRange || (function(){
     const sel = window.getSelection();
     return (sel && sel.rangeCount>0 && body.contains(sel.anchorNode)) ? sel.getRangeAt(0) : null;
@@ -6288,6 +6289,10 @@ function computeRichInsertionSpot(bodyId, anchorRange){
     if(node === body){
       const idx = rangeForInsertion.startOffset;
       insertAfterEl = idx>0 ? body.childNodes[idx-1] : null;
+      /* caret at the very beginning of a non-empty note: the picture goes
+         BEFORE the first node, not (as a null insertAfterEl would mean)
+         appended to the very end of the note. */
+      if(!insertAfterEl && body.firstChild) insertAtStart = true;
     } else {
       while(node && node.parentNode !== body) node = node.parentNode;
       if(node && node.parentNode === body) insertAfterEl = node;
@@ -6308,7 +6313,39 @@ function computeRichInsertionSpot(bodyId, anchorRange){
       }
     }
   } catch(e){ atHeadingEnd = false; }
-  return {left:left, top:top, insertAfterEl:insertAfterEl, atHeadingEnd:atHeadingEnd};
+  /* A node reference alone is fragile: the field's DOM can be rebuilt from
+     the saved HTML between capturing this spot and actually inserting (the
+     autosave's renderAll() while the file dialog / the async read+downscale
+     is still going), which detaches insertAfterEl — and the picture then
+     used to fall through to "append at the very end of the note", i.e. into
+     whatever subtopic comes LAST instead of the one the caret was in. So
+     also remember where that line sat (child index + its text) so the
+     insert can find the equivalent line in a rebuilt DOM. */
+  let insertIndex = -1, insertText = null, insertType = null;
+  if(insertAfterEl && insertAfterEl.parentNode===body){
+    insertIndex = Array.prototype.indexOf.call(body.childNodes, insertAfterEl);
+    insertText = insertAfterEl.textContent||'';
+    insertType = insertAfterEl.nodeType===1 ? insertAfterEl.tagName : '#text';
+  }
+  return {left:left, top:top, insertAfterEl:insertAfterEl, insertAtStart:insertAtStart,
+          insertIndex:insertIndex, insertText:insertText, insertType:insertType, atHeadingEnd:atHeadingEnd};
+}
+/* Finds, in the field's CURRENT children, the line a captured spot meant —
+   the original node if it is still there, else the child at the same index
+   with the same text, else any child of the same kind with the same text. */
+function resolveSpotAnchor(body, spot){
+  if(spot.insertAfterEl && spot.insertAfterEl.parentNode===body) return spot.insertAfterEl;
+  if(spot.insertIndex>=0){
+    const kids = body.childNodes;
+    const typeOf = n=> n.nodeType===1 ? n.tagName : '#text';
+    const at = kids[spot.insertIndex];
+    if(at && typeOf(at)===spot.insertType && (at.textContent||'')===spot.insertText) return at;
+    for(let i=0;i<kids.length;i++){
+      if(typeOf(kids[i])===spot.insertType && (kids[i].textContent||'')===spot.insertText) return kids[i];
+    }
+    if(at) return at;
+  }
+  return null;
 }
 /* The run of top-level nodes that visually make up one text line around
    `node` (a direct child of body): a lone <div>/<p>/<br>/free item is its
@@ -6380,7 +6417,7 @@ function insertImageChipAtSelection(bodyId, dataUrl, spot){
     spot = computeRichInsertionSpot(bodyId, spot || null) || {left:12, top:12, insertAfterEl:null};
   }
   let left = spot.left, top = spot.top;
-  const insertAfterEl = spot.insertAfterEl;
+  const insertAfterEl = resolveSpotAnchor(body, spot);
   // Stagger repeated inserts landing at (roughly) the same spot so they
   // don't stack exactly on top of one another.
   const existingCount = body.querySelectorAll('.rt-img-wrap').length;
@@ -6411,6 +6448,8 @@ function insertImageChipAtSelection(bodyId, dataUrl, spot){
   const wrapEl = temp.firstElementChild;
   if(insertAfterEl && insertAfterEl.parentNode === body){
     body.insertBefore(wrapEl, insertAfterEl.nextSibling);
+  } else if(spot.insertAtStart && body.firstChild){
+    body.insertBefore(wrapEl, body.firstChild);
   } else {
     body.appendChild(wrapEl);
   }
