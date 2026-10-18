@@ -9786,6 +9786,19 @@ function makeDetachedLineMetrics(lineEls, width){
    data-rt-ty is its `top` at the time it was tagged, so dragging it
    anywhere makes the tag stale and it gets re-assigned from where it now
    sits. */
+function freeWrapHeight(wrap){
+  if(!wrap) return 0;
+  const live = wrap.offsetHeight;
+  if(live>0) return live;
+  const d = parseFloat(wrap.dataset && wrap.dataset.rtH);
+  return isFinite(d) && d>0 ? d : 0;
+}
+function freeWrapLeft(wrap){
+  const st = wrap.getAttribute('style')||'';
+  if(/position\s*:\s*absolute/i.test(st)){ const l = parseFloat(wrap.style.left); if(isFinite(l)) return l; }
+  const m = parseFloat(wrap.dataset && wrap.dataset.rtMainLeft);
+  return isFinite(m) ? m : null;
+}
 function freeWrapTag(wrap, top){
   const sec = wrap.dataset && wrap.dataset.rtSec;
   if(!sec || top===null || top===undefined) return null;
@@ -9800,6 +9813,7 @@ function tagFreeWrapsInLiveNotes(topicArea, newWrap){
   const pick = root=>Array.from(root.querySelectorAll(FREE_WRAP_SEL)).filter(w=>!(w.parentNode && w.parentNode.closest && w.parentNode.closest(FREE_WRAP_SEL)));
   const liveWraps = pick(topicArea);
   if(!liveWraps.length) return;
+  liveWraps.forEach(w=>{ if(w.offsetHeight>0) w.dataset.rtH = String(Math.round(w.offsetHeight)); });
   const clone = topicArea.cloneNode(true);
   clone.removeAttribute('id');
   const cloneWraps = pick(clone);
@@ -9808,7 +9822,7 @@ function tagFreeWrapsInLiveNotes(topicArea, newWrap){
   cloneWraps.forEach((cw,i)=>{ const tp = absTopFromStyle(liveWraps[i]); if(tp!==null) tops.set(cw, tp); });
   const lineEls = getNotesTopLevelLines(clone);
   const metrics = makeDetachedLineMetrics(lineEls, topicArea.offsetWidth);
-  const sections = analyzeAutoSections(lineEls, el=> tops.has(el) ? tops.get(el) : null, metrics, el=>freeWrapTag(el, tops.has(el)?tops.get(el):null));
+  const sections = analyzeAutoSections(lineEls, el=> tops.has(el) ? tops.get(el) : null, metrics, el=>freeWrapTag(el, tops.has(el)?tops.get(el):null), freeWrapHeight);
   const owner = new Map();
   sections.forEach(sec=>sec.wraps.forEach(w=>owner.set(w, sec.name)));
   // A just-inserted item belongs to the subtopic whose lines it was put
@@ -9834,7 +9848,7 @@ function tagFreeWrapsInLiveNotes(topicArea, newWrap){
    absolutely placed pictures/arrows/text boxes that belong to it, in
    document order. absTopOf(el) -> the item's top (null if it is not
    absolutely placed); metricOf(el) -> {top,bottom}|null. */
-function analyzeAutoSections(lineEls, absTopOf, metricOf, tagOf){
+function analyzeAutoSections(lineEls, absTopOf, metricOf, tagOf, heightOf){
   const isAbsWrap = el=> isFreeWrapEl(el) && absTopOf(el)!==null;
   const sections = [];
   const structOwner = new Map();
@@ -9876,22 +9890,59 @@ function analyzeAutoSections(lineEls, absTopOf, metricOf, tagOf){
       }
       if(end!==null) sec.range = {start: hm.top, end};
     });
-    absWraps.forEach(w=>{
+    const assigned = new Map();
+    const give = (w, sec)=>{ assigned.set(w, sec); sec.wraps.push(w); };
+    const hOf = w=> (heightOf ? heightOf(w) : 0) || 0;
+    // an item that sits against (overlaps / is stacked right under) an item
+    // already placed in a subtopic — two pictures joined into one block —
+    // belongs with it, even when its own top lies below the subtopic's text
+    const touching = (w, pool)=>{
       const y = absTopOf(w);
-      // 1) the subtopic it was put into (data-rt-sec, see tagFreeWrapsInLiveNotes)
-      //    — text typed above it later pushes the lines down but not the
-      //    absolutely placed item, so where it sits on screen can drift
-      //    into a neighbouring subtopic; the tag keeps it where it belongs.
-      let target = null;
+      for(const o of pool){
+        if(o===w) continue;
+        const sec = assigned.get(o); if(!sec) continue;
+        const oy = absTopOf(o), oh = hOf(o);
+        if(!(oh>0 && y>=oy+oh-12 && y<=oy+oh+10)) continue;   // starts right where that item ends
+        const xl = freeWrapLeft(w), ol = freeWrapLeft(o);
+        if(xl===null || ol===null || Math.abs(xl-ol)<=24) return sec;   // and lines up with it
+      }
+      return null;
+    };
+    const rest = [];
+    // 1) the subtopic it was put into (data-rt-sec, see tagFreeWrapsInLiveNotes)
+    //    — text typed above it later pushes the lines down but not the
+    //    absolutely placed item, so where it sits on screen can drift
+    //    into a neighbouring subtopic; the tag keeps it where it belongs.
+    absWraps.forEach(w=>{
       const tg = tagOf ? tagOf(w) : null;
-      if(tg) target = sections.find(sec=>sec.name===tg) || null;
-      // 2) otherwise where it sits on screen
+      const sec = tg ? sections.find(x=>x.name===tg) : null;
+      if(sec) give(w, sec); else rest.push(w);
+    });
+    const pending = [];
+    rest.forEach(w=>{
+      const y = absTopOf(w);
+      // 2) snapped against an item whose subtopic is known
+      let target = touching(w, absWraps.filter(o=>assigned.has(o)));
+      // 3) otherwise where it sits on screen
       if(!target) target = sections.find(sec=> sec.range && y>=sec.range.start && y<sec.range.end);
       // a hair above the heading's line box still counts for that heading
       if(!target) target = sections.find(sec=> sec.range && y>=sec.range.start-6 && y<sec.range.start);
-      if(!target) target = structOwner.get(w) || null;
-      if(target) target.wraps.push(w);
+      if(target) give(w, target); else pending.push(w);
     });
+    // 4) chains: a block of stacked items hanging below the subtopic's text
+    let left = pending.slice(), progress = true;
+    while(left.length && progress){
+      progress = false;
+      left = left.filter(w=>{
+        const t = touching(w, absWraps.filter(o=>assigned.has(o)));
+        if(t){ give(w, t); progress = true; return false; }
+        return true;
+      });
+    }
+    // 5) last resort: where it sits in the DOM
+    left.forEach(w=>{ const t = structOwner.get(w); if(t) give(w, t); });
+    // keep document order inside each subtopic
+    sections.forEach(sec=>{ sec.wraps.sort((a,b)=> (a.compareDocumentPosition(b)&Node.DOCUMENT_POSITION_FOLLOWING)?-1:1); });
   } else {
     // nothing absolute: nothing to place (kept for symmetry)
   }
@@ -9980,7 +10031,7 @@ function parseAutoSubtopicSections(notesHtml, opts){
   const lineEls = getNotesTopLevelLines(container);
   const width = (opts && opts.width) || null;
   const metrics = makeDetachedLineMetrics(lineEls, width);
-  const sections = analyzeAutoSections(lineEls, el=> absTops.has(el) ? absTops.get(el) : null, metrics, el=>freeWrapTag(el, absTops.has(el)?absTops.get(el):null));
+  const sections = analyzeAutoSections(lineEls, el=> absTops.has(el) ? absTops.get(el) : null, metrics, el=>freeWrapTag(el, absTops.has(el)?absTops.get(el):null), freeWrapHeight);
   return sections.map(sec=>({
     name: sec.name,
     html: sec.lines.concat(sec.wraps).map(l=>l.outerHTML).join('')
@@ -10048,7 +10099,7 @@ App.toggleRecallReveal = function(nodeId){
    list was drawn). */
 function findAutoSectionLineEls(topicArea, headingName){
   const lineEls = getNotesTopLevelLines(topicArea);
-  const sections = analyzeAutoSections(lineEls, absTopFromStyle, liveLineMetrics(topicArea), el=>freeWrapTag(el, absTopFromStyle(el)));
+  const sections = analyzeAutoSections(lineEls, absTopFromStyle, liveLineMetrics(topicArea), el=>freeWrapTag(el, absTopFromStyle(el)), freeWrapHeight);
   const sec = sections.find(x=>x.name===headingName);
   if(!sec) return null;
   // contentEls = everything that belongs to the subtopic (its text lines AND
