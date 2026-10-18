@@ -6552,6 +6552,7 @@ function insertImageChipAtSelection(bodyId, dataUrl, spot){
     continueBelowHeadingAfterWrap(body, wrapEl);
   }
   ensureImageContainerFits(body);
+  if(bodyId==='topicNotesArea') tagFreeWrapsInLiveNotes(body, wrapEl);
   body.dispatchEvent(new Event('input', {bubbles:true}));
   // Handed back so a caller (App.insertRichImage / App.handleRichBodyPaste)
   // can swap this exact <img>'s src once its background Storage upload
@@ -7003,6 +7004,7 @@ App.insertRichArrow = function(bodyId){
   deselectArrowWrap();
   selectedArrowWrap = wrapEl;
   wrapEl.classList.add('rt-arrow-selected');
+  if(bodyId==='topicNotesArea') tagFreeWrapsInLiveNotes(body, wrapEl);
   body.dispatchEvent(new Event('input', {bubbles:true}));
 };
 /* Dragging either endpoint handle independently — this is the whole point
@@ -7225,6 +7227,7 @@ App.insertRichTextbox = function(bodyId){
     body.appendChild(wrapEl);
   }
   ensureImageContainerFits(body);
+  if(bodyId==='topicNotesArea') tagFreeWrapsInLiveNotes(body, wrapEl);
   body.dispatchEvent(new Event('input', {bubbles:true}));
   const textEl = wrapEl.querySelector('.rt-textbox-body');
   if(textEl){
@@ -9730,7 +9733,8 @@ function lineIsBlank(lineEl){
    SITS in the note (its top edge against each subtopic's vertical extent:
    from the bold heading down to the closing blank gap), and only falls back
    to the DOM order when it can't be measured or sits outside every
-   subtopic's extent. Absolute items are also ignored when counting blank
+   subtopic's extent. (An item that was already assigned remembers its
+   subtopic — see tagFreeWrapsInLiveNotes — and that wins over all of this.) Absolute items are also ignored when counting blank
    lines (they take no room, so they neither end nor extend a gap). */
 function absTopFromStyle(wrap){
   const st = wrap.getAttribute('style')||'';
@@ -9777,13 +9781,60 @@ function makeDetachedLineMetrics(lineEls, width){
   }
   return el=> out.get(el) || null;
 }
+/* The remembered subtopic of a free-placed item: data-rt-sec (the heading it
+   was put under) is only trusted while the item hasn't been MOVED since —
+   data-rt-ty is its `top` at the time it was tagged, so dragging it
+   anywhere makes the tag stale and it gets re-assigned from where it now
+   sits. */
+function freeWrapTag(wrap, top){
+  const sec = wrap.dataset && wrap.dataset.rtSec;
+  if(!sec || top===null || top===undefined) return null;
+  return String(Math.round(top))===wrap.dataset.rtTy ? sec : null;
+}
+/* Stamps every picture / arrow / text box of the LIVE notes field with the
+   subtopic it currently belongs to (data-rt-sec + data-rt-ty). Done on a
+   detached clone so the person's caret / typing is never disturbed. Run on
+   insert, on every save and on the live recall refresh. */
+function tagFreeWrapsInLiveNotes(topicArea, newWrap){
+  if(!topicArea) return;
+  const pick = root=>Array.from(root.querySelectorAll(FREE_WRAP_SEL)).filter(w=>!(w.parentNode && w.parentNode.closest && w.parentNode.closest(FREE_WRAP_SEL)));
+  const liveWraps = pick(topicArea);
+  if(!liveWraps.length) return;
+  const clone = topicArea.cloneNode(true);
+  clone.removeAttribute('id');
+  const cloneWraps = pick(clone);
+  if(cloneWraps.length!==liveWraps.length) return;
+  const tops = new Map();
+  cloneWraps.forEach((cw,i)=>{ const tp = absTopFromStyle(liveWraps[i]); if(tp!==null) tops.set(cw, tp); });
+  const lineEls = getNotesTopLevelLines(clone);
+  const metrics = makeDetachedLineMetrics(lineEls, topicArea.offsetWidth);
+  const sections = analyzeAutoSections(lineEls, el=> tops.has(el) ? tops.get(el) : null, metrics, el=>freeWrapTag(el, tops.has(el)?tops.get(el):null));
+  const owner = new Map();
+  sections.forEach(sec=>sec.wraps.forEach(w=>owner.set(w, sec.name)));
+  // A just-inserted item belongs to the subtopic whose lines it was put
+  // among (not wherever its on-screen spot ends up — a staggered insert can
+  // land a few lines lower and visually spill into the next subtopic).
+  if(newWrap){
+    const i = liveWraps.indexOf(newWrap);
+    const so = i>=0 ? sections.structOwner.get(cloneWraps[i]) : null;
+    if(so) owner.set(cloneWraps[i], so.name);
+  }
+  cloneWraps.forEach((cw,i)=>{
+    const live = liveWraps[i];
+    const tp = tops.get(cw);
+    const name = owner.get(cw);
+    if(tp===undefined || !name){ delete live.dataset.rtSec; delete live.dataset.rtTy; return; }
+    live.dataset.rtSec = name;
+    live.dataset.rtTy = String(Math.round(tp));
+  });
+}
 /* Walks the top-level lines of a note (live or detached) and returns one
    record per bold heading: {name, headingEl, lines, wraps}. `lines` are the
    subtopic's own lines (text, plus any old in-flow picture); `wraps` are the
    absolutely placed pictures/arrows/text boxes that belong to it, in
    document order. absTopOf(el) -> the item's top (null if it is not
    absolutely placed); metricOf(el) -> {top,bottom}|null. */
-function analyzeAutoSections(lineEls, absTopOf, metricOf){
+function analyzeAutoSections(lineEls, absTopOf, metricOf, tagOf){
   const isAbsWrap = el=> isFreeWrapEl(el) && absTopOf(el)!==null;
   const sections = [];
   const structOwner = new Map();
@@ -9827,7 +9878,15 @@ function analyzeAutoSections(lineEls, absTopOf, metricOf){
     });
     absWraps.forEach(w=>{
       const y = absTopOf(w);
-      let target = sections.find(sec=> sec.range && y>=sec.range.start && y<sec.range.end);
+      // 1) the subtopic it was put into (data-rt-sec, see tagFreeWrapsInLiveNotes)
+      //    — text typed above it later pushes the lines down but not the
+      //    absolutely placed item, so where it sits on screen can drift
+      //    into a neighbouring subtopic; the tag keeps it where it belongs.
+      let target = null;
+      const tg = tagOf ? tagOf(w) : null;
+      if(tg) target = sections.find(sec=>sec.name===tg) || null;
+      // 2) otherwise where it sits on screen
+      if(!target) target = sections.find(sec=> sec.range && y>=sec.range.start && y<sec.range.end);
       // a hair above the heading's line box still counts for that heading
       if(!target) target = sections.find(sec=> sec.range && y>=sec.range.start-6 && y<sec.range.start);
       if(!target) target = structOwner.get(w) || null;
@@ -9836,6 +9895,7 @@ function analyzeAutoSections(lineEls, absTopOf, metricOf){
   } else {
     // nothing absolute: nothing to place (kept for symmetry)
   }
+  sections.structOwner = structOwner;
   return sections;
 }
 /* Parses sanitized notes HTML into {name, html} sections — one per detected
@@ -9920,7 +9980,7 @@ function parseAutoSubtopicSections(notesHtml, opts){
   const lineEls = getNotesTopLevelLines(container);
   const width = (opts && opts.width) || null;
   const metrics = makeDetachedLineMetrics(lineEls, width);
-  const sections = analyzeAutoSections(lineEls, el=> absTops.has(el) ? absTops.get(el) : null, metrics);
+  const sections = analyzeAutoSections(lineEls, el=> absTops.has(el) ? absTops.get(el) : null, metrics, el=>freeWrapTag(el, absTops.has(el)?absTops.get(el):null));
   return sections.map(sec=>({
     name: sec.name,
     html: sec.lines.concat(sec.wraps).map(l=>l.outerHTML).join('')
@@ -9988,7 +10048,7 @@ App.toggleRecallReveal = function(nodeId){
    list was drawn). */
 function findAutoSectionLineEls(topicArea, headingName){
   const lineEls = getNotesTopLevelLines(topicArea);
-  const sections = analyzeAutoSections(lineEls, absTopFromStyle, liveLineMetrics(topicArea));
+  const sections = analyzeAutoSections(lineEls, absTopFromStyle, liveLineMetrics(topicArea), el=>freeWrapTag(el, absTopFromStyle(el)));
   const sec = sections.find(x=>x.name===headingName);
   if(!sec) return null;
   // contentEls = everything that belongs to the subtopic (its text lines AND
@@ -10226,6 +10286,7 @@ function refreshAutoSubtopicRecallListLive(){
   const s = state.subjects.find(x=>x.id===state.activeSubjectId);
   const tp = s && s.topics.find(x=>x.id===state.notesTopicId);
   if(!tp) return;
+  tagFreeWrapsInLiveNotes(topicArea);
   tp.notes = sanitizeRichHtml(normalizeRichColorBold(topicArea));
   syncAutoSubtopicsFromNotes(tp);
   scheduleNotesAutosave();
@@ -10258,6 +10319,7 @@ function saveAllNotes(recordHistorySnapshot){
   let newNotes = tp.notes;
   if(topicArea){
     applyRecallEditsIntoNotesDom(topicArea);
+    tagFreeWrapsInLiveNotes(topicArea);
     newNotes = sanitizeRichHtml(normalizeRichColorBold(topicArea));
   }
   /* Snapshot every manual subtopic's note field BEFORE anything is mutated —
