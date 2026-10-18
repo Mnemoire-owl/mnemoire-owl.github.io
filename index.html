@@ -347,6 +347,14 @@
     pointer-events:none;word-break:break-word;
   }
   .rich-tag-tooltip.show{opacity:1;visibility:visible;transform:translateY(0);pointer-events:auto;}
+  /* Invisible "bridge": the tooltip floats ~8px away from the tag (above or
+     below it), and the pointer used to leave the hover group while crossing
+     that gap, so the tooltip vanished before its ✏️/✕ buttons could be
+     reached. These transparent strips extend the tooltip's own hit area over
+     the gap on both sides (it can sit above OR below the tag). */
+  .rich-tag-tooltip::before,.rich-tag-tooltip::after{content:'';position:absolute;left:-6px;right:-6px;height:16px;}
+  .rich-tag-tooltip::before{top:-16px;}
+  .rich-tag-tooltip::after{bottom:-16px;}
   .rich-tag-tooltip-text{flex:1;min-width:0;padding-top:1px;}
   .rich-tag-tooltip-actions{display:flex;gap:2px;flex:none;}
   /* One-click edit/delete right inside the tooltip that's already showing
@@ -5776,9 +5784,25 @@ App.applyRichTag = function(bodyId){
 const RICH_TAG_HOVER_DELAY_MS = 550;
 let richTagHoverTimer = null;
 let richTagHoverEl = null;
+/* Leaving the tag / tooltip does not close the tooltip at once: a short grace
+   period (RICH_TAG_HIDE_GRACE_MS) lets the pointer cross the gap and land on
+   the ✏️/✕ buttons, and re-entering either cancels the pending close.
+   Clicking a tag PINS its tooltip (richTagPinned) so it stays put — no
+   pointer-chasing at all — until the next mousedown elsewhere, an edit, or
+   scrolling the tag out of view. */
+const RICH_TAG_HIDE_GRACE_MS = 450;
+let richTagHideTimer = null;
+let richTagPinned = false;
+function cancelRichTagHide(){ clearTimeout(richTagHideTimer); richTagHideTimer = null; }
+function scheduleRichTagHide(){
+  cancelRichTagHide();
+  richTagHideTimer = setTimeout(hideRichTagTooltip, RICH_TAG_HIDE_GRACE_MS);
+}
 function hideRichTagTooltip(){
   clearTimeout(richTagHoverTimer);
   richTagHoverTimer = null;
+  cancelRichTagHide();
+  richTagPinned = false;
   richTagHoverEl = null;
   const tip = document.getElementById('richTagTooltip');
   if(tip) tip.classList.remove('show');
@@ -5799,6 +5823,7 @@ function showRichTagTooltip(el){
     document.body.appendChild(tip);
   }
   tip.querySelector('.rich-tag-tooltip-text').textContent = el.getAttribute('data-tag') || '';
+  cancelRichTagHide();
   tip.classList.add('show');
   // Measure AFTER the text is in place (and before hiding), so the tooltip's
   // own width/height are accurate for clamping it inside the viewport.
@@ -5812,9 +5837,14 @@ function showRichTagTooltip(el){
   tip.style.top = top + 'px';
 }
 document.addEventListener('mouseover', function(e){
+  // Pointer is (back) on the tooltip itself: cancel any pending close.
+  if(e.target.closest && e.target.closest('.rich-tag-tooltip')){ cancelRichTagHide(); return; }
   const tag = e.target.closest && e.target.closest('.rich-tag');
-  if(!tag || tag===richTagHoverEl) return;
+  if(!tag) return;
+  if(tag===richTagHoverEl){ cancelRichTagHide(); return; }
   clearTimeout(richTagHoverTimer);
+  cancelRichTagHide();
+  richTagPinned = false;
   richTagHoverEl = tag;
   richTagHoverTimer = setTimeout(()=>{ if(richTagHoverEl===tag) showRichTagTooltip(tag); }, RICH_TAG_HOVER_DELAY_MS);
 });
@@ -5831,8 +5861,30 @@ document.addEventListener('mouseout', function(e){
   const goingTo = e.relatedTarget;
   if(richTagHoverEl && richTagHoverEl.contains(goingTo)) return; // back onto the tag
   if(tip && tip.contains(goingTo)) return; // onto the tooltip (or between its own children)
-  hideRichTagTooltip();
+  if(richTagPinned) return; // pinned by a click: stays until a mousedown elsewhere
+  if(tip && tip.classList.contains('show')) scheduleRichTagHide(); // grace period, see above
+  else hideRichTagTooltip(); // still dwelling (nothing shown yet): just cancel
 });
+// Clicking a tagged word pins its tooltip open (see richTagPinned). The
+// mousedown listener below closes any open tooltip first, so by the time this
+// click fires there is a clean slate to show the pinned one on. Only for a
+// plain click (no drag-selection in progress).
+document.addEventListener('click', function(e){
+  if(e.target.closest && e.target.closest('.rich-tag-tooltip')) return;
+  const tag = e.target.closest && e.target.closest('.rich-tag');
+  if(!tag || !document.body.contains(tag)) return;
+  const sel = window.getSelection();
+  if(sel && !sel.isCollapsed) return;
+  clearTimeout(richTagHoverTimer);
+  richTagHoverEl = tag;
+  showRichTagTooltip(tag);
+  richTagPinned = true;
+});
+// Typing inside the note closes a pinned tooltip (it would otherwise hang
+// over the text being edited).
+document.addEventListener('input', function(e){
+  if(richTagPinned && e.target && e.target.closest && e.target.closest('.rich-body')) hideRichTagTooltip();
+}, true);
 // Scroll does NOT cancel the pending dwell timer or the already-shown
 // tooltip outright — only repositions (or hides, if the tag scrolled fully
 // out of view) — because scroll events fire for all sorts of reasons that
@@ -6255,12 +6307,54 @@ function computeRichInsertionSpot(bodyId, anchorRange){
   const bodyRect = body.getBoundingClientRect();
   let left = 12, top = 12;
   let rect = null;
+  const usableRect = function(r){ return !!(r && (r.width || r.height)); };
+  /* Where a collapsed caret is on screen. A collapsed Range has NO client
+     rect on an empty line (<div><br></div>) — and in Safari/WebKit not in
+     the middle of text either — so a bare getClientRects() came back empty
+     and the picture fell through to the hard-coded (12,12), the TOP-LEFT of
+     the note, no matter where the caret really was. So: try the caret
+     itself, then a one-character range right next to it (a real glyph box),
+     then the caret's own line/element box — still on the right line, which
+     is all that matters for a free-placed picture. */
   const rangeToRect = function(range){
     try{
       const r = range.cloneRange();
       r.collapse(true);
-      const rects = r.getClientRects();
-      return (rects && rects[0]) || r.getBoundingClientRect();
+      let rects = r.getClientRects();
+      if(rects && rects[0] && usableRect(rects[0])) return rects[0];
+      const bb = r.getBoundingClientRect();
+      if(usableRect(bb)) return bb;
+      const sc = r.startContainer, so = r.startOffset;
+      if(sc.nodeType===3){
+        const len = (sc.nodeValue||'').length;
+        const probe = document.createRange();
+        if(so>0){
+          probe.setStart(sc, so-1); probe.setEnd(sc, so);
+          const pr = probe.getClientRects();
+          const last = pr && pr[pr.length-1];
+          if(usableRect(last)) return {left:last.right, top:last.top, width:0, height:last.height};
+        }
+        if(so<len){
+          probe.setStart(sc, so); probe.setEnd(sc, so+1);
+          const pr = probe.getClientRects();
+          if(pr && usableRect(pr[0])) return pr[0];
+        }
+      }
+      let el = sc.nodeType===1 ? sc : sc.parentNode;
+      if(sc.nodeType===1){
+        const kid = sc.childNodes[so] || sc.childNodes[so-1];
+        if(kid && kid.nodeType===1) el = kid;
+        else if(kid && kid.nodeType===3){
+          const pr = document.createRange(); pr.selectNodeContents(kid);
+          const rr = pr.getClientRects();
+          if(rr && usableRect(rr[0])) return rr[0];
+        }
+      }
+      if(el && el.nodeType===1){
+        const er = el.getBoundingClientRect();
+        if(usableRect(er)) return er;
+      }
+      return null;
     } catch(e){ return null; }
   };
   if(anchorRange) rect = rangeToRect(anchorRange);
@@ -9624,6 +9718,126 @@ function lineIsBlank(lineEl){
   if(lineEl.matches && lineEl.matches('.rt-img-wrap,.rt-arrow-wrap,.rt-textbox-wrap')) return false;
   return !lineEl.querySelector('.rt-img-wrap,.rt-arrow-wrap,.rt-textbox-wrap');
 }
+/* ---- Which subtopic does a picture / arrow / text box belong to? ----
+   A free-placed item (see FREE_WRAP_SEL) is position:absolute: it takes up no
+   room in the text flow, so its place in the DOM order is close to
+   arbitrary — the browser keeps adding the lines typed AFTER it BEFORE it
+   (new Enter-lines are inserted after the caret's line, i.e. in front of a
+   picture that was dropped right behind that line), so a picture inserted
+   mid-subtopic and followed by more typing would end up structurally past
+   the double blank line, i.e. "outside" its subtopic, even though it sits
+   squarely inside it on screen. So membership is decided by WHERE THE ITEM
+   SITS in the note (its top edge against each subtopic's vertical extent:
+   from the bold heading down to the closing blank gap), and only falls back
+   to the DOM order when it can't be measured or sits outside every
+   subtopic's extent. Absolute items are also ignored when counting blank
+   lines (they take no room, so they neither end nor extend a gap). */
+function absTopFromStyle(wrap){
+  const st = wrap.getAttribute('style')||'';
+  if(!/position\s*:\s*absolute/i.test(st)) return null;
+  const tp = parseFloat(wrap.style.top);
+  return isFinite(tp) ? tp : null;
+}
+function liveLineMetrics(topicArea){
+  if(!topicArea || !(topicArea.offsetWidth>0)) return ()=>null;
+  return el=>{
+    if(!el || el.parentNode!==topicArea) return null;
+    return {top: el.offsetTop, bottom: el.offsetTop + el.offsetHeight};
+  };
+}
+/* Lays the (text) lines of a DETACHED container out in a hidden copy of the
+   note field so each line's top/bottom can be read — only done when the note
+   actually has an absolutely-placed item (otherwise nothing needs measuring).
+   The copy is removed again immediately. `width` falls back to the live
+   field's width; returns a function(lineEl) -> {top,bottom}|null. */
+function makeDetachedLineMetrics(lineEls, width){
+  const noMetrics = ()=>null;
+  if(!lineEls.some(el=>isFreeWrapEl(el))) return noMetrics;
+  const live = document.getElementById('topicNotesArea');
+  const w = (live && live.offsetWidth>0) ? live.offsetWidth : (width>0 ? width : 0);
+  if(!document.body || !(w>0)) return noMetrics;
+  const host = document.createElement('div');
+  host.className = 'rich-body';
+  host.setAttribute('aria-hidden','true');
+  host.style.cssText = 'position:absolute;left:-99999px;top:0;visibility:hidden;pointer-events:none;height:auto;min-height:0;width:'+w+'px;';
+  const clones = new Map();
+  lineEls.forEach(el=>{
+    if(isFreeWrapEl(el)) return;
+    const c = el.cloneNode(true);
+    if(!c.firstChild) c.innerHTML = '<br>';
+    host.appendChild(c);
+    clones.set(el, c);
+  });
+  document.body.appendChild(host);
+  const out = new Map();
+  try{
+    clones.forEach((c, el)=>{ out.set(el, {top: c.offsetTop, bottom: c.offsetTop + c.offsetHeight}); });
+  } finally {
+    host.remove();
+  }
+  return el=> out.get(el) || null;
+}
+/* Walks the top-level lines of a note (live or detached) and returns one
+   record per bold heading: {name, headingEl, lines, wraps}. `lines` are the
+   subtopic's own lines (text, plus any old in-flow picture); `wraps` are the
+   absolutely placed pictures/arrows/text boxes that belong to it, in
+   document order. absTopOf(el) -> the item's top (null if it is not
+   absolutely placed); metricOf(el) -> {top,bottom}|null. */
+function analyzeAutoSections(lineEls, absTopOf, metricOf){
+  const isAbsWrap = el=> isFreeWrapEl(el) && absTopOf(el)!==null;
+  const sections = [];
+  const structOwner = new Map();
+  let current = null, blankStreak = 0;
+  lineEls.forEach(lineEl=>{
+    if(isAbsWrap(lineEl)){
+      if(current) structOwner.set(lineEl, current);
+      return;
+    }
+    const text = (lineEl.textContent||'').trim();
+    if(text!=='' && lineIsFullyBold(lineEl)){
+      if(current && !current.end) current.end = {kind:'heading', el: lineEl};
+      current = { name: text, headingEl: lineEl, lines: [], wraps: [], end: null, range: null };
+      sections.push(current);
+      blankStreak = 0;
+      return;
+    }
+    if(!current) return;
+    if(lineIsBlank(lineEl)){
+      blankStreak++;
+      if(blankStreak>=2){ current.end = {kind:'gap', el: lineEl}; current = null; blankStreak = 0; return; }
+    } else {
+      blankStreak = 0;
+    }
+    current.lines.push(lineEl);
+  });
+  const absWraps = lineEls.filter(isAbsWrap);
+  if(absWraps.length){
+    sections.forEach(sec=>{
+      const hm = metricOf(sec.headingEl);
+      if(!hm) return;
+      let end = null;
+      if(sec.end){
+        const m = metricOf(sec.end.el);
+        if(m) end = sec.end.kind==='gap' ? m.bottom : m.top;
+      } else {
+        end = hm.bottom;
+        sec.lines.forEach(l=>{ const m = metricOf(l); if(m && m.bottom>end) end = m.bottom; });
+      }
+      if(end!==null) sec.range = {start: hm.top, end};
+    });
+    absWraps.forEach(w=>{
+      const y = absTopOf(w);
+      let target = sections.find(sec=> sec.range && y>=sec.range.start && y<sec.range.end);
+      // a hair above the heading's line box still counts for that heading
+      if(!target) target = sections.find(sec=> sec.range && y>=sec.range.start-6 && y<sec.range.start);
+      if(!target) target = structOwner.get(w) || null;
+      if(target) target.wraps.push(w);
+    });
+  } else {
+    // nothing absolute: nothing to place (kept for symmetry)
+  }
+  return sections;
+}
 /* Parses sanitized notes HTML into {name, html} sections — one per detected
    bold heading, with `html` holding everything below it (as real HTML, so
    colors/bold/etc. inside the body survive) up to the terminating gap. Text
@@ -9642,9 +9856,19 @@ function lineIsBlank(lineEl){
    coordinates, and re-derives them from wherever it actually rendered —
    the same mechanism that already handles pictures loaded from old,
    pre-absolute-positioning saves. */
-function parseAutoSubtopicSections(notesHtml){
+function parseAutoSubtopicSections(notesHtml, opts){
   const container = document.createElement('div');
   container.innerHTML = notesHtml || '';
+  // The main-note `top` of every free-placed item (picture / arrow / text
+  // box) that is positioned absolutely — captured BEFORE the loops below
+  // strip the inline positioning. It is what decides which subtopic an item
+  // belongs to (see analyzeAutoSections): where it SITS in the note, not
+  // where it happens to sit in the DOM order.
+  const absTops = new Map();
+  container.querySelectorAll(FREE_WRAP_SEL).forEach(wrap=>{
+    const tp = absTopFromStyle(wrap);
+    if(tp!==null) absTops.set(wrap, tp);
+  });
   // Before the (wrong-for-a-narrower-box) absolute coordinates are stripped,
   // remember where each free-placed item sat in the MAIN note
   // (data-rt-main-left/top — plain data attributes, which sanitizeRichHtml
@@ -9694,29 +9918,12 @@ function parseAutoSubtopicSections(notesHtml){
     wrap.style.top = '';
   });
   const lineEls = getNotesTopLevelLines(container);
-  const sections = [];
-  let current = null;
-  let blankStreak = 0;
-  lineEls.forEach(lineEl=>{
-    const text = (lineEl.textContent||'').trim();
-    if(text!=='' && lineIsFullyBold(lineEl)){
-      current = { name: text, lines: [] };
-      sections.push(current);
-      blankStreak = 0;
-      return;
-    }
-    if(!current) return;
-    if(lineIsBlank(lineEl)){
-      blankStreak++;
-      if(blankStreak>=2){ current = null; blankStreak = 0; return; }
-    } else {
-      blankStreak = 0;
-    }
-    current.lines.push(lineEl);
-  });
+  const width = (opts && opts.width) || null;
+  const metrics = makeDetachedLineMetrics(lineEls, width);
+  const sections = analyzeAutoSections(lineEls, el=> absTops.has(el) ? absTops.get(el) : null, metrics);
   return sections.map(sec=>({
     name: sec.name,
-    html: sec.lines.map(l=>l.outerHTML).join('')
+    html: sec.lines.concat(sec.wraps).map(l=>l.outerHTML).join('')
   }));
 }
 /* Upserts one auto-detected subtopic node per heading found in tp.notes right
@@ -9727,7 +9934,7 @@ function parseAutoSubtopicSections(notesHtml){
    completely alone — that person-authored subtopic and its own notes are
    never overwritten by this. */
 function syncAutoSubtopicsFromNotes(tp){
-  const sections = parseAutoSubtopicSections(tp.notes);
+  const sections = parseAutoSubtopicSections(tp.notes, {width: tp.notesCanvasWidth});
   const seenNames = new Set();
   sections.forEach(sec=>{
     if(seenNames.has(sec.name)) return; // duplicate heading name in one note — keep the first
@@ -9781,25 +9988,13 @@ App.toggleRecallReveal = function(nodeId){
    list was drawn). */
 function findAutoSectionLineEls(topicArea, headingName){
   const lineEls = getNotesTopLevelLines(topicArea);
-  let collecting = false, blankStreak = 0, headingEl = null;
-  const contentEls = [];
-  for(const lineEl of lineEls){
-    const text = (lineEl.textContent||'').trim();
-    if(text!=='' && lineIsFullyBold(lineEl)){
-      if(collecting) break; // the next heading ends the section we were collecting
-      if(text===headingName){ collecting = true; headingEl = lineEl; blankStreak = 0; }
-      continue;
-    }
-    if(!collecting) continue;
-    if(lineIsBlank(lineEl)){
-      blankStreak++;
-      if(blankStreak>=2) break;
-    } else {
-      blankStreak = 0;
-    }
-    contentEls.push(lineEl);
-  }
-  return headingEl ? {headingEl, contentEls} : null;
+  const sections = analyzeAutoSections(lineEls, absTopFromStyle, liveLineMetrics(topicArea));
+  const sec = sections.find(x=>x.name===headingName);
+  if(!sec) return null;
+  // contentEls = everything that belongs to the subtopic (its text lines AND
+  // its pictures/arrows/text boxes, wherever those sit in the DOM);
+  // textEls = just the lines that stay put as the subtopic's body.
+  return {headingEl: sec.headingEl, contentEls: sec.lines.concat(sec.wraps), textEls: sec.lines};
 }
 /* An open recall field is populated from node.notes, whose image/arrow/
    textbox wraps had their position stripped by parseAutoSubtopicSections
@@ -9837,7 +10032,7 @@ function restoreOriginalWrapPositions(liveContentEls, frag){
     if(el.classList && el.classList.contains('rt-img-wrap')){
       const img = el.querySelector('img');
       const src = img && img.getAttribute('src');
-      if(src) origImgsBySrc.set(src, el.getAttribute('style')||'');
+      if(src){ if(!origImgsBySrc.has(src)) origImgsBySrc.set(src, []); origImgsBySrc.get(src).push(el.getAttribute('style')||''); }
       return;
     }
     if(el.classList && el.classList.contains('rt-arrow-wrap')){
@@ -9861,7 +10056,10 @@ function restoreOriginalWrapPositions(liveContentEls, frag){
     if(el.classList && el.classList.contains('rt-img-wrap')){
       const img = el.querySelector('img');
       const src = img && img.getAttribute('src');
-      if(src && origImgsBySrc.has(src)) el.setAttribute('style', origImgsBySrc.get(src));
+      // The same picture can be on the note more than once (identical src) — hand
+      // out the saved positions in order so each copy keeps ITS OWN spot.
+      const q = src && origImgsBySrc.get(src);
+      if(q && q.length) el.setAttribute('style', q.shift());
       return;
     }
     if(el.classList && el.classList.contains('rt-arrow-wrap')){
@@ -9915,9 +10113,13 @@ function applyRecallEditsIntoNotesDom(topicArea){
     // the lines being removed) — using liveContentEls[0] itself here would
     // be pointing at a node we're about to detach, which insertBefore
     // rejects with "node ... is not a child of this node".
-    const insertBeforeEl = liveContentEls.length
-      ? liveContentEls[liveContentEls.length-1].nextSibling
-      : headingEl.nextSibling;
+    // (A picture that belongs to this subtopic can sit anywhere in the DOM,
+    // so anchor on the last real TEXT line of the section instead, and skip
+    // past any sibling that is itself about to be removed.)
+    const liveTextEls = (found.textEls||[]).filter(el=>topicArea.contains(el));
+    const anchorEl = liveTextEls.length ? liveTextEls[liveTextEls.length-1] : headingEl;
+    let insertBeforeEl = anchorEl.nextSibling;
+    while(insertBeforeEl && liveContentEls.indexOf(insertBeforeEl)!==-1) insertBeforeEl = insertBeforeEl.nextSibling;
     const frag = document.createDocumentFragment();
     Array.from(field.childNodes).forEach(n=>frag.appendChild(n.cloneNode(true)));
     restoreOriginalWrapPositions(liveContentEls, frag);
