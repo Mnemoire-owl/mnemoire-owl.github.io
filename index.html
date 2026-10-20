@@ -1280,7 +1280,7 @@ const LANG = {
       eventTitleLabel:'일정 제목', eventTitlePh:'예: 중간고사, 치과 예약',
       eventTimeLabel:'시간', eventTypeLabel:'종류',
       typeExam:'시험', typeAppointment:'약속', typeOther:'기타',
-      addEventBtn:'일정 추가', deleteEventLabel:'삭제',
+      addEventBtn:'일정 추가', deleteEventLabel:'삭제', editEventLabel:'수정', saveEventLabel:'저장', cancelEventLabel:'취소', eventDateLabel:'날짜', eventEmptyTitle:'일정 이름을 입력해 주세요.',
       upcomingTitle:'⏳ 다가오는 일정', noUpcoming:'다가오는 일정이 없어요.',
       ddayToday:'D-day', hoursLeftFormat:'{h}시간 {m}분 남음', hoursPastFormat:'{h}시간 {m}분 지남'
     },
@@ -1582,7 +1582,7 @@ const LANG = {
       eventTitleLabel:'Event title', eventTitlePh:'e.g. Midterm exam, dentist appointment',
       eventTimeLabel:'Time', eventTypeLabel:'Type',
       typeExam:'Exam', typeAppointment:'Appointment', typeOther:'Other',
-      addEventBtn:'Add event', deleteEventLabel:'Delete',
+      addEventBtn:'Add event', deleteEventLabel:'Delete', editEventLabel:'Edit', saveEventLabel:'Save', cancelEventLabel:'Cancel', eventDateLabel:'Date', eventEmptyTitle:'Please enter an event name.',
       upcomingTitle:'⏳ Upcoming events', noUpcoming:'No upcoming events.',
       ddayToday:'D-day', hoursLeftFormat:'{h}h {m}m left', hoursPastFormat:'{h}h {m}m ago'
     },
@@ -1884,7 +1884,7 @@ const LANG = {
       eventTitleLabel:'Termintitel', eventTitlePh:'z. B. Zwischenprüfung, Zahnarzttermin',
       eventTimeLabel:'Uhrzeit', eventTypeLabel:'Art',
       typeExam:'Prüfung', typeAppointment:'Termin', typeOther:'Sonstiges',
-      addEventBtn:'Termin hinzufügen', deleteEventLabel:'Löschen',
+      addEventBtn:'Termin hinzufügen', deleteEventLabel:'Löschen', editEventLabel:'Bearbeiten', saveEventLabel:'Speichern', cancelEventLabel:'Abbrechen', eventDateLabel:'Datum', eventEmptyTitle:'Bitte einen Namen eingeben.',
       upcomingTitle:'⏳ Bevorstehende Termine', noUpcoming:'Keine bevorstehenden Termine.',
       ddayToday:'D-Day', hoursLeftFormat:'noch {h}Std {m}Min', hoursPastFormat:'vor {h}Std {m}Min'
     },
@@ -2186,7 +2186,7 @@ const LANG = {
       eventTitleLabel:"Titre de l'événement", eventTitlePh:'ex. Examen partiel, rendez-vous chez le dentiste',
       eventTimeLabel:'Heure', eventTypeLabel:'Type',
       typeExam:'Examen', typeAppointment:'Rendez-vous', typeOther:'Autre',
-      addEventBtn:'Ajouter un événement', deleteEventLabel:'Supprimer',
+      addEventBtn:'Ajouter un événement', deleteEventLabel:'Supprimer', editEventLabel:'Modifier', saveEventLabel:'Enregistrer', cancelEventLabel:'Annuler', eventDateLabel:'Date', eventEmptyTitle:'Veuillez saisir un nom.',
       upcomingTitle:'⏳ Événements à venir', noUpcoming:'Aucun événement à venir.',
       ddayToday:'Jour J', hoursLeftFormat:'{h}h {m}min restantes', hoursPastFormat:'il y a {h}h {m}min'
     },
@@ -8230,6 +8230,40 @@ App.addCalendarEvent = function(){
   saveState(); renderAll();
   focusInput('calEventTitle');
 };
+/* Inline editing of a calendar event. The id being edited is a plain
+   in-memory variable (not saved state): closing/reloading just drops back to
+   the normal row. */
+let calEditingId = null;
+App.editCalendarEvent = function(id){
+  const ev = state.calendarEvents.find(e=>e.id===id);
+  if(!ev) return;
+  calEditingId = id;
+  // show the day the event is on (it may be opened from the upcoming list)
+  const y = parseInt(ev.date.slice(0,4),10), m = parseInt(ev.date.slice(5,7),10)-1;
+  if(isFinite(y) && isFinite(m)) state.calendarView = {year:y, month:m};
+  state.calendarSelectedDate = ev.date;
+  renderAll();
+  focusInput('calEditTitle');
+};
+App.cancelCalendarEventEdit = function(){ calEditingId = null; renderAll(); };
+App.saveCalendarEventEdit = function(){
+  const ev = state.calendarEvents.find(e=>e.id===calEditingId);
+  if(!ev){ calEditingId = null; renderAll(); return; }
+  const title = (document.getElementById('calEditTitle')||{value:''}).value.trim();
+  const date = (document.getElementById('calEditDate')||{value:''}).value;
+  const time = (document.getElementById('calEditTime')||{value:''}).value;
+  const type = (document.getElementById('calEditType')||{value:'other'}).value;
+  if(!title){ showAlert(t('calendar.eventEmptyTitle')); return; }
+  ev.title = title;
+  if(/^\d{4}-\d{2}-\d{2}$/.test(date)) ev.date = date;
+  ev.time = time || null;
+  ev.type = ['exam','appointment','other'].includes(type) ? type : 'other';
+  calEditingId = null;
+  const y = parseInt(ev.date.slice(0,4),10), m = parseInt(ev.date.slice(5,7),10)-1;
+  state.calendarView = {year:y, month:m};
+  state.calendarSelectedDate = ev.date;
+  saveState(); renderAll();
+};
 App.deleteCalendarEvent = function(id){
   const target = state.calendarEvents.find(e=>e.id===id);
   if(!target) return;
@@ -8280,11 +8314,21 @@ function renderCalendarCard(){
   }).join('') : `<div class="empty">${t('calendar.noStudyThatDay')}</div>`;
 
   const evs = eventsOnDate(selected);
-  const eventRows = evs.length ? evs.map(ev=>`
+  const eventRows = evs.length ? evs.map(ev=> ev.id===calEditingId ? `
+    <div class="topic-row" style="flex-wrap:wrap;gap:8px;align-items:flex-end;">
+      <div style="flex:1;min-width:160px;"><label>${t('calendar.eventTitleLabel')}</label><input type="text" id="calEditTitle" value="${escapeAttr(ev.title)}" onkeydown="if(event.key==='Enter'){App.saveCalendarEventEdit()}else if(event.key==='Escape'){App.cancelCalendarEventEdit()}"></div>
+      <div style="max-width:150px;"><label>${t('calendar.eventDateLabel')}</label><input type="date" id="calEditDate" value="${escapeAttr(ev.date)}"></div>
+      <div style="max-width:120px;"><label>${t('calendar.eventTimeLabel')}</label><input type="time" id="calEditTime" value="${escapeAttr(ev.time||'')}"></div>
+      <div style="max-width:130px;"><label>${t('calendar.eventTypeLabel')}</label><select id="calEditType">${['exam','appointment','other'].map(ty=>`<option value="${ty}" ${ev.type===ty?'selected':''}>${t(EVENT_TYPE_LABEL_KEYS[ty])}</option>`).join('')}</select></div>
+      <button class="btn small" onclick="App.saveCalendarEventEdit()">${t('calendar.saveEventLabel')}</button>
+      <button class="btn ghost small" onclick="App.cancelCalendarEventEdit()">${t('calendar.cancelEventLabel')}</button>
+    </div>
+  ` : `
     <div class="topic-row">
       <span class="pill">${t(EVENT_TYPE_LABEL_KEYS[ev.type]||EVENT_TYPE_LABEL_KEYS.other)}</span>
       <span class="topic-name" style="flex:1;">${escapeHtml(ev.title)}</span>
       ${ev.time ? `<span class="mono muted" style="font-size:11px;">${escapeHtml(ev.time)}</span>` : ''}
+      <button class="btn ghost small" onclick="App.editCalendarEvent('${ev.id}')">${t('calendar.editEventLabel')}</button>
       <button class="btn danger small" onclick="App.deleteCalendarEvent('${ev.id}')">${t('calendar.deleteEventLabel')}</button>
     </div>
   `).join('') : `<div class="empty">${t('calendar.noEvents')}</div>`;
@@ -8333,6 +8377,7 @@ function renderUpcomingEventsList(){
         <span class="topic-name" style="flex:1;">${escapeHtml(ev.title)}</span>
         <span class="mono muted" style="font-size:11px;">${escapeHtml(ev.date)}${ev.time?(' '+escapeHtml(ev.time)):''}</span>
         <span class="pill" style="font-weight:600;">${dday}${detail?(' · '+escapeHtml(detail)):''}</span>
+        <button class="btn ghost small" onclick="App.editCalendarEvent('${ev.id}')">${t('calendar.editEventLabel')}</button>
       </div>
     `;
   }).join('');
