@@ -1341,7 +1341,7 @@ const LANG = {
     },
     draw: {
       needSubjects:"먼저 '과목 관리'에서 과목과 주제를 등록해 주세요.",
-      subjectLabel:'과목', categoryLabel:'카테고리', allCategories:'전체 카테고리',
+      subjectLabel:'과목', categoryLabel:'카테고리', allCategories:'전체 카테고리', topicRangeLabel:'주제 범위 (여러 개 선택 가능)', allTopicsOpt:'전체 주제',
       idle:'뽑기 버튼을 눌러 주제를 뽑아보세요.', drawnLabel:'뽑힌 주제', notesLabel:'메모 / 확인 내용',
       noNotes:'등록된 메모가 없어요.', reveal:'확인하기', drawBtn:'🎲 주제 뽑기',
       emptyPool:'이 카테고리에 등록된 주제가 없어요.', includeSubtopics:'소주제도 포함해서 뽑기',
@@ -1643,7 +1643,7 @@ const LANG = {
     },
     draw: {
       needSubjects:"Add a subject and topics in 'Subjects' first.",
-      subjectLabel:'Subject', categoryLabel:'Category', allCategories:'All categories',
+      subjectLabel:'Subject', categoryLabel:'Category', allCategories:'All categories', topicRangeLabel:'Topic range (pick several)', allTopicsOpt:'All topics',
       idle:'Press draw to pull a random topic.', drawnLabel:'Drawn topic', notesLabel:'Notes / answer key',
       noNotes:'No notes yet.', reveal:'Reveal', drawBtn:'🎲 Draw a topic',
       emptyPool:'No topics in this category.', includeSubtopics:'Include subtopics in the draw',
@@ -1945,7 +1945,7 @@ const LANG = {
     },
     draw: {
       needSubjects:"Lege zuerst unter 'Fächer' ein Fach mit Themen an.",
-      subjectLabel:'Fach', categoryLabel:'Kategorie', allCategories:'Alle Kategorien',
+      subjectLabel:'Fach', categoryLabel:'Kategorie', allCategories:'Alle Kategorien', topicRangeLabel:'Themenbereich (mehrere wählbar)', allTopicsOpt:'Alle Themen',
       idle:'Drücke „Ziehen", um ein zufälliges Thema zu erhalten.', drawnLabel:'Gezogenes Thema', notesLabel:'Notizen / Lösung',
       noNotes:'Noch keine Notizen.', reveal:'Aufdecken', drawBtn:'🎲 Thema ziehen',
       emptyPool:'Keine Themen in dieser Kategorie.', includeSubtopics:'Unterthemen einbeziehen',
@@ -2247,7 +2247,7 @@ const LANG = {
     },
     draw: {
       needSubjects:"Ajoutez d'abord une matière et des sujets dans « Matières ».",
-      subjectLabel:'Matière', categoryLabel:'Catégorie', allCategories:'Toutes les catégories',
+      subjectLabel:'Matière', categoryLabel:'Catégorie', allCategories:'Toutes les catégories', topicRangeLabel:'Plage de sujets (plusieurs possibles)', allTopicsOpt:'Tous les sujets',
       idle:'Appuyez sur tirer pour piocher un sujet au hasard.', drawnLabel:'Sujet tiré', notesLabel:'Notes / corrigé',
       noNotes:"Aucune note pour l'instant.", reveal:'Révéler', drawBtn:'🎲 Tirer un sujet',
       emptyPool:'Aucun sujet dans cette catégorie.', includeSubtopics:'Inclure les sous-sujets dans le tirage',
@@ -3330,7 +3330,7 @@ function defaultState(){
     sidenoteLeft: { content: '', collapsed: true, width: 260, mobileHeight: 280 },
     settings: { pomodoroWork: 25, pomodoroBreak: 5, language: 'ko', theme: 'wizard', soundscape: { type: 'none', volume: 0.5 } },
     activeTab: 'dashboard',
-    draw: { subjectId: null, categoryId: 'all', current: null, currentSubId: null, revealed: false, includeSubtopics: false, mode: 'equal', itemType: 'topic', cardSubjectIds: [], cardSubtopics: [], currentCardId: null, cardRevealed: false },
+    draw: { subjectId: null, categoryId: 'all', current: null, currentSubId: null, revealed: false, includeSubtopics: false, mode: 'equal', itemType: 'topic', cardSubjectIds: [], cardSubtopics: [], topicIds: [], currentCardId: null, cardRevealed: false },
     timer: { mode: 'work', remaining: 25*60, running:false, subjectId:null, alarmed:false, overtimeSeconds:0 },
     stopwatch: { running:false, elapsedSeconds:0, committedSeconds:0, subElapsed:0, lastSittingSeconds:0, checkpoints:[], day: todayISO() },
     focusSessions: [],
@@ -3905,7 +3905,8 @@ function normalizeState(){
   });
   state.calendarView = Object.assign({year:null, month:null}, state.calendarView||{});
   if(state.calendarSelectedDate===undefined) state.calendarSelectedDate = null;
-  state.draw = Object.assign({subjectId:null,categoryId:'all',current:null,currentSubId:null,revealed:false,includeSubtopics:false,mode:'equal',itemType:'topic',cardSubjectIds:[],cardSubtopics:[],currentCardId:null,cardRevealed:false}, state.draw||{});
+  state.draw = Object.assign({subjectId:null,categoryId:'all',current:null,currentSubId:null,revealed:false,includeSubtopics:false,mode:'equal',itemType:'topic',cardSubjectIds:[],cardSubtopics:[],topicIds:[],currentCardId:null,cardRevealed:false}, state.draw||{});
+  if(!Array.isArray(state.draw.topicIds)) state.draw.topicIds = [];
   /* Same singular-to-array migration as state.cardReview above, for the
      random-card-draw filter's own cardSubjectId/cardSubtopic fields. */
   if(state.draw.cardSubjectId!==undefined){
@@ -11102,6 +11103,7 @@ function renderDrawTopicBody(){
       <div><label>${t('draw.subjectLabel')}</label><select onchange="App.setDrawSubject(this.value)">${subOptions}</select></div>
       <div><label>${t('draw.categoryLabel')}</label><select onchange="App.setDrawCategory(this.value)">${catOptions}</select></div>
     </div>
+    ${renderDrawTopicRange(s)}
     <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;margin-bottom:6px;">
       <input type="checkbox" id="includeSub" style="width:auto;" ${state.draw.includeSubtopics?'checked':''} onchange="App.setIncludeSubtopics(this.checked)">
       ${t('draw.includeSubtopics')}
@@ -11202,8 +11204,33 @@ function renderDrawCardBody(){
     </div>
   `;
 }
-App.setDrawSubject = function(v){ state.draw.subjectId=v; state.draw.categoryId='all'; state.draw.current=null; state.draw.currentSubId=null; state.draw.revealed=false; saveState(); renderAll(); };
-App.setDrawCategory = function(v){ state.draw.categoryId=v; saveState(); renderAll(); };
+/* Topic-range picker for the note draw: toggle pills for the topics inside
+   the chosen subject (and category), any number at once; none selected = the
+   whole subject/category as before. Selection lives in state.draw.topicIds. */
+function drawTopicsInScope(s){
+  let list = s.topics;
+  if(state.draw.categoryId && state.draw.categoryId!=='all') list = list.filter(tp=>tp.categoryId===state.draw.categoryId);
+  return list;
+}
+function renderDrawTopicRange(s){
+  const scope = drawTopicsInScope(s);
+  if(scope.length===0) return '';
+  const sel = (state.draw.topicIds||[]).filter(id=>scope.some(tp=>tp.id===id));
+  const allActive = sel.length===0;
+  const pills = [`<button type="button" class="btn ${allActive?'':'ghost'} small" style="margin:2px 4px 2px 0;" onclick="App.setDrawTopicAll()">${escapeHtml(t('draw.allTopicsOpt'))}</button>`]
+    .concat(scope.map(tp=>`<button type="button" class="btn ${sel.includes(tp.id)?'':'ghost'} small" style="margin:2px 4px 2px 0;" onclick="App.toggleDrawTopic('${escapeAttr(tp.id)}')">${escapeHtml(tp.name)}</button>`)).join('');
+  return `<div class="field" style="margin-bottom:8px;"><label>${escapeHtml(t('draw.topicRangeLabel'))}</label><div style="display:flex;flex-wrap:wrap;max-height:150px;overflow-y:auto;">${pills}</div></div>`;
+}
+App.setDrawTopicAll = function(){ state.draw.topicIds = []; saveState(); renderAll(); };
+App.toggleDrawTopic = function(id){
+  const arr = (state.draw.topicIds||[]).slice();
+  const i = arr.indexOf(id);
+  if(i>=0) arr.splice(i,1); else arr.push(id);
+  state.draw.topicIds = arr;
+  saveState(); renderAll();
+};
+App.setDrawSubject = function(v){ state.draw.subjectId=v; state.draw.categoryId='all'; state.draw.topicIds=[]; state.draw.current=null; state.draw.currentSubId=null; state.draw.revealed=false; saveState(); renderAll(); };
+App.setDrawCategory = function(v){ state.draw.categoryId=v; state.draw.topicIds=[]; saveState(); renderAll(); };
 App.setIncludeSubtopics = function(v){ state.draw.includeSubtopics=v; saveState(); renderAll(); };
 App.setDrawMode = function(v){ state.draw.mode=v; saveState(); renderAll(); };
 App.setDrawItemType = function(v){ state.draw.itemType = (v==='card') ? 'card' : 'topic'; saveState(); renderAll(); };
@@ -11287,6 +11314,8 @@ App.drawTopic = function(){
   if(state.draw.categoryId && state.draw.categoryId!=='all'){
     topicPool = topicPool.filter(tp=>tp.categoryId===state.draw.categoryId);
   }
+  const chosen = (state.draw.topicIds||[]).filter(id=>topicPool.some(tp=>tp.id===id));
+  if(chosen.length>0) topicPool = topicPool.filter(tp=>chosen.includes(tp.id));
   const pool = [];
   topicPool.forEach(tp=>{
     pool.push({topicId:tp.id, subId:null});
