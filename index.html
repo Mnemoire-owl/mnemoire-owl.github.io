@@ -809,6 +809,14 @@
     padding:9px 16px;text-align:center;border-radius:10px;
     box-shadow:0 6px 20px rgba(0,0,0,.28);
   }
+  .sync-notice{
+    position:fixed;left:12px;right:12px;bottom:12px;z-index:1590;
+    display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;
+    background:var(--surface-2);color:var(--ink);border:1px solid var(--amber);font-size:13px;line-height:1.4;
+    padding:9px 14px;text-align:center;border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.28);
+  }
+  .sync-notice-btn{background:var(--amber);color:#1a1a1a;border:none;border-radius:6px;padding:4px 10px;font-weight:600;font-size:12px;cursor:pointer;}
+  .sync-notice-close{background:transparent;color:var(--ink-dim);font-size:16px;padding:0 6px;}
   .save-fail-banner-btn{
     background:#fff;color:#dc2626;border:none;border-radius:6px;
     font-family:inherit;font-size:12.5px;font-weight:700;padding:5px 12px;cursor:pointer;flex:none;
@@ -1172,6 +1180,11 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     <span id="saveFailBannerText"></span>
     <button type="button" class="save-fail-banner-btn" id="saveFailBannerBtn" onclick="App.retrySaveNow()"></button>
   </div>
+  <div class="sync-notice" id="syncNotice" hidden>
+    <span id="syncNoticeText"></span>
+    <button type="button" class="sync-notice-btn" id="syncNoticeBtn" hidden></button>
+    <button type="button" class="sync-notice-btn sync-notice-close" onclick="App.hideSyncNotice()" aria-label="close">×</button>
+  </div>
   <div class="timer-bar" id="timerBar"></div>
   <div class="reward-timer-bar" id="rewardTimerBar"></div>
   <div class="soundscape-bar" id="soundscapeBar"></div>
@@ -1223,7 +1236,7 @@ const LANG = {
       drawHint:'무작위로 주제를 뽑아 스스로 테스트해요', outputHint:'백지에서 배운 내용을 직접 떠올려 써봐요', gapsHint:'놓치거나 틀린 부분을 따로 모아둬요',
       cardsHint:'간격 반복으로 암기카드를 복습해요', focusHint:'타이머로 집중 학습 시간을 기록해요', rewardsHint:'모은 포인트로 쉬는 시간이나 보상을 받아요'
     },
-    status: {loading:'불러오는 중…', saved:'저장됨', saveFailed:'저장 실패 — 다시 시도해 주세요', saveFailBanner:'클라우드 저장에 계속 실패하고 있어요 — 지금 새로고침하거나 다른 기기에서 열면 최근 변경사항을 잃을 수 있어요.', saveFailRetry:'다시 시도', loadFailedWarning:'저장된 데이터를 불러오는 데 실패했어요. 인터넷 연결을 확인하고 새로고침해주세요 — 이 상태로 계속 사용하면 최근 저장 내용이 덮어써질 수 있어요.'},
+    status: {loading:'불러오는 중…', saved:'저장됨', saveFailed:'저장 실패 — 다시 시도해 주세요', saveFailBanner:'클라우드 저장에 계속 실패하고 있어요 — 지금 새로고침하거나 다른 기기에서 열면 최근 변경사항을 잃을 수 있어요.', saveFailRetry:'다시 시도', loadFailedWarning:'저장된 데이터를 불러오는 데 실패했어요. 인터넷 연결을 확인하고 새로고침해주세요 — 이 상태로 계속 사용하면 최근 저장 내용이 덮어써질 수 있어요.', offlineSaved:'오프라인 — 이 기기에 저장됨 (연결되면 자동 동기화)', offlineOpened:'오프라인 모드', offlineOpenedNotice:'인터넷에 연결되지 않아 이 기기에 저장된 사본으로 열었어요. 지금 하는 공부는 이 기기에 저장되고, 연결되면 자동으로 동기화돼요.', conflictKept:'다른 기기에서 바뀐 기록과 겹쳤어요. 더 최근 쪽으로 이어가고, 다른 쪽은 백업으로 보관했어요.', conflictDownloadBtn:'백업 받기'},
     common: {ok:'확인'},
     theme: {
       wizardLabel:'🧙 마법사 모드', classicLabel:'📜 클래식 모드', hospitalLabel:'🏥 병원 모드', lawLabel:'⚖️ 법조 모드', labLabel:'🧪 연구실 모드'
@@ -1526,7 +1539,7 @@ const LANG = {
       drawHint:'Pull a random topic to test yourself', outputHint:'Recall what you learned from a blank page', gapsHint:'Collect things you missed or got wrong',
       cardsHint:'Review flashcards with spaced repetition', focusHint:'Track focused study time with a timer', rewardsHint:'Spend points on breaks and rewards'
     },
-    status: {loading:'Loading…', saved:'Saved', saveFailed:'Save failed — please try again', saveFailBanner:'Cloud save keeps failing — refreshing or opening on another device now could lose recent changes.', saveFailRetry:'Retry', loadFailedWarning:'Failed to load your saved data. Check your connection and refresh — continuing now risks overwriting your recent saves.'},
+    status: {loading:'Loading…', saved:'Saved', saveFailed:'Save failed — please try again', saveFailBanner:'Cloud save keeps failing — refreshing or opening on another device now could lose recent changes.', saveFailRetry:'Retry', loadFailedWarning:'Failed to load your saved data. Check your connection and refresh — continuing now risks overwriting your recent saves.', offlineSaved:'Offline — saved on this device (syncs automatically when connected)', offlineOpened:'Offline mode', offlineOpenedNotice:'No internet connection, so the copy saved on this device was opened. What you study now is saved here and syncs automatically once you are connected.', conflictKept:'This overlapped with changes made on another device. The more recent version was kept and the other one was saved as a backup.', conflictDownloadBtn:'Download backup'},
     common: {ok:'OK'},
     theme: {
       wizardLabel:'🧙 Wizard mode', classicLabel:'📜 Classic mode', hospitalLabel:'🏥 Hospital mode', lawLabel:'⚖️ Law mode', labLabel:'🧪 Lab mode'
@@ -1828,7 +1841,7 @@ const LANG = {
       drawHint:'Zufällig ein Thema ziehen und sich selbst testen', outputHint:'Gelerntes aus dem Gedächtnis aufschreiben', gapsHint:'Verpasstes oder Falsches sammeln',
       cardsHint:'Karteikarten mit Spaced Repetition wiederholen', focusHint:'Fokussierte Lernzeit mit Timer erfassen', rewardsHint:'Gesammelte Punkte gegen Pausen und Belohnungen eintauschen'
     },
-    status: {loading:'Wird geladen…', saved:'Gespeichert', saveFailed:'Speichern fehlgeschlagen — bitte erneut versuchen', saveFailBanner:'Cloud-Speicherung schlägt weiterhin fehl — ein Neuladen oder Öffnen auf einem anderen Gerät könnte jetzt kürzliche Änderungen verlieren.', saveFailRetry:'Erneut versuchen', loadFailedWarning:'Deine gespeicherten Daten konnten nicht geladen werden. Prüfe deine Verbindung und lade neu — sonst könnten kürzliche Speicherungen überschrieben werden.'},
+    status: {loading:'Wird geladen…', saved:'Gespeichert', saveFailed:'Speichern fehlgeschlagen — bitte erneut versuchen', saveFailBanner:'Cloud-Speicherung schlägt weiterhin fehl — ein Neuladen oder Öffnen auf einem anderen Gerät könnte jetzt kürzliche Änderungen verlieren.', saveFailRetry:'Erneut versuchen', loadFailedWarning:'Deine gespeicherten Daten konnten nicht geladen werden. Prüfe deine Verbindung und lade neu — sonst könnten kürzliche Speicherungen überschrieben werden.', offlineSaved:'Offline — auf diesem Gerät gespeichert (Sync automatisch bei Verbindung)', offlineOpened:'Offline-Modus', offlineOpenedNotice:'Keine Internetverbindung — die auf diesem Gerät gespeicherte Kopie wurde geöffnet. Alles, was du jetzt lernst, wird hier gespeichert und automatisch synchronisiert, sobald du verbunden bist.', conflictKept:'Das überschneidet sich mit Änderungen auf einem anderen Gerät. Die neuere Version wurde behalten, die andere als Backup gesichert.', conflictDownloadBtn:'Backup herunterladen'},
     common: {ok:'OK'},
     theme: {
       wizardLabel:'🧙 Magiermodus', classicLabel:'📜 Klassischer Modus', hospitalLabel:'🏥 Krankenhausmodus', lawLabel:'⚖️ Gerichtsmodus', labLabel:'🧪 Labormodus'
@@ -2130,7 +2143,7 @@ const LANG = {
       drawHint:'Tirez un sujet au hasard pour vous tester', outputHint:"Rappelez-vous ce que vous avez appris à partir d'une page blanche", gapsHint:'Rassemblez ce que vous avez manqué ou mal compris',
       cardsHint:'Révisez vos cartes avec la répétition espacée', focusHint:'Suivez votre temps de concentration avec un minuteur', rewardsHint:'Dépensez vos points en pauses et récompenses'
     },
-    status: {loading:'Chargement…', saved:'Enregistré', saveFailed:"Échec de l'enregistrement — veuillez réessayer", saveFailBanner:"L'enregistrement dans le cloud échoue toujours — actualiser ou ouvrir sur un autre appareil maintenant pourrait faire perdre les modifications récentes.", saveFailRetry:'Réessayer', loadFailedWarning:"Échec du chargement de vos données enregistrées. Vérifiez votre connexion et actualisez — continuer maintenant risque d'écraser vos enregistrements récents."},
+    status: {loading:'Chargement…', saved:'Enregistré', saveFailed:"Échec de l'enregistrement — veuillez réessayer", saveFailBanner:"L'enregistrement dans le cloud échoue toujours — actualiser ou ouvrir sur un autre appareil maintenant pourrait faire perdre les modifications récentes.", saveFailRetry:'Réessayer', loadFailedWarning:"Échec du chargement de vos données enregistrées. Vérifiez votre connexion et actualisez — continuer maintenant risque d'écraser vos enregistrements récents.", offlineSaved:'Hors ligne — enregistré sur cet appareil (synchronisation automatique dès la connexion)', offlineOpened:'Mode hors ligne', offlineOpenedNotice:"Pas de connexion internet : la copie enregistrée sur cet appareil a été ouverte. Ce que vous étudiez maintenant est enregistré ici et se synchronise automatiquement dès que vous êtes connecté.", conflictKept:"Cela chevauche des modifications faites sur un autre appareil. La version la plus récente a été conservée et l'autre sauvegardée.", conflictDownloadBtn:'Télécharger la sauvegarde'},
     common: {ok:'OK'},
     theme: {
       wizardLabel:'🧙 Mode magicien', classicLabel:'📜 Mode classique', hospitalLabel:'🏥 Mode hôpital', lawLabel:'⚖️ Mode droit', labLabel:'🧪 Mode laboratoire'
@@ -3074,51 +3087,216 @@ function deleteImageFromStorage(src){
   sbClient.storage.from(IMAGE_BUCKET).remove([path]).catch(function(e){ console.warn('[Mnemoire] image delete failed:', e); });
 }
 
+/* ============ OFFLINE LAYER (per-user local copy + auto sync) ============
+   Everything the app saves goes through window.storage (below). That layer
+   now ALWAYS writes a copy of the whole state into this device's IndexedDB
+   first — keyed by the signed-in user's id, so several accounts on one
+   device never mix — and then tries the cloud. If the cloud is unreachable
+   (no wifi, captive portal, timeout) the local copy is simply marked
+   "dirty" and pushed automatically as soon as a live session + connection
+   exist again. On startup, if the cloud can't be reached the app opens from
+   that local copy (see tryOfflineStart in the auth section). Nothing here
+   adds fields to `state`: the sync bookkeeping (dirty flag, last synced
+   server time) lives beside it in IndexedDB. Conflict rule: if the same
+   account was changed on another device while this one had unsynced offline
+   edits, the more recent side wins and the OTHER side is kept as a
+   downloadable backup (never silently dropped). Note images: a copy of each
+   referenced note image is cached in IndexedDB while online and swapped in
+   when the network copy fails to load (see the 'error' listener below). */
+const OFFLINE_DB_NAME = 'mnemoire-offline';
+let _idbPromise = null;
+function idbOpen(){
+  if(_idbPromise) return _idbPromise;
+  _idbPromise = new Promise(resolve=>{
+    try{
+      if(typeof indexedDB==='undefined'){ resolve(null); return; }
+      const req = indexedDB.open(OFFLINE_DB_NAME, 1);
+      req.onupgradeneeded = ()=>{ const db = req.result; db.createObjectStore('kv'); db.createObjectStore('img'); };
+      req.onsuccess = ()=>resolve(req.result);
+      req.onerror = ()=>resolve(null);
+      req.onblocked = ()=>resolve(null);
+    }catch(e){ resolve(null); }
+  });
+  return _idbPromise;
+}
+/* One IndexedDB request. Resolves with the request's result (undefined when
+   a key is missing) or null when IndexedDB itself is unavailable/failed. */
+function idbDo(store, mode, fn){
+  return idbOpen().then(db=>{
+    if(!db) return null;
+    return new Promise(resolve=>{
+      try{
+        const tx = db.transaction(store, mode);
+        let out;
+        const r = fn(tx.objectStore(store));
+        if(r) r.onsuccess = ()=>{ out = r.result; };
+        tx.oncomplete = ()=>resolve(out===undefined ? undefined : out);
+        tx.onerror = ()=>resolve(null);
+        tx.onabort = ()=>resolve(null);
+      }catch(e){ resolve(null); }
+    });
+  });
+}
+async function offlineGetRec(uid){
+  const r = await idbDo('kv', 'readonly', os=>os.get('state:'+uid));
+  return (r && typeof r==='object') ? r : null;
+}
+async function offlinePutRec(uid, rec){
+  const r = await idbDo('kv', 'readwrite', os=>os.put(rec, 'state:'+uid));
+  return r!==null;
+}
+const LAST_USER_KEY = 'mnemoire:lastUser';
+function rememberUser(id){ try{ localStorage.setItem(LAST_USER_KEY, id); }catch(e){} }
+function forgetUser(){ try{ localStorage.removeItem(LAST_USER_KEY); }catch(e){} }
+function lastUserId(){ try{ return localStorage.getItem(LAST_USER_KEY); }catch(e){ return null; } }
+function withTimeout(promise, ms){
+  return Promise.race([promise, new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')), ms))]);
+}
+function isNetworkErrMsg(m){ return /fetch|network|load failed|timeout|abort|offline|internet|connection/i.test(String(m||'')); }
+let offlineMode = false;          // opened from the local copy without a live cloud session
+let offlineWasPending = false;    // there were unsynced local changes (cleared by a successful sync)
+let offlineSeq = 0;               // bumps on every local write (a stale cloud ack must not mark newer edits clean)
+const offlineMeta = { remoteAt: 0 };
+let offlineLastValue = null, offlineLastAt = null;
+/* True only when a signed-in session for THIS user exists and the browser
+   isn't known to be offline. getSession() refreshes an expired access token
+   itself when it can reach the network. */
+async function cloudReady(){
+  if(!currentUserId) return false;
+  if(typeof navigator!=='undefined' && navigator.onLine===false) return false;
+  try{
+    const { data } = await withTimeout(sbClient.auth.getSession(), 8000);
+    const ok = !!(data && data.session && data.session.user && data.session.user.id===currentUserId);
+    if(ok && offlineMode) offlineMode = false;
+    return ok;
+  }catch(e){ return false; }
+}
+/* Blob URLs used to show a cached note image offline must never reach the
+   saved data: map each one back to the original storage URL. */
+const blobImageMap = new Map();
+function unblobify(str){
+  if(blobImageMap.size===0 || typeof str!=='string' || str.indexOf('blob:')===-1) return str;
+  blobImageMap.forEach((orig, b)=>{ if(str.indexOf(b)!==-1) str = str.split(b).join(orig); });
+  return str;
+}
+
 window.storage = {
-  // `error: true` on the result marks a genuine fetch failure (network,
-  // Supabase down, RLS problem, ...) as distinct from "no row exists yet"
-  // (a brand new account, `!data` with no `error`) — both used to collapse
-  // into the same plain `{value: undefined}`, which loadState() could not
-  // tell apart from a legitimately empty new account. See loadState()'s
-  // own comment for why that distinction matters: silently treating a
-  // failed load as "nothing saved yet" risks the next autosave overwriting
-  // real cloud data with an empty local state.
+  // `error: true` on the result marks a genuine failure to get ANY copy of
+  // the data (cloud unreachable AND nothing cached on this device) as
+  // distinct from "no row exists yet" (a brand new account) — see
+  // loadState()'s own comment for why that distinction matters: silently
+  // treating a failed load as "nothing saved yet" risks the next autosave
+  // overwriting real cloud data with an empty local state.
   async get(key /*, isShared */){
     if(!currentUserId) return { value: undefined };
-    try{
-      const { data, error } = await sbClient
-        .from('user_state')
-        .select('state')
-        .eq('id', currentUserId)
-        .maybeSingle();
-      if(error) return { value: undefined, error: true };
-      if(!data) return { value: undefined };
-      return { value: JSON.stringify(data.state) };
-    }catch(e){
+    const uid = currentUserId;
+    const local = await offlineGetRec(uid);
+    let cloud = null, cloudErr = false;
+    if(await cloudReady()){
+      try{
+        const { data, error } = await withTimeout(
+          sbClient.from('user_state').select('state,updated_at').eq('id', uid).maybeSingle(), 15000);
+        if(error) cloudErr = true; else cloud = data || { none:true };
+      }catch(e){ cloudErr = true; }
+    }else{
+      cloudErr = true;
+    }
+    if(cloudErr){
+      if(local && local.value){
+        offlineMeta.remoteAt = local.remoteAt || 0;
+        return { value: local.value, source:'local', offline:true, pending: !!local.dirty };
+      }
       return { value: undefined, error: true };
     }
+    if(cloud.none){
+      if(local && local.dirty && local.value){
+        offlineMeta.remoteAt = local.remoteAt || 0;
+        return { value: local.value, source:'local', pending:true };
+      }
+      return { value: undefined };
+    }
+    const remoteVal = JSON.stringify(cloud.state);
+    const remoteAt = Date.parse(cloud.updated_at) || 0;
+    if(local && local.dirty && local.value){
+      const base = local.remoteAt || 0;
+      if(remoteAt <= base){
+        // the cloud hasn't changed since this device last synced: its offline edits are the newest
+        offlineMeta.remoteAt = base;
+        return { value: local.value, source:'local', pending:true };
+      }
+      // both sides changed: the more recent wins, the other is kept as a backup
+      const localAt = Date.parse(local.localAt) || 0;
+      const localWins = localAt >= remoteAt;
+      await idbDo('kv', 'readwrite', os=>os.put({ value: localWins ? remoteVal : local.value, at: new Date().toISOString(), kept: localWins ? 'cloud' : 'local' }, 'conflict:'+uid));
+      if(localWins){
+        offlineMeta.remoteAt = remoteAt;
+        await offlinePutRec(uid, { value: local.value, dirty:true, localAt: local.localAt, remoteAt });
+        return { value: local.value, source:'local', pending:true, conflict:true };
+      }
+      offlineMeta.remoteAt = remoteAt;
+      await offlinePutRec(uid, { value: remoteVal, dirty:false, localAt: cloud.updated_at, remoteAt });
+      return { value: remoteVal, source:'cloud', conflict:true };
+    }
+    offlineMeta.remoteAt = remoteAt;
+    await offlinePutRec(uid, { value: remoteVal, dirty:false, localAt: cloud.updated_at, remoteAt });
+    return { value: remoteVal, source:'cloud' };
   },
   async set(key, value /*, isShared */){
     if(!currentUserId) return { success: false, errorMessage: '로그인 상태가 아님' };
+    const uid = currentUserId;
+    value = unblobify(value);
+    const mySeq = ++offlineSeq;
+    const now = new Date().toISOString();
+    // when nothing changed since the last write (a retry), keep the original edit time
+    const editedAt = (value===offlineLastValue && offlineLastAt) ? offlineLastAt : now;
+    offlineLastValue = value; offlineLastAt = editedAt;
+    // 1) always keep a local copy first — this is what makes offline use safe
+    const localSaved = await offlinePutRec(uid, { value, dirty:true, localAt: editedAt, remoteAt: offlineMeta.remoteAt });
+    // 2) then the cloud
+    if(!(await cloudReady())){
+      offlineWasPending = true;
+      return { success: false, localSaved, offline: true, errorMessage: 'offline' };
+    }
+    // First push after offline edits: if ANOTHER device changed the cloud copy
+    // in the meantime, keep that version as a downloadable backup before this
+    // device's version replaces it (nothing is silently overwritten).
+    let conflict = false;
+    if(offlineWasPending){
+      try{
+        const chk = await withTimeout(sbClient.from('user_state').select('state,updated_at').eq('id', uid).maybeSingle(), 15000);
+        if(chk && chk.data && (Date.parse(chk.data.updated_at)||0) > (offlineMeta.remoteAt||0)){
+          await idbDo('kv', 'readwrite', os=>os.put({ value: JSON.stringify(chk.data.state), at: new Date().toISOString(), kept: 'local' }, 'conflict:'+uid));
+          conflict = true;
+        }
+      }catch(e){ /* check failed: just continue with the normal push */ }
+    }
     try{
       const parsed = JSON.parse(value);
-      const { error } = await sbClient
-        .from('user_state')
-        .upsert({ id: currentUserId, state: parsed, updated_at: new Date().toISOString() });
+      const { data, error } = await withTimeout(
+        sbClient.from('user_state').upsert({ id: uid, state: parsed, updated_at: now }).select('updated_at').maybeSingle(), 25000);
       // Logged (not shown in the UI by default) so a real failure leaves an
       // actual trace in the browser console instead of just the generic
       // "저장 실패" banner text — see attemptSaveState()'s own comment for
       // where the short version of this reaches the person.
-      if(error) console.warn('[Mnemoire] cloud save (user_state upsert) failed:', error);
-      return { success: !error, errorMessage: error ? (error.message||String(error)) : null };
+      if(error){
+        console.warn('[Mnemoire] cloud save (user_state upsert) failed:', error);
+        offlineWasPending = true;
+        return { success: false, localSaved, offline: isNetworkErrMsg(error.message||String(error)), errorMessage: (error.message||String(error)) };
+      }
+      const at = Date.parse(data && data.updated_at) || Date.parse(now);
+      offlineMeta.remoteAt = at;
+      if(offlineSeq===mySeq) await offlinePutRec(uid, { value, dirty:false, localAt: editedAt, remoteAt: at });
+      return { success: true, localSaved, conflict };
     }catch(e){
       console.warn('[Mnemoire] cloud save threw before reaching Supabase:', e);
-      return { success: false, errorMessage: (e && e.message) || String(e) };
+      offlineWasPending = true;
+      return { success: false, localSaved, offline: isNetworkErrMsg(e && e.message), errorMessage: (e && e.message) || String(e) };
     }
   },
   async delete(key /*, isShared */){
     if(!currentUserId) return { success: false };
     try{
+      await idbDo('kv', 'readwrite', os=>os.delete('state:'+currentUserId));
       const { error } = await sbClient.from('user_state').delete().eq('id', currentUserId);
       return { success: !error };
     }catch(e){
@@ -3139,6 +3317,56 @@ window.storage = {
     }
   }
 };
+
+/* ---- Offline copies of note images ----
+   Note pictures live in Supabase Storage and are referenced by URL. While
+   online, prefetchNoteImages() keeps a Blob copy of every referenced picture
+   in IndexedDB; when one fails to load (offline), the capture-phase 'error'
+   listener swaps in the cached copy via a blob: URL (mapped back to the
+   original URL on every save/export by unblobify). */
+const imgFallbackTried = new WeakSet();
+document.addEventListener('error', async function(ev){
+  const img = ev.target;
+  if(!img || img.tagName!=='IMG' || imgFallbackTried.has(img)) return;
+  const src = img.getAttribute('src') || '';
+  if(src.indexOf(NOTE_IMAGE_PUBLIC_PREFIX)!==0) return;
+  imgFallbackTried.add(img);
+  const blob = await idbDo('img', 'readonly', os=>os.get(src));
+  if(!(blob instanceof Blob)) return;
+  const url = URL.createObjectURL(blob);
+  blobImageMap.set(url, src);
+  img.setAttribute('src', url);
+}, true);
+let imagePrefetchRunning = false;
+async function prefetchNoteImages(){
+  if(imagePrefetchRunning || !currentUserId || offlineMode) return;
+  if(typeof navigator!=='undefined' && navigator.onLine===false) return;
+  imagePrefetchRunning = true;
+  try{
+    const esc = NOTE_IMAGE_PUBLIC_PREFIX.replace(/[.*+?^${}()|[\]\\\/]/g, '\\$&');
+    const re = new RegExp(esc + '[^"\'\\\\\\s)<>&]+', 'g');
+    const urls = Array.from(new Set((JSON.stringify(state).match(re)) || []));
+    const have = new Set((await idbDo('img', 'readonly', os=>os.getAllKeys())) || []);
+    const todo = urls.filter(u=>!have.has(u));
+    let i = 0;
+    const worker = async ()=>{
+      while(i < todo.length){
+        const u = todo[i++];
+        try{
+          const resp = await withTimeout(fetch(u), 20000);
+          if(!resp.ok) continue;
+          const blob = await resp.blob();
+          await idbDo('img', 'readwrite', os=>os.put(blob, u));
+        }catch(e){ /* offline / CORS: skip, try again next session */ }
+      }
+    };
+    await Promise.all([worker(), worker(), worker()]);
+    // drop cached copies of pictures no longer referenced anywhere
+    const keep = new Set(urls);
+    for(const k of have){ if(!keep.has(k)) await idbDo('img', 'readwrite', os=>os.delete(k)); }
+  }catch(e){ console.warn('[Mnemoire] image prefetch failed', e); }
+  imagePrefetchRunning = false;
+}
 
 /* ============ STATE ============ */
 const App = {};
@@ -3202,7 +3430,21 @@ App.authSubmit = async function(){
 };
 App.authLogout = async function(){
   try{ if(typeof flushPendingSave==='function') flushPendingSave(); }catch(e){}
+  // The device keeps a copy of the account's data for offline use. After an
+  // explicit logout that copy is removed — unless it still holds changes that
+  // were never synced (those stay until this account signs in here again and
+  // they sync), so signing out can never throw work away.
+  const uid = currentUserId;
+  forgetUser();
+  try{
+    const rec = uid ? await offlineGetRec(uid) : null;
+    if(rec && !rec.dirty){
+      await idbDo('kv', 'readwrite', os=>os.delete('state:'+uid));
+      await idbDo('img', 'readwrite', os=>os.clear());
+    }
+  }catch(e){}
   try{ await sbClient.auth.signOut(); }catch(e){}
+  if(offlineMode){ window.location.reload(); }
 };
 let appStarted = false;
 /* One-time cleanup for notes/cards saved BEFORE images moved to Storage
@@ -3219,8 +3461,8 @@ let appStarted = false;
    as its original embedded data: URI — never lost, just not slimmed down
    yet — and the "done" flag is only set once a full pass left nothing
    still pending, so it naturally retries on a later login. */
-async function migrateInlineImagesToStorageIfNeeded(){
-  if(!currentUserId || !state.settings || state.settings.imagesMigratedToStorage) return;
+async function migrateInlineImagesToStorageIfNeeded(force){
+  if(!currentUserId || !state.settings || (state.settings.imagesMigratedToStorage && !force)) return;
   const fields = [];
   (state.subjects||[]).forEach(s=>{
     (s.topics||[]).forEach(tp=>{
@@ -3275,8 +3517,9 @@ async function migrateInlineImagesToStorageIfNeeded(){
     saveState();
   }
 }
-async function startAppAfterAuth(userId){
+async function startAppAfterAuth(userId, opts){
   currentUserId = userId;
+  if(opts && opts.offline) offlineMode = true;
   document.getElementById('authScreen').hidden = true;
   document.getElementById('appWrap').hidden = false;
   sessionAnchorDate = todayISO();
@@ -3292,19 +3535,83 @@ async function startAppAfterAuth(userId){
   // be missing real data — warn clearly rather than let the person start
   // working (and autosaving) on top of what could be a blank slate.
   if(cloudLoadFailed) showAlert(t('status.loadFailedWarning'));
-  if(!cloudLoadFailed) migrateInlineImagesToStorageIfNeeded();
+  if(!cloudLoadFailed && !offlineMode && !loadedFromLocalOnly) migrateInlineImagesToStorageIfNeeded();
+  if(loadedFromLocalOnly || offlineMode){
+    setStatus(t('status.offlineOpened'), false);
+    showSyncNotice(t('status.offlineOpenedNotice'), null, null);
+  }
+  if(loadConflict) showSyncNotice(t('status.conflictKept'), t('status.conflictDownloadBtn'), 'App.downloadConflictBackup()');
+  // unsynced local changes from an earlier offline session: push them now
+  // (a no-op that just stays "pending" if there's still no connection)
+  if(loadPending) saveStateNow();
+  if(!offlineMode && !cloudLoadFailed) setTimeout(prefetchNoteImages, 4000);
+}
+/* Small non-blocking notice (bottom of the screen) for offline/sync news. */
+function showSyncNotice(text, btnLabel, btnOnclick){
+  const el = document.getElementById('syncNotice');
+  if(!el) return;
+  document.getElementById('syncNoticeText').textContent = text;
+  const btn = document.getElementById('syncNoticeBtn');
+  if(btnLabel){ btn.textContent = btnLabel; btn.setAttribute('onclick', btnOnclick); btn.hidden = false; }
+  else btn.hidden = true;
+  el.hidden = false;
+}
+App.hideSyncNotice = function(){ const el = document.getElementById('syncNotice'); if(el) el.hidden = true; };
+App.downloadConflictBackup = async function(){
+  if(!currentUserId) return;
+  const rec = await idbDo('kv', 'readonly', os=>os.get('conflict:'+currentUserId));
+  if(!rec || !rec.value) return;
+  const blob = new Blob([rec.value], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'mnemoire-conflict-backup-' + todayISO() + '.json';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url), 1000);
+};
+/* No cloud session on startup: if this device was signed in before and the
+   internet really is unreachable, open from the local copy instead of the
+   login screen. (A reachable server + no session = genuinely signed out.) */
+async function tryOfflineStart(){
+  const uid = lastUserId();
+  if(!uid) return false;
+  let reachable = false;
+  if(!(typeof navigator!=='undefined' && navigator.onLine===false)){
+    reachable = await Promise.race([
+      fetch(SUPABASE_URL + '/auth/v1/health', { headers: { apikey: SUPABASE_ANON_KEY } }).then(()=>true).catch(()=>false),
+      new Promise(r=>setTimeout(()=>r(false), 4000))
+    ]);
+  }
+  if(reachable) return false;
+  const rec = await offlineGetRec(uid);
+  if(!rec || !rec.value) return false;
+  appStarted = true;
+  startAppAfterAuth(uid, {offline:true});
+  return true;
+}
+/* Offline start for the public site (https): a small service worker (sw.js
+   next to this page) keeps the app page, fonts and note pictures available
+   with no connection. Silently skipped for the Desktop file (file://). */
+if('serviceWorker' in navigator && (location.protocol==='https:' || location.hostname==='localhost')){
+  window.addEventListener('load', function(){ navigator.serviceWorker.register('sw.js').catch(function(){}); });
 }
 sbClient.auth.onAuthStateChange((event, session)=>{
   if(session){
+    rememberUser(session.user.id);
     if(!appStarted){
       appStarted = true;
       startAppAfterAuth(session.user.id);
+    }else if(offlineMode && currentUserId===session.user.id){
+      // connection + session are back: the local copy syncs up
+      offlineMode = false;
+      App.retrySaveNow();
     }
   }else{
     if(appStarted){
-      window.location.reload();
+      if(!offlineMode) window.location.reload();
     }else{
-      document.getElementById('authScreen').hidden = false;
+      tryOfflineStart().then(started=>{
+        if(!started) document.getElementById('authScreen').hidden = false;
+      });
     }
   }
 });
@@ -4124,10 +4431,17 @@ function normalizeState(){
 // "brand new account, nothing saved yet"), so startAppAfterAuth can warn
 // loudly instead of silently opening what looks like an empty account.
 let cloudLoadFailed = false;
+let loadedFromLocalOnly = false, loadPending = false, loadConflict = false;
 async function loadState(){
   cloudLoadFailed = false;
+  loadedFromLocalOnly = false; loadPending = false; loadConflict = false;
   try{
     const res = await window.storage.get(STORAGE_KEY, false);
+    if(res){
+      loadedFromLocalOnly = res.source==='local' && !!res.offline;
+      loadPending = !!res.pending;
+      loadConflict = !!res.conflict;
+    }
     if(res && res.value){
       const parsed = JSON.parse(res.value);
       state = Object.assign(defaultState(), parsed);
@@ -4197,6 +4511,10 @@ document.addEventListener('visibilitychange', function(){
   if(document.visibilityState==='hidden') flushPendingSave();
 });
 window.addEventListener('pagehide', flushPendingSave);
+// connection came back: sync any local-only changes right away
+window.addEventListener('online', function(){
+  if(currentUserId && (offlineWasPending || offlineMode)) App.retrySaveNow();
+});
 async function attemptSaveState(){
   clearTimeout(saveRetryTimer);
   let result;
@@ -4211,6 +4529,21 @@ async function attemptSaveState(){
     lastSaveErrorMessage = null;
     setStatus(t('status.saved'), false);
     hideSaveFailBanner();
+    if(offlineWasPending){
+      // earlier changes were only on this device until now — they just synced
+      offlineWasPending = false;
+      App.hideSyncNotice();
+      if(result.conflict) showSyncNotice(t('status.conflictKept'), t('status.conflictDownloadBtn'), 'App.downloadConflictBackup()');
+      migrateInlineImagesToStorageIfNeeded(true);
+      setTimeout(prefetchNoteImages, 2000);
+    }
+  }else if(result && result.localSaved && result.offline){
+    // No connection: the change is safe in this device's local copy. Not an
+    // error — say so calmly and keep trying quietly until it can sync.
+    saveRetryCount = 0;
+    setStatus(t('status.offlineSaved'), false);
+    hideSaveFailBanner();
+    saveRetryTimer = setTimeout(()=>{ attemptSaveState(); }, 20000);
   }else{
     lastSaveErrorMessage = (result && result.errorMessage) || null;
     setStatus(t('status.saveFailed'), true);
@@ -4265,7 +4598,7 @@ function setStatus(msg, isError){
 
 /* ============ BACKUP: EXPORT / IMPORT ============ */
 App.exportData = function(){
-  const blob = new Blob([JSON.stringify(state, null, 2)], {type:'application/json'});
+  const blob = new Blob([unblobify(JSON.stringify(state, null, 2))], {type:'application/json'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
