@@ -809,6 +809,13 @@
     padding:9px 16px;text-align:center;border-radius:10px;
     box-shadow:0 6px 20px rgba(0,0,0,.28);
   }
+  .sync-badge{border:1px solid var(--line, rgba(128,128,128,.4));background:transparent;color:var(--ink);border-radius:999px;padding:3px 10px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;}
+  .sync-badge.is-synced{color:var(--teal);border-color:var(--teal);}
+  .sync-badge.is-offline,.sync-badge.is-pending{color:var(--amber);border-color:var(--amber);}
+  .sync-badge.is-syncing{color:var(--ink-dim);}
+  .sync-panel{position:fixed;top:64px;right:12px;z-index:1650;width:min(340px,calc(100vw - 24px));background:var(--surface-2);color:var(--ink);border:1px solid var(--amber);border-radius:12px;padding:14px 16px;box-shadow:0 10px 30px rgba(0,0,0,.35);font-size:13px;line-height:1.55;}
+  .sync-panel .sp-row{margin-bottom:8px;}
+  .sync-panel .sp-btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;}
   .sync-notice{
     position:fixed;left:12px;right:12px;bottom:12px;z-index:1590;
     display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;
@@ -1172,6 +1179,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
         <input type="file" id="importFileInput" accept="application/json" style="display:none" onchange="App.handleImportFile(event)">
       </div>
       <div id="headerStatus" class="muted mono"></div>
+      <button type="button" class="sync-badge" id="syncBadge" onclick="App.toggleSyncPanel()" hidden></button>
       <button class="btn ghost small" id="logoutBtn" onclick="App.authLogout()">로그아웃</button>
     </div>
   </header>
@@ -1180,6 +1188,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     <span id="saveFailBannerText"></span>
     <button type="button" class="save-fail-banner-btn" id="saveFailBannerBtn" onclick="App.retrySaveNow()"></button>
   </div>
+  <div class="sync-panel" id="syncPanel" hidden></div>
   <div class="sync-notice" id="syncNotice" hidden>
     <span id="syncNoticeText"></span>
     <button type="button" class="sync-notice-btn" id="syncNoticeBtn" hidden></button>
@@ -1236,7 +1245,7 @@ const LANG = {
       drawHint:'무작위로 주제를 뽑아 스스로 테스트해요', outputHint:'백지에서 배운 내용을 직접 떠올려 써봐요', gapsHint:'놓치거나 틀린 부분을 따로 모아둬요',
       cardsHint:'간격 반복으로 암기카드를 복습해요', focusHint:'타이머로 집중 학습 시간을 기록해요', rewardsHint:'모은 포인트로 쉬는 시간이나 보상을 받아요'
     },
-    status: {loading:'불러오는 중…', saved:'저장됨', saveFailed:'저장 실패 — 다시 시도해 주세요', saveFailBanner:'클라우드 저장에 계속 실패하고 있어요 — 지금 새로고침하거나 다른 기기에서 열면 최근 변경사항을 잃을 수 있어요.', saveFailRetry:'다시 시도', loadFailedWarning:'저장된 데이터를 불러오는 데 실패했어요. 인터넷 연결을 확인하고 새로고침해주세요 — 이 상태로 계속 사용하면 최근 저장 내용이 덮어써질 수 있어요.', offlineSaved:'오프라인 — 이 기기에 저장됨 (연결되면 자동 동기화)', offlineOpened:'오프라인 모드', offlineOpenedNotice:'인터넷에 연결되지 않아 이 기기에 저장된 사본으로 열었어요. 지금 하는 공부는 이 기기에 저장되고, 연결되면 자동으로 동기화돼요.', conflictKept:'다른 기기에서 바뀐 기록과 겹쳤어요. 더 최근 쪽으로 이어가고, 다른 쪽은 백업으로 보관했어요.', conflictDownloadBtn:'백업 받기'},
+    status: {loading:'불러오는 중…', saved:'저장됨', saveFailed:'저장 실패 — 다시 시도해 주세요', saveFailBanner:'클라우드 저장에 계속 실패하고 있어요 — 지금 새로고침하거나 다른 기기에서 열면 최근 변경사항을 잃을 수 있어요.', saveFailRetry:'다시 시도', loadFailedWarning:'저장된 데이터를 불러오는 데 실패했어요. 인터넷 연결을 확인하고 새로고침해주세요 — 이 상태로 계속 사용하면 최근 저장 내용이 덮어써질 수 있어요.', offlineSaved:'오프라인 — 이 기기에 저장됨 (연결되면 자동 동기화)', offlineOpened:'오프라인 모드', offlineOpenedNotice:'인터넷에 연결되지 않아 이 기기에 저장된 사본으로 열었어요. 지금 하는 공부는 이 기기에 저장되고, 연결되면 자동으로 동기화돼요.', conflictKept:'다른 기기에서 바뀐 기록과 겹쳤어요. 더 최근 쪽으로 이어가고, 다른 쪽은 백업으로 보관했어요.', conflictDownloadBtn:'백업 받기', syncBadgeSynced:'동기화됨', syncBadgeSyncing:'동기화 중', syncBadgePending:'동기화 대기', syncBadgeOffline:'오프라인', syncPanelSynced:'모든 기록이 클라우드에 저장돼 있어요.', syncPanelPending:'연결은 되어 있지만 아직 올라가지 않은 변경사항이 있어요.', syncPanelOffline:'오프라인이에요. 변경사항은 이 기기에 저장되고, 연결되면 자동으로 동기화돼요.', syncPanelImages:'노트 이미지 {cached}/{total}개가 이 기기에 저장돼 있어요 (오프라인에서도 보여요).', syncPanelWhere:'오프라인 사본 위치: 이 브라우저의 사이트 데이터(IndexedDB) 안이에요. 눈에 보이는 파일은 아니고, 브라우저의 "웹사이트 데이터 삭제"를 하면 같이 지워져요. 아직 동기화 안 된 기록이 있을 땐 내보내기로 백업해 두세요.', syncPanelNowBtn:'지금 동기화'},
     common: {ok:'확인'},
     theme: {
       wizardLabel:'🧙 마법사 모드', classicLabel:'📜 클래식 모드', hospitalLabel:'🏥 병원 모드', lawLabel:'⚖️ 법조 모드', labLabel:'🧪 연구실 모드'
@@ -1539,7 +1548,7 @@ const LANG = {
       drawHint:'Pull a random topic to test yourself', outputHint:'Recall what you learned from a blank page', gapsHint:'Collect things you missed or got wrong',
       cardsHint:'Review flashcards with spaced repetition', focusHint:'Track focused study time with a timer', rewardsHint:'Spend points on breaks and rewards'
     },
-    status: {loading:'Loading…', saved:'Saved', saveFailed:'Save failed — please try again', saveFailBanner:'Cloud save keeps failing — refreshing or opening on another device now could lose recent changes.', saveFailRetry:'Retry', loadFailedWarning:'Failed to load your saved data. Check your connection and refresh — continuing now risks overwriting your recent saves.', offlineSaved:'Offline — saved on this device (syncs automatically when connected)', offlineOpened:'Offline mode', offlineOpenedNotice:'No internet connection, so the copy saved on this device was opened. What you study now is saved here and syncs automatically once you are connected.', conflictKept:'This overlapped with changes made on another device. The more recent version was kept and the other one was saved as a backup.', conflictDownloadBtn:'Download backup'},
+    status: {loading:'Loading…', saved:'Saved', saveFailed:'Save failed — please try again', saveFailBanner:'Cloud save keeps failing — refreshing or opening on another device now could lose recent changes.', saveFailRetry:'Retry', loadFailedWarning:'Failed to load your saved data. Check your connection and refresh — continuing now risks overwriting your recent saves.', offlineSaved:'Offline — saved on this device (syncs automatically when connected)', offlineOpened:'Offline mode', offlineOpenedNotice:'No internet connection, so the copy saved on this device was opened. What you study now is saved here and syncs automatically once you are connected.', conflictKept:'This overlapped with changes made on another device. The more recent version was kept and the other one was saved as a backup.', conflictDownloadBtn:'Download backup', syncBadgeSynced:'Synced', syncBadgeSyncing:'Syncing', syncBadgePending:'Sync pending', syncBadgeOffline:'Offline', syncPanelSynced:'Everything is saved in the cloud.', syncPanelPending:'Connected, but some changes have not uploaded yet.', syncPanelOffline:'You are offline. Changes are saved on this device and sync automatically once you are connected.', syncPanelImages:'{cached}/{total} note images are stored on this device (they show offline too).', syncPanelWhere:'Offline copy location: inside this browser\'s site data (IndexedDB). It is not a visible file, and clearing the browser\'s website data deletes it too. If there are changes that have not synced yet, make a backup with Export.', syncPanelNowBtn:'Sync now'},
     common: {ok:'OK'},
     theme: {
       wizardLabel:'🧙 Wizard mode', classicLabel:'📜 Classic mode', hospitalLabel:'🏥 Hospital mode', lawLabel:'⚖️ Law mode', labLabel:'🧪 Lab mode'
@@ -1841,7 +1850,7 @@ const LANG = {
       drawHint:'Zufällig ein Thema ziehen und sich selbst testen', outputHint:'Gelerntes aus dem Gedächtnis aufschreiben', gapsHint:'Verpasstes oder Falsches sammeln',
       cardsHint:'Karteikarten mit Spaced Repetition wiederholen', focusHint:'Fokussierte Lernzeit mit Timer erfassen', rewardsHint:'Gesammelte Punkte gegen Pausen und Belohnungen eintauschen'
     },
-    status: {loading:'Wird geladen…', saved:'Gespeichert', saveFailed:'Speichern fehlgeschlagen — bitte erneut versuchen', saveFailBanner:'Cloud-Speicherung schlägt weiterhin fehl — ein Neuladen oder Öffnen auf einem anderen Gerät könnte jetzt kürzliche Änderungen verlieren.', saveFailRetry:'Erneut versuchen', loadFailedWarning:'Deine gespeicherten Daten konnten nicht geladen werden. Prüfe deine Verbindung und lade neu — sonst könnten kürzliche Speicherungen überschrieben werden.', offlineSaved:'Offline — auf diesem Gerät gespeichert (Sync automatisch bei Verbindung)', offlineOpened:'Offline-Modus', offlineOpenedNotice:'Keine Internetverbindung — die auf diesem Gerät gespeicherte Kopie wurde geöffnet. Alles, was du jetzt lernst, wird hier gespeichert und automatisch synchronisiert, sobald du verbunden bist.', conflictKept:'Das überschneidet sich mit Änderungen auf einem anderen Gerät. Die neuere Version wurde behalten, die andere als Backup gesichert.', conflictDownloadBtn:'Backup herunterladen'},
+    status: {loading:'Wird geladen…', saved:'Gespeichert', saveFailed:'Speichern fehlgeschlagen — bitte erneut versuchen', saveFailBanner:'Cloud-Speicherung schlägt weiterhin fehl — ein Neuladen oder Öffnen auf einem anderen Gerät könnte jetzt kürzliche Änderungen verlieren.', saveFailRetry:'Erneut versuchen', loadFailedWarning:'Deine gespeicherten Daten konnten nicht geladen werden. Prüfe deine Verbindung und lade neu — sonst könnten kürzliche Speicherungen überschrieben werden.', offlineSaved:'Offline — auf diesem Gerät gespeichert (Sync automatisch bei Verbindung)', offlineOpened:'Offline-Modus', offlineOpenedNotice:'Keine Internetverbindung — die auf diesem Gerät gespeicherte Kopie wurde geöffnet. Alles, was du jetzt lernst, wird hier gespeichert und automatisch synchronisiert, sobald du verbunden bist.', conflictKept:'Das überschneidet sich mit Änderungen auf einem anderen Gerät. Die neuere Version wurde behalten, die andere als Backup gesichert.', conflictDownloadBtn:'Backup herunterladen', syncBadgeSynced:'Synchronisiert', syncBadgeSyncing:'Synchronisiere', syncBadgePending:'Sync ausstehend', syncBadgeOffline:'Offline', syncPanelSynced:'Alles ist in der Cloud gespeichert.', syncPanelPending:'Verbunden, aber einige Änderungen wurden noch nicht hochgeladen.', syncPanelOffline:'Du bist offline. Änderungen werden auf diesem Gerät gespeichert und automatisch synchronisiert, sobald du verbunden bist.', syncPanelImages:'{cached}/{total} Notizbilder sind auf diesem Gerät gespeichert (auch offline sichtbar).', syncPanelWhere:'Speicherort der Offline-Kopie: in den Websitedaten dieses Browsers (IndexedDB). Es ist keine sichtbare Datei; das Löschen der Websitedaten im Browser löscht sie ebenfalls. Bei noch nicht synchronisierten Änderungen bitte mit Exportieren sichern.', syncPanelNowBtn:'Jetzt synchronisieren'},
     common: {ok:'OK'},
     theme: {
       wizardLabel:'🧙 Magiermodus', classicLabel:'📜 Klassischer Modus', hospitalLabel:'🏥 Krankenhausmodus', lawLabel:'⚖️ Gerichtsmodus', labLabel:'🧪 Labormodus'
@@ -2143,7 +2152,7 @@ const LANG = {
       drawHint:'Tirez un sujet au hasard pour vous tester', outputHint:"Rappelez-vous ce que vous avez appris à partir d'une page blanche", gapsHint:'Rassemblez ce que vous avez manqué ou mal compris',
       cardsHint:'Révisez vos cartes avec la répétition espacée', focusHint:'Suivez votre temps de concentration avec un minuteur', rewardsHint:'Dépensez vos points en pauses et récompenses'
     },
-    status: {loading:'Chargement…', saved:'Enregistré', saveFailed:"Échec de l'enregistrement — veuillez réessayer", saveFailBanner:"L'enregistrement dans le cloud échoue toujours — actualiser ou ouvrir sur un autre appareil maintenant pourrait faire perdre les modifications récentes.", saveFailRetry:'Réessayer', loadFailedWarning:"Échec du chargement de vos données enregistrées. Vérifiez votre connexion et actualisez — continuer maintenant risque d'écraser vos enregistrements récents.", offlineSaved:'Hors ligne — enregistré sur cet appareil (synchronisation automatique dès la connexion)', offlineOpened:'Mode hors ligne', offlineOpenedNotice:"Pas de connexion internet : la copie enregistrée sur cet appareil a été ouverte. Ce que vous étudiez maintenant est enregistré ici et se synchronise automatiquement dès que vous êtes connecté.", conflictKept:"Cela chevauche des modifications faites sur un autre appareil. La version la plus récente a été conservée et l'autre sauvegardée.", conflictDownloadBtn:'Télécharger la sauvegarde'},
+    status: {loading:'Chargement…', saved:'Enregistré', saveFailed:"Échec de l'enregistrement — veuillez réessayer", saveFailBanner:"L'enregistrement dans le cloud échoue toujours — actualiser ou ouvrir sur un autre appareil maintenant pourrait faire perdre les modifications récentes.", saveFailRetry:'Réessayer', loadFailedWarning:"Échec du chargement de vos données enregistrées. Vérifiez votre connexion et actualisez — continuer maintenant risque d'écraser vos enregistrements récents.", offlineSaved:'Hors ligne — enregistré sur cet appareil (synchronisation automatique dès la connexion)', offlineOpened:'Mode hors ligne', offlineOpenedNotice:"Pas de connexion internet : la copie enregistrée sur cet appareil a été ouverte. Ce que vous étudiez maintenant est enregistré ici et se synchronise automatiquement dès que vous êtes connecté.", conflictKept:"Cela chevauche des modifications faites sur un autre appareil. La version la plus récente a été conservée et l'autre sauvegardée.", conflictDownloadBtn:'Télécharger la sauvegarde', syncBadgeSynced:'Synchronisé', syncBadgeSyncing:'Synchronisation', syncBadgePending:'Synchro en attente', syncBadgeOffline:'Hors ligne', syncPanelSynced:'Tout est enregistré dans le cloud.', syncPanelPending:"Connecté, mais certaines modifications ne sont pas encore envoyées.", syncPanelOffline:"Vous êtes hors ligne. Les modifications sont enregistrées sur cet appareil et se synchronisent automatiquement dès la connexion.", syncPanelImages:"{cached}/{total} images de notes sont enregistrées sur cet appareil (visibles hors ligne).", syncPanelWhere:"Emplacement de la copie hors ligne : dans les données de site de ce navigateur (IndexedDB). Ce n'est pas un fichier visible, et effacer les données de sites du navigateur la supprime aussi. S'il reste des modifications non synchronisées, faites une sauvegarde avec Exporter.", syncPanelNowBtn:'Synchroniser maintenant'},
     common: {ok:'OK'},
     theme: {
       wizardLabel:'🧙 Mode magicien', classicLabel:'📜 Mode classique', hospitalLabel:'🏥 Mode hôpital', lawLabel:'⚖️ Mode droit', labLabel:'🧪 Mode laboratoire'
@@ -3366,6 +3375,7 @@ async function prefetchNoteImages(){
     for(const k of have){ if(!keep.has(k)) await idbDo('img', 'readwrite', os=>os.delete(k)); }
   }catch(e){ console.warn('[Mnemoire] image prefetch failed', e); }
   imagePrefetchRunning = false;
+  updateSyncBadge();
 }
 
 /* ============ STATE ============ */
@@ -3543,6 +3553,7 @@ async function startAppAfterAuth(userId, opts){
   if(loadConflict) showSyncNotice(t('status.conflictKept'), t('status.conflictDownloadBtn'), 'App.downloadConflictBackup()');
   // unsynced local changes from an earlier offline session: push them now
   // (a no-op that just stays "pending" if there's still no connection)
+  updateSyncBadge();
   if(loadPending) saveStateNow();
   if(!offlineMode && !cloudLoadFailed) setTimeout(prefetchNoteImages, 4000);
 }
@@ -4515,15 +4526,19 @@ window.addEventListener('pagehide', flushPendingSave);
 window.addEventListener('online', function(){
   if(currentUserId && (offlineWasPending || offlineMode)) App.retrySaveNow();
 });
-async function attemptSaveState(){
+async function attemptSaveState(){ try{ await attemptSaveStateCore(); } finally { updateSyncBadge(); } }
+async function attemptSaveStateCore(){
   clearTimeout(saveRetryTimer);
   let result;
+  syncBusy = true; updateSyncBadge();
   try{
     result = await window.storage.set(STORAGE_KEY, JSON.stringify(state), false);
   }catch(e){
     console.warn('[Mnemoire] attemptSaveState threw:', e);
     result = { success:false, errorMessage: (e && e.message) || String(e) };
   }
+  syncBusy = false;
+  lastSaveOffline = !!(result && !result.success && result.localSaved && result.offline);
   if(result && result.success){
     saveRetryCount = 0;
     lastSaveErrorMessage = null;
@@ -4595,6 +4610,61 @@ function setStatus(msg, isError){
   el.textContent = msg;
   el.classList.toggle('status-error', !!isError);
 }
+
+/* ---- Sync indicator (header badge + details panel) ----
+   Shows at a glance whether everything is in the cloud (synced), changes are
+   waiting to upload (pending), a save is in flight (syncing) or the device is
+   offline, and — on click — where the offline copy lives and how many note
+   pictures are stored on this device. */
+let syncBusy = false, lastSaveOffline = false;
+function syncState(){
+  if(offlineMode || lastSaveOffline || (typeof navigator!=='undefined' && navigator.onLine===false)) return 'offline';
+  if(syncBusy) return 'syncing';
+  if(offlineWasPending) return 'pending';
+  return 'synced';
+}
+function updateSyncBadge(){
+  const el = document.getElementById('syncBadge');
+  if(!el) return;
+  if(!currentUserId){ el.hidden = true; return; }
+  const st = syncState();
+  const label = { synced:'☁ '+t('status.syncBadgeSynced'), syncing:'↻ '+t('status.syncBadgeSyncing'), pending:'⏳ '+t('status.syncBadgePending'), offline:'📴 '+t('status.syncBadgeOffline') }[st];
+  el.textContent = label;
+  el.className = 'sync-badge is-' + st;
+  el.hidden = false;
+  const panel = document.getElementById('syncPanel');
+  if(panel && !panel.hidden) renderSyncPanel();
+}
+async function noteImageStats(){
+  const esc = NOTE_IMAGE_PUBLIC_PREFIX.replace(/[.*+?^${}()|[\]\\\/]/g, '\\$&');
+  const re = new RegExp(esc + '[^"\'\\\\\\s)<>&]+', 'g');
+  const urls = Array.from(new Set((JSON.stringify(state).match(re)) || []));
+  const have = new Set((await idbDo('img', 'readonly', os=>os.getAllKeys())) || []);
+  return { total: urls.length, cached: urls.filter(u=>have.has(u)).length };
+}
+async function renderSyncPanel(){
+  const panel = document.getElementById('syncPanel');
+  if(!panel) return;
+  const st = syncState();
+  const stats = await noteImageStats();
+  const stateText = { synced:t('status.syncPanelSynced'), syncing:t('status.syncBadgeSyncing'), pending:t('status.syncPanelPending'), offline:t('status.syncPanelOffline') }[st];
+  panel.innerHTML = `
+    <div class="sp-row"><strong>${escapeHtml(stateText)}</strong></div>
+    ${stats.total>0 ? `<div class="sp-row">${escapeHtml(tf('status.syncPanelImages',{cached:stats.cached,total:stats.total}))}</div>` : ''}
+    <div class="sp-row muted" style="font-size:12px;">${escapeHtml(t('status.syncPanelWhere'))}</div>
+    <div class="sp-btns">
+      <button class="btn small" onclick="App.retrySaveNow()">${escapeHtml(t('status.syncPanelNowBtn'))}</button>
+      <button class="btn ghost small" onclick="App.exportData()">${escapeHtml(t('header.export'))}</button>
+      <button class="btn ghost small" onclick="App.toggleSyncPanel()">×</button>
+    </div>`;
+}
+App.toggleSyncPanel = function(){
+  const panel = document.getElementById('syncPanel');
+  if(!panel) return;
+  if(panel.hidden){ panel.hidden = false; renderSyncPanel(); } else panel.hidden = true;
+};
+window.addEventListener('online', updateSyncBadge);
+window.addEventListener('offline', updateSyncBadge);
 
 /* ============ BACKUP: EXPORT / IMPORT ============ */
 App.exportData = function(){
