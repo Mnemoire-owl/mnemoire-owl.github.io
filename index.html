@@ -636,6 +636,7 @@
   .cal-daynum{font-size:11.5px;font-family:'IBM Plex Mono',monospace;}
   .cal-bar{display:flex;height:5px;border-radius:3px;overflow:hidden;background:var(--surface-2);}
   .cal-bar span{display:block;height:100%;}
+  .cal-karma{font-size:8.5px;font-family:'IBM Plex Mono',monospace;color:var(--amber);line-height:1.2;white-space:nowrap;font-weight:600;}
   .cal-total{font-size:8.5px;font-family:'IBM Plex Mono',monospace;color:var(--ink-dim);line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .cal-event-dot{position:absolute;top:4px;right:5px;width:6px;height:6px;border-radius:50%;background:var(--berry);}
 
@@ -1302,7 +1303,7 @@ const LANG = {
       eventTitleLabel:'일정 제목', eventTitlePh:'예: 중간고사, 치과 예약',
       eventTimeLabel:'시간', eventTypeLabel:'종류',
       typeExam:'시험', typeAppointment:'약속', typeOther:'기타',
-      addEventBtn:'일정 추가', deleteEventLabel:'삭제', editEventLabel:'수정', saveEventLabel:'저장', cancelEventLabel:'취소', eventDateLabel:'날짜', eventEmptyTitle:'일정 이름을 입력해 주세요.',
+      addEventBtn:'일정 추가', deleteEventLabel:'삭제', editEventLabel:'수정', saveEventLabel:'저장', cancelEventLabel:'취소', eventDateLabel:'날짜', eventEmptyTitle:'일정 이름을 입력해 주세요.', karmaPaidLabel:'업보 갚은 시간', karmaCellTitle:'업보 {n}분 갚음',
       upcomingTitle:'⏳ 다가오는 일정', noUpcoming:'다가오는 일정이 없어요.',
       ddayToday:'D-day', hoursLeftFormat:'{h}시간 {m}분 남음', hoursPastFormat:'{h}시간 {m}분 지남'
     },
@@ -1423,6 +1424,7 @@ const LANG = {
       searchLabel:'카드 검색', searchPh:'과목, 소주제, 카드 내용으로 검색…', searchNoResults:'검색 결과가 없어요.'
     },
     focus: {
+      karmaTitle:'업보 시간', karmaDesc:'어제 목표를 못 채운 만큼이 오늘의 업보예요. 오늘 공부한 시간 중 얼마를 갚을지 직접 정해요. 오늘 목표 진행률은 그대로 올라가요.', karmaNoData:'아직 계산할 어제 기록이 없어요.', karmaClear:'어제 목표를 채웠어요 — 업보가 없어요.', karmaYesterdayLine:'어제({date}) 목표 {target}분 · 공부 {actual}분 · 모자란 시간 {owed}분', karmaRemaining:'남은 업보 {remaining}분 (갚은 시간 {paid}분)', karmaAvailable:'오늘 공부한 {today}분 중 아직 안 쓴 시간: {avail}분', karmaAmountLabel:'갚을 시간(분)', karmaPayBtn:'갚기', karmaUndoBtn:'갚은 시간 되돌리기', karmaPaidOff:'업보를 모두 갚았어요!', karmaErrAmount:'1분 이상, 남은 업보와 오늘 쓸 수 있는 시간 이하로 입력해 주세요.',
       workMode:'집중 시간', breakMode:'휴식 시간', start:'시작', pause:'일시정지', reset:'초기화',
       noSubjectOpt:'과목 선택 안 함', workLabel:'집중 (분)', breakLabel:'휴식 (분)',
       todayTitle:'오늘 집중 시간', last7:'최근 7일', noSessions:'아직 기록된 세션이 없어요.', deleteEntry:'이 기록 삭제',
@@ -1604,7 +1606,7 @@ const LANG = {
       eventTitleLabel:'Event title', eventTitlePh:'e.g. Midterm exam, dentist appointment',
       eventTimeLabel:'Time', eventTypeLabel:'Type',
       typeExam:'Exam', typeAppointment:'Appointment', typeOther:'Other',
-      addEventBtn:'Add event', deleteEventLabel:'Delete', editEventLabel:'Edit', saveEventLabel:'Save', cancelEventLabel:'Cancel', eventDateLabel:'Date', eventEmptyTitle:'Please enter an event name.',
+      addEventBtn:'Add event', deleteEventLabel:'Delete', editEventLabel:'Edit', saveEventLabel:'Save', cancelEventLabel:'Cancel', eventDateLabel:'Date', eventEmptyTitle:'Please enter an event name.', karmaPaidLabel:'Make-up time paid back', karmaCellTitle:'{n} min of make-up time paid back',
       upcomingTitle:'⏳ Upcoming events', noUpcoming:'No upcoming events.',
       ddayToday:'D-day', hoursLeftFormat:'{h}h {m}m left', hoursPastFormat:'{h}h {m}m ago'
     },
@@ -1725,6 +1727,7 @@ const LANG = {
       searchLabel:'Search cards', searchPh:'Search by subject, subtopic, or card content…', searchNoResults:'No matches found.'
     },
     focus: {
+      karmaTitle:'Make-up time', karmaDesc:'Whatever you missed of yesterday\'s goal is today\'s make-up time. You decide how much of today\'s study time to put toward it. Today\'s own goal progress still counts in full.', karmaNoData:'There is no record from yesterday to calculate yet.', karmaClear:'You hit yesterday\'s goal — no make-up time owed.', karmaYesterdayLine:'Yesterday ({date}): goal {target} min · studied {actual} min · short by {owed} min', karmaRemaining:'Make-up time left: {remaining} min ({paid} min paid)', karmaAvailable:'Of {today} min studied today, {avail} min not used yet', karmaAmountLabel:'Minutes to pay back', karmaPayBtn:'Pay back', karmaUndoBtn:'Undo repaid time', karmaPaidOff:'All make-up time paid back!', karmaErrAmount:'Enter at least 1 minute, no more than the time left and the time you can still use today.',
       workMode:'Focus time', breakMode:'Break time', start:'Start', pause:'Pause', reset:'Reset',
       noSubjectOpt:'No subject', workLabel:'Focus (min)', breakLabel:'Break (min)',
       todayTitle:"Today's focus time", last7:'Last 7 days', noSessions:'No sessions logged yet.', deleteEntry:'Delete this entry',
@@ -1906,7 +1909,7 @@ const LANG = {
       eventTitleLabel:'Termintitel', eventTitlePh:'z. B. Zwischenprüfung, Zahnarzttermin',
       eventTimeLabel:'Uhrzeit', eventTypeLabel:'Art',
       typeExam:'Prüfung', typeAppointment:'Termin', typeOther:'Sonstiges',
-      addEventBtn:'Termin hinzufügen', deleteEventLabel:'Löschen', editEventLabel:'Bearbeiten', saveEventLabel:'Speichern', cancelEventLabel:'Abbrechen', eventDateLabel:'Datum', eventEmptyTitle:'Bitte einen Namen eingeben.',
+      addEventBtn:'Termin hinzufügen', deleteEventLabel:'Löschen', editEventLabel:'Bearbeiten', saveEventLabel:'Speichern', cancelEventLabel:'Abbrechen', eventDateLabel:'Datum', eventEmptyTitle:'Bitte einen Namen eingeben.', karmaPaidLabel:'Abgetragene Nachholzeit', karmaCellTitle:'{n} Min Nachholzeit abgetragen',
       upcomingTitle:'⏳ Bevorstehende Termine', noUpcoming:'Keine bevorstehenden Termine.',
       ddayToday:'D-Day', hoursLeftFormat:'noch {h}Std {m}Min', hoursPastFormat:'vor {h}Std {m}Min'
     },
@@ -2027,6 +2030,7 @@ const LANG = {
       searchLabel:'Karten durchsuchen', searchPh:'Nach Fach, Unterthema oder Karteninhalt suchen…', searchNoResults:'Keine Treffer gefunden.'
     },
     focus: {
+      karmaTitle:'Nachholzeit', karmaDesc:'Was du vom gestrigen Ziel verpasst hast, ist heute deine Nachholzeit. Du entscheidest, wie viel der heutigen Lernzeit du dafür einsetzt. Der Fortschritt zum heutigen Ziel zählt weiterhin voll.', karmaNoData:'Es gibt noch keine gestrigen Daten zum Berechnen.', karmaClear:'Du hast das gestrige Ziel erreicht — keine Nachholzeit.', karmaYesterdayLine:'Gestern ({date}): Ziel {target} Min · gelernt {actual} Min · es fehlten {owed} Min', karmaRemaining:'Offene Nachholzeit: {remaining} Min ({paid} Min abgetragen)', karmaAvailable:'Von {today} Min heute gelernt sind {avail} Min noch nicht verwendet', karmaAmountLabel:'Minuten abtragen', karmaPayBtn:'Abtragen', karmaUndoBtn:'Abgetragenes zurücknehmen', karmaPaidOff:'Alle Nachholzeit abgetragen!', karmaErrAmount:'Mindestens 1 Minute eingeben, höchstens die offene Zeit und die heute noch verwendbare Zeit.',
       workMode:'Fokuszeit', breakMode:'Pause', start:'Start', pause:'Pause', reset:'Zurücksetzen',
       noSubjectOpt:'Kein Fach', workLabel:'Fokus (Min)', breakLabel:'Pause (Min)',
       todayTitle:'Heutige Fokuszeit', last7:'Letzte 7 Tage', noSessions:'Noch keine Sitzungen erfasst.', deleteEntry:'Diesen Eintrag löschen',
@@ -2208,7 +2212,7 @@ const LANG = {
       eventTitleLabel:"Titre de l'événement", eventTitlePh:'ex. Examen partiel, rendez-vous chez le dentiste',
       eventTimeLabel:'Heure', eventTypeLabel:'Type',
       typeExam:'Examen', typeAppointment:'Rendez-vous', typeOther:'Autre',
-      addEventBtn:'Ajouter un événement', deleteEventLabel:'Supprimer', editEventLabel:'Modifier', saveEventLabel:'Enregistrer', cancelEventLabel:'Annuler', eventDateLabel:'Date', eventEmptyTitle:'Veuillez saisir un nom.',
+      addEventBtn:'Ajouter un événement', deleteEventLabel:'Supprimer', editEventLabel:'Modifier', saveEventLabel:'Enregistrer', cancelEventLabel:'Annuler', eventDateLabel:'Date', eventEmptyTitle:'Veuillez saisir un nom.', karmaPaidLabel:'Temps rattrapé', karmaCellTitle:'{n} min de temps rattrapé',
       upcomingTitle:'⏳ Événements à venir', noUpcoming:'Aucun événement à venir.',
       ddayToday:'Jour J', hoursLeftFormat:'{h}h {m}min restantes', hoursPastFormat:'il y a {h}h {m}min'
     },
@@ -2329,6 +2333,7 @@ const LANG = {
       searchLabel:'Rechercher des cartes', searchPh:'Rechercher par matière, sous-sujet ou contenu de carte…', searchNoResults:'Aucun résultat trouvé.'
     },
     focus: {
+      karmaTitle:'Temps à rattraper', karmaDesc:"Ce que vous avez manqué de l'objectif d'hier devient le temps à rattraper aujourd'hui. Vous décidez quelle part du temps étudié aujourd'hui y consacrer. La progression de l'objectif du jour compte toujours en entier.", karmaNoData:"Pas encore d'enregistrement d'hier à calculer.", karmaClear:"Vous avez atteint l'objectif d'hier — rien à rattraper.", karmaYesterdayLine:"Hier ({date}) : objectif {target} min · étudié {actual} min · manque {owed} min", karmaRemaining:'Reste à rattraper : {remaining} min ({paid} min rattrapées)', karmaAvailable:"Sur {today} min étudiées aujourd'hui, {avail} min pas encore utilisées", karmaAmountLabel:'Minutes à rattraper', karmaPayBtn:'Rattraper', karmaUndoBtn:'Annuler le temps rattrapé', karmaPaidOff:'Tout est rattrapé !', karmaErrAmount:"Saisissez au moins 1 minute, au plus le temps restant et le temps encore utilisable aujourd'hui.",
       workMode:'Temps de concentration', breakMode:'Temps de pause', start:'Démarrer', pause:'Pause', reset:'Réinitialiser',
       noSubjectOpt:'Aucune matière', workLabel:'Concentration (min)', breakLabel:'Pause (min)',
       todayTitle:"Temps de concentration aujourd'hui", last7:'7 derniers jours', noSessions:"Aucune session enregistrée pour l'instant.", deleteEntry:'Supprimer cette entrée',
@@ -3638,6 +3643,7 @@ function defaultState(){
     gapsFilter: 'all',
     plan: { date: null, targetMinutes: 60, items: [] },
     planHistory: [],
+    karmaPaid: {},
     recurringPlans: [],
     cards: [],
     focusLog: [],
@@ -4365,6 +4371,7 @@ function normalizeState(){
   state.plan = Object.assign({date:null, targetMinutes:60, items:[]}, state.plan||{});
   if(!Array.isArray(state.plan.items)) state.plan.items = [];
   if(!Array.isArray(state.planHistory)) state.planHistory = [];
+  if(!state.karmaPaid || typeof state.karmaPaid!=='object' || Array.isArray(state.karmaPaid)) state.karmaPaid = {};
   /* Recurring ("resident") plan items: unlike state.plan.items, these never
      get archived away when checked off — each stays in this list forever
      and just reappears on every scheduled weekday, with its "done" state
@@ -8692,19 +8699,22 @@ function renderCalendarCard(){
     const breakdown = dayStudyBreakdown(dateISO);
     const evs = eventsOnDate(dateISO);
     const barSegments = breakdown.totalSeconds>0 ? breakdown.slices.map(sl=>`<span style="width:${Math.max(2,Math.round(sl.seconds/breakdown.totalSeconds*100))}%;background:${sl.color};"></span>`).join('') : '';
+    const karmaPaid = karmaPaidOn(dateISO);
     const isToday = dateISO===today, isSelected = dateISO===selected;
     const totalLabel = breakdown.totalSeconds>0 ? fmtDurationShort(breakdown.totalMinutes) : '';
     return `
-      <div class="cal-cell ${isToday?'is-today':''} ${isSelected?'is-selected':''}" onclick="App.selectCalendarDate('${dateISO}')" title="${dateISO}${totalLabel ? ' · '+totalLabel : ''}">
+      <div class="cal-cell ${isToday?'is-today':''} ${isSelected?'is-selected':''}" onclick="App.selectCalendarDate('${dateISO}')" title="${dateISO}${totalLabel ? ' · '+totalLabel : ''}${karmaPaid>0 ? ' · '+escapeAttr(tf('calendar.karmaCellTitle',{n:karmaPaid})) : ''}">
         <div class="cal-daynum">${dayNum}</div>
         ${barSegments ? `<div class="cal-bar">${barSegments}</div>` : ''}
         ${totalLabel ? `<div class="cal-total">${totalLabel}</div>` : ''}
+        ${karmaPaid>0 ? `<div class="cal-karma" title="${escapeAttr(tf('calendar.karmaCellTitle',{n:karmaPaid}))}">↺${karmaPaid}</div>` : ''}
         ${evs.length ? `<span class="cal-event-dot"></span>` : ''}
       </div>
     `;
   }).join('');
 
   const dayBreakdown = dayStudyBreakdown(selected);
+  const selectedKarmaPaid = karmaPaidOn(selected);
   const breakdownRows = dayBreakdown.slices.length ? dayBreakdown.slices.map(sl=>{
     const pct = dayBreakdown.totalSeconds>0 ? Math.round(sl.seconds/dayBreakdown.totalSeconds*100) : 0;
     return `
@@ -8757,7 +8767,12 @@ function renderCalendarCard(){
         ${dayBreakdown.totalSeconds>0 ? `<div style="font-size:13px;"><span class="muted" style="font-size:11px;">${t('calendar.totalStudyLabel')}:</span> <strong class="mono">${fmtHoursMinutesLabel(dayBreakdown.totalMinutes)}</strong></div>` : ''}
       </div>
       <label>${t('calendar.studyBreakdownTitle')}</label>
-      <div style="margin:8px 0 16px;">${breakdownRows}</div>
+      <div style="margin:8px 0 ${selectedKarmaPaid>0 ? '8px' : '16px'};">${breakdownRows}</div>
+      ${selectedKarmaPaid>0 ? `<div style="display:flex;align-items:center;gap:8px;margin:0 0 16px;padding-top:6px;border-top:1px dashed var(--line);">
+        <span class="color-dot" style="background:var(--amber);"></span>
+        <span style="flex:1;font-size:12.5px;">${t('calendar.karmaPaidLabel')}</span>
+        <span class="mono" style="font-size:11px;color:var(--amber);">${selectedKarmaPaid}${t('dash.minutesUnit')}</span>
+      </div>` : ''}
       <label>${t('calendar.eventsTitle')}</label>
       <div style="margin:8px 0 14px;">${eventRows}</div>
       <div class="row" style="align-items:flex-end;">
@@ -13929,6 +13944,78 @@ App.setSoundVolume = function(v){
   saveState();
 };
 
+/* ---- 업보 시간 ("karma" time): yesterday's shortfall against the daily goal ----
+   owed(today) = max(0, yesterday's target - yesterday's focus minutes). It is
+   derived on the fly from focusLog/planHistory (nothing stored but what has
+   been repaid), so it can never drift out of sync with edits or deletions.
+   Only YESTERDAY counts — older shortfalls expire. Repaying is manual: the
+   person decides how much of today's study time to put toward it
+   (state.karmaPaid[today], minutes). Repaying does NOT touch today's own goal
+   progress/focusLog — the two are tracked separately — but the amount that can
+   be repaid is capped by today's focus minutes not already used. */
+function karmaInfo(dayArg){
+  const today = dayArg || sessionToday();
+  const yesterday = addDays(today, -1);
+  const histEntry = state.planHistory.slice().reverse().find(h=>h.date===yesterday);
+  const target = histEntry ? (histEntry.targetMinutes||0) : (state.plan.targetMinutes||0);
+  const hasPast = state.focusLog.some(f=>f.date<=yesterday) || state.planHistory.some(h=>h.date<=yesterday);
+  const actual = state.focusLog.filter(f=>f.date===yesterday).reduce((a,f)=>a+f.minutes,0);
+  const todayMin = state.focusLog.filter(f=>f.date===today).reduce((a,f)=>a+f.minutes,0);
+  const owed = (hasPast && target>0) ? Math.max(0, target - Math.max(0, actual)) : 0;
+  const paidRaw = Math.max(0, Math.round(state.karmaPaid[today]||0));
+  const paid = Math.min(paidRaw, owed, Math.max(0, todayMin));
+  const remaining = Math.max(0, owed - paid);
+  const available = Math.max(0, todayMin - paid);
+  return {today, yesterday, target, actual, owed, paid, remaining, available, todayMin, hasData: hasPast && target>0};
+}
+/* Minutes of make-up time repaid on a given day (what the calendar shows). */
+function karmaPaidOn(dateISO){
+  if(!state.karmaPaid || !state.karmaPaid[dateISO]) return 0;
+  return karmaInfo(dateISO).paid;
+}
+App.payKarma = function(){
+  const k = karmaInfo();
+  const el = document.getElementById('karmaPayMin');
+  const amount = Math.round(parseFloat(el && el.value) || 0);
+  if(amount < 1 || amount > k.remaining || amount > k.available){ showAlert(t('focus.karmaErrAmount')); return; }
+  state.karmaPaid[k.today] = k.paid + amount;
+  // keep the map small (about a year of days; the calendar shows past repayments)
+  Object.keys(state.karmaPaid).sort().slice(0, -400).forEach(d=>{ delete state.karmaPaid[d]; });
+  saveState(); renderAll();
+};
+App.undoKarma = function(){
+  const k = karmaInfo();
+  delete state.karmaPaid[k.today];
+  saveState(); renderAll();
+};
+function renderKarmaCard(){
+  const k = karmaInfo();
+  let body;
+  if(!k.hasData){
+    body = `<div class="muted" style="font-size:12.5px;">${t('focus.karmaNoData')}</div>`;
+  } else if(k.owed===0){
+    body = `<div style="font-size:13px;color:var(--teal);">${t('focus.karmaClear')}</div>
+      <div class="muted mono" style="font-size:11.5px;margin-top:4px;">${escapeHtml(tf('focus.karmaYesterdayLine',{date:k.yesterday,target:k.target,actual:k.actual,owed:k.owed}))}</div>`;
+  } else {
+    const defaultAmt = Math.max(1, Math.min(k.remaining, k.available));
+    body = `
+      <div class="muted mono" style="font-size:11.5px;">${escapeHtml(tf('focus.karmaYesterdayLine',{date:k.yesterday,target:k.target,actual:k.actual,owed:k.owed}))}</div>
+      <div style="font-family:'Fraunces',serif;font-size:22px;font-weight:600;margin:8px 0 2px;">${k.remaining>0 ? escapeHtml(tf('focus.karmaRemaining',{remaining:k.remaining,paid:k.paid})) : escapeHtml(t('focus.karmaPaidOff'))}</div>
+      <div class="muted" style="font-size:12px;margin-bottom:10px;">${escapeHtml(tf('focus.karmaAvailable',{today:k.todayMin,avail:k.available}))}</div>
+      ${k.remaining>0 ? `
+      <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;">
+        <div style="max-width:140px;"><label>${t('focus.karmaAmountLabel')}</label><input type="number" id="karmaPayMin" min="1" step="1" value="${defaultAmt}" onkeypress="if(event.key==='Enter'){App.payKarma()}"></div>
+        <button class="btn small" onclick="App.payKarma()">${t('focus.karmaPayBtn')}</button>
+        ${k.paid>0 ? `<button class="btn ghost small" onclick="App.undoKarma()">${t('focus.karmaUndoBtn')}</button>` : ''}
+      </div>` : (k.paid>0 ? `<button class="btn ghost small" onclick="App.undoKarma()">${t('focus.karmaUndoBtn')}</button>` : '')}`;
+  }
+  return `
+    <div class="card" id="karmaCard" style="margin-bottom:16px;">
+      <h2 class="section-title">${t('focus.karmaTitle')}</h2>
+      ${body}
+      <div class="muted" style="font-size:11px;margin-top:10px;line-height:1.5;">${t('focus.karmaDesc')}</div>
+    </div>`;
+}
 function renderFocus(){
   checkFocusDayRollover();
   const subOptions = `<option value="">${t('focus.noSubjectOpt')}</option>` + state.subjects.map(s=>`<option value="${s.id}" ${state.timer.subjectId===s.id?'selected':''}>${escapeHtml(s.name)}</option>`).join('');
@@ -14015,6 +14102,7 @@ function renderFocus(){
         </div>
         <div class="muted" style="font-size:11.5px;margin-top:12px;line-height:1.5;">${t('focus.linkedNote')}</div>
       </div>
+      ${renderKarmaCard()}
       <div class="card">
         <h2 class="section-title">${t('focus.todayTitle')}: ${todayMin} ${t('dash.minutesUnit')}</h2>
         <div style="display:flex;gap:8px;align-items:flex-end;margin:16px 0 6px;">${bars}</div>
