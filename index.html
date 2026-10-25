@@ -6022,15 +6022,25 @@ function richFieldHtml(bodyId, valueHtml, placeholder, minHeight, extraAttrs){
    .rich-colorbar) is the normal way the bar follows you while scrolling a long
    note, but it silently stops working in some browser/layout combinations
    (an ancestor with overflow, certain Safari quirks…), leaving the bar behind
-   at the top of the field. This watches every rich field on the page: if the
-   field is scrolled so its top is above the screen, the field still has room
-   on screen, and the bar did NOT follow on its own, the bar is switched to
-   position:fixed at the top of the screen (a same-height placeholder keeps the
-   text from jumping) and switched back when the field scrolls back into view.
-   When sticky works, this never does anything. Fields inside their own
-   scrolling box (the side memo) are skipped — their own sticky handles it. */
+   at the top of the field. It also cannot work when the page is pinch-zoomed:
+   sticky/fixed things are placed against the LAYOUT viewport, but a pinch zoom
+   only shows a small window (the VISUAL viewport) of it, so the bar sits
+   off-screen, flashes in as you nudge the page, and vanishes again. This
+   watches every rich field on the page: if the field is scrolled so its top is
+   above the top of what you can actually see, the field still has room on
+   screen, and the bar did NOT follow on its own (or the page is pinch-zoomed),
+   the bar is switched to position:fixed at the top of the visible area (a
+   same-height placeholder keeps the text from jumping) and switched back when
+   the field scrolls back into view. When sticky works this never does anything.
+   Fields inside their own scrolling box (the side memo) are skipped — their
+   own sticky handles it. */
 (function(){
   let raf = 0;
+  function visible(){
+    const v = window.visualViewport;
+    if(v && v.scale > 1.01) return {zoomed:true, top:v.offsetTop, left:v.offsetLeft, w:v.width};
+    return {zoomed:false, top:0, left:0, w:Infinity};
+  }
   function inOwnScroller(el){
     for(let e=el.parentElement; e && e!==document.body && e!==document.documentElement; e=e.parentElement){
       const o = getComputedStyle(e);
@@ -6044,8 +6054,19 @@ function richFieldHtml(bodyId, valueHtml, placeholder, minHeight, extraAttrs){
     const ph = field.querySelector(':scope > .rich-colorbar-ph');
     if(ph) ph.remove();
   }
+  function place(bar, fr, barH, V){
+    let left = fr.left, width = fr.width;
+    if(V.zoomed){
+      left = Math.max(fr.left, V.left);
+      width = Math.max(160, Math.min(fr.left + fr.width, V.left + V.w) - left);
+    }
+    bar.style.setProperty('left', left+'px','important');
+    bar.style.setProperty('width', width+'px','important');
+    bar.style.setProperty('top', Math.min(V.top, fr.bottom - barH) + 'px','important');
+  }
   function update(){
     raf = 0;
+    const V = visible();
     document.querySelectorAll('.rich-field').forEach(field=>{
       const bar = field.querySelector(':scope > .rich-colorbar');
       if(!bar) return;
@@ -6054,34 +6075,33 @@ function richFieldHtml(bodyId, valueHtml, placeholder, minHeight, extraAttrs){
       const fixed = bar.classList.contains('rich-colorbar-fixed');
       const ph = fixed ? field.querySelector(':scope > .rich-colorbar-ph') : null;
       const barH = fixed ? (ph ? ph.offsetHeight : bar.offsetHeight) : bar.offsetHeight;
-      const inRange = fr.top < 0 && fr.bottom > 0;
+      const inRange = fr.top < V.top && fr.bottom > V.top;
       if(!fixed){
-        if(inRange && Math.abs(bar.getBoundingClientRect().top) > 1){
+        if(inRange && (V.zoomed || Math.abs(bar.getBoundingClientRect().top - V.top) > 1)){
           const holder = document.createElement('div');
           holder.className = 'rich-colorbar-ph';
           const cs = getComputedStyle(bar);
           holder.style.height = (bar.offsetHeight + (parseFloat(cs.marginBottom)||0)) + 'px';
-          const w = fr.width, l = fr.left;
           bar.parentNode.insertBefore(holder, bar);
           bar.classList.add('rich-colorbar-fixed');
           bar.style.setProperty('position','fixed','important');
-          bar.style.setProperty('left', l+'px','important');
-          bar.style.setProperty('width', w+'px','important');
           bar.style.setProperty('margin','0','important');
           bar.style.setProperty('z-index','5','important');
-          bar.style.setProperty('top', Math.min(0, fr.bottom - barH) + 'px','important');
+          place(bar, fr, barH, V);
         }
       } else {
         if(!inRange){ unfix(bar, field); return; }
-        bar.style.setProperty('left', fr.left+'px','important');
-        bar.style.setProperty('width', fr.width+'px','important');
-        bar.style.setProperty('top', Math.min(0, fr.bottom - barH) + 'px','important');
+        place(bar, fr, barH, V);
       }
     });
   }
   function schedule(){ if(!raf) raf = requestAnimationFrame(update); }
   window.addEventListener('scroll', schedule, true);
   window.addEventListener('resize', schedule);
+  if(window.visualViewport){
+    window.visualViewport.addEventListener('scroll', schedule);
+    window.visualViewport.addEventListener('resize', schedule);
+  }
   // a re-render (saving, switching topic…) replaces the bar with a fresh one
   try{ new MutationObserver(schedule).observe(document.body, {childList:true, subtree:true}); }catch(e){}
 })();
