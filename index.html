@@ -785,6 +785,12 @@
   .rec-item{border-top:1px solid var(--line);padding:10px 0;}
   .rec-item audio{width:100%;height:36px;margin:6px 0;}
   .rec-meta{font-size:11.5px;color:var(--ink-dim);}
+  .rec-ref{margin-top:14px;padding-top:10px;border-top:1px dashed var(--line);}
+  .rec-ref:empty{display:none;}
+  .rec-ref-title{font-weight:600;font-size:12.5px;margin-bottom:2px;}
+  .rec-ref-group{margin:8px 0 2px;padding-left:10px;border-left:2px solid var(--line);}
+  .rec-ref-group>strong{font-size:12.5px;}
+  .rec-ref audio{width:100%;height:36px;margin:4px 0;}
   .rec-rate{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
   .rec-rate .active{outline:2px solid var(--teal);}
   .reference-box{
@@ -1541,7 +1547,7 @@ const LANG = {
       recurringNoneToday:'오늘 해당하는 상주 계획이 없어요.', recurringEmpty:'등록된 상주 계획이 없어요.',
       recurringManageTitle:'전체 상주 계획 관리', recurringNotTodayTag:'오늘 아님'
     },
-    rec: { title:'🎙 구술 녹음', start:'● 녹음 시작', stop:'■ 녹음 끝내기', recording:'녹음 중', busyElsewhere:'다른 곳에서 녹음 중이에요', empty:'아직 녹음이 없어요. 말로 설명해 보고, 다시 들으며 채점해 보세요.', rateLabel:'다시 듣고 채점', rateGood:'기억남', rateUnsure:'애매', rateBad:'모름', summary:'채점 — 기억남 {good} · 애매 {unsure} · 모름 {bad}', del:'삭제', confirmDelete:'이 녹음을 삭제할까요? 되돌릴 수 없어요.', unsupported:'이 브라우저는 녹음을 지원하지 않아요.', micDenied:'마이크를 사용할 수 없어요. 브라우저의 마이크 권한을 확인해 주세요.', localOnlyHint:'녹음은 이 기기의 이 브라우저에만 저장돼요 — 다른 기기에서는 안 보여요. 상단 "내보내기" 백업 파일에는 함께 들어가니 가끔 내보내 두세요(불러오기하면 녹음도 복원돼요). 브라우저 데이터를 지우면 사라져요.', importedCount:'녹음 {n}개 복원', outputHint:'말로 설명하고 녹음을 끝낸 뒤, 위의 "참고 보기"로 노트를 열어 두고 다시 들으며 채점해 보세요.', subtopicTag:'소주제: {name}', tooLong:'녹음이 30분을 넘어 자동으로 끝냈어요.', saveFailed:'녹음을 저장하지 못했어요.', notesHint:'이 주제에 붙인 구술 녹음 (아웃풋 탭에서 녹음한 것도 여기에 모여요)' },
+    rec: { title:'🎙 구술 녹음', start:'● 녹음 시작', stop:'■ 녹음 끝내기', recording:'녹음 중', busyElsewhere:'다른 곳에서 녹음 중이에요', empty:'아직 녹음이 없어요. 말로 설명해 보고, 다시 들으며 채점해 보세요.', rateLabel:'다시 듣고 채점', rateGood:'기억남', rateUnsure:'애매', rateBad:'모름', summary:'채점 — 기억남 {good} · 애매 {unsure} · 모름 {bad}', del:'삭제', confirmDelete:'이 녹음을 삭제할까요? 되돌릴 수 없어요.', unsupported:'이 브라우저는 녹음을 지원하지 않아요.', micDenied:'마이크를 사용할 수 없어요. 브라우저의 마이크 권한을 확인해 주세요.', localOnlyHint:'녹음은 이 기기의 이 브라우저에만 저장돼요 — 다른 기기에서는 안 보여요. 상단 "내보내기" 백업 파일에는 함께 들어가니 가끔 내보내 두세요(불러오기하면 녹음도 복원돼요). 브라우저 데이터를 지우면 사라져요.', importedCount:'녹음 {n}개 복원', outputHint:'말로 설명하고 녹음을 끝낸 뒤, 위의 "참고 보기"로 노트를 열어 두고 다시 들으며 채점해 보세요.', subtopicTag:'소주제: {name}', tooLong:'녹음이 30분을 넘어 자동으로 끝냈어요.', saveFailed:'녹음을 저장하지 못했어요.', notesHint:'이 주제에 붙인 구술 녹음 (아웃풋 탭에서 녹음한 것도 여기에 모여요) — 타이핑한 노트처럼 아웃풋의 "참고 보기"에서도 다시 들을 수 있어요', refTitle:'🎙 내 구술 녹음' },
     richtext: { toolbarAria:'서식 도구모음', toolbarHint:'Cmd/Ctrl+/ 로 도구모음으로 이동 · ←→ 로 이동 · Enter로 적용 · Esc로 노트로 복귀', colorAria:'글자색 선택', highlightAria:'하이라이트', clearHighlightAria:'하이라이트 지우기', clearAria:'기본색으로', boldAria:'굵게', italicAria:'기울임', underlineAria:'밑줄', bulletAria:'글머리 기호 목록', imageAria:'사진 추가', arrowAria:'화살표 추가', textboxAria:'텍스트 상자 추가', textboxPlaceholder:'텍스트 입력', tagAria:'꼬리표 달기', tagPrompt:'이 부분에 달 꼬리표 내용을 입력하세요 (비워두면 삭제돼요):', tagNeedsSelection:'먼저 꼬리표를 달 텍스트를 선택해주세요.', tagEditAria:'꼬리표 수정', tagDeleteAria:'꼬리표 삭제' },
     sidenote: {
       title:'메모장', placeholder:'여기에 자유롭게 적어보세요…', saved:'저장됨',
@@ -1845,7 +1851,7 @@ const LANG = {
       recurringNoneToday:'No recurring plans scheduled for today.', recurringEmpty:'No recurring plans yet.',
       recurringManageTitle:'Manage all recurring plans', recurringNotTodayTag:'Not today'
     },
-    rec: { title:'🎙 Spoken recall', start:'● Start recording', stop:'■ Stop recording', recording:'Recording', busyElsewhere:'Recording somewhere else', empty:'No recordings yet. Explain it out loud, then listen back and grade yourself.', rateLabel:'Listen back and grade', rateGood:'Got it', rateUnsure:'Shaky', rateBad:'Missed', summary:'Graded — got it {good} · shaky {unsure} · missed {bad}', del:'Delete', confirmDelete:'Delete this recording? This cannot be undone.', unsupported:'This browser does not support recording.', micDenied:'Cannot use the microphone. Please check the browser\'s microphone permission.', localOnlyHint:'Recordings are saved only in this browser on this device — they will not appear on other devices. They ARE included in the Export backup file at the top, so export now and then (Import restores them). Clearing browser data removes them.', importedCount:'{n} recordings restored', outputHint:'Explain it out loud, stop the recording, then open the reference above and grade yourself while listening back.', subtopicTag:'Subtopic: {name}', tooLong:'The recording passed 30 minutes and was stopped automatically.', saveFailed:'Could not save the recording.', notesHint:'Spoken recordings attached to this topic (ones made in the Output tab collect here too)' },
+    rec: { title:'🎙 Spoken recall', start:'● Start recording', stop:'■ Stop recording', recording:'Recording', busyElsewhere:'Recording somewhere else', empty:'No recordings yet. Explain it out loud, then listen back and grade yourself.', rateLabel:'Listen back and grade', rateGood:'Got it', rateUnsure:'Shaky', rateBad:'Missed', summary:'Graded — got it {good} · shaky {unsure} · missed {bad}', del:'Delete', confirmDelete:'Delete this recording? This cannot be undone.', unsupported:'This browser does not support recording.', micDenied:'Cannot use the microphone. Please check the browser\'s microphone permission.', localOnlyHint:'Recordings are saved only in this browser on this device — they will not appear on other devices. They ARE included in the Export backup file at the top, so export now and then (Import restores them). Clearing browser data removes them.', importedCount:'{n} recordings restored', outputHint:'Explain it out loud, stop the recording, then open the reference above and grade yourself while listening back.', subtopicTag:'Subtopic: {name}', tooLong:'The recording passed 30 minutes and was stopped automatically.', saveFailed:'Could not save the recording.', notesHint:'Spoken recordings attached to this topic (ones made in the Output tab collect here too) — like typed notes, they also play in the Output tab\'s reference view', refTitle:'🎙 My spoken recordings' },
     richtext: { toolbarAria:'Formatting toolbar', toolbarHint:'Cmd/Ctrl+/ jumps to this toolbar · ←→ to move · Enter to apply · Esc back to the note', colorAria:'Choose text color', highlightAria:'Highlight text', clearHighlightAria:'Remove highlight', clearAria:'Reset color', boldAria:'Bold', italicAria:'Italic', underlineAria:'Underline', bulletAria:'Bulleted list', imageAria:'Add image', arrowAria:'Add arrow', textboxAria:'Add text box', textboxPlaceholder:'Type text', tagAria:'Add tag', tagPrompt:'Enter the tag text for this selection (leave blank to remove):', tagNeedsSelection:'Select some text first to tag it.', tagEditAria:'Edit tag', tagDeleteAria:'Delete tag' },
     sidenote: {
       title:'Notes', placeholder:'Jot down anything here…', saved:'Saved',
@@ -2149,7 +2155,7 @@ const LANG = {
       recurringNoneToday:'Heute ist kein fester Plan vorgesehen.', recurringEmpty:'Noch keine festen Pläne angelegt.',
       recurringManageTitle:'Alle festen Pläne verwalten', recurringNotTodayTag:'Nicht heute'
     },
-    rec: { title:'🎙 Mündlicher Abruf', start:'● Aufnahme starten', stop:'■ Aufnahme beenden', recording:'Aufnahme läuft', busyElsewhere:'Aufnahme läuft an anderer Stelle', empty:'Noch keine Aufnahmen. Erkläre es laut, höre es dir an und bewerte dich selbst.', rateLabel:'Anhören und bewerten', rateGood:'Gewusst', rateUnsure:'Unsicher', rateBad:'Nicht gewusst', summary:'Bewertet — gewusst {good} · unsicher {unsure} · nicht gewusst {bad}', del:'Löschen', confirmDelete:'Diese Aufnahme löschen? Das lässt sich nicht rückgängig machen.', unsupported:'Dieser Browser unterstützt keine Aufnahmen.', micDenied:'Das Mikrofon kann nicht verwendet werden. Bitte die Mikrofonberechtigung des Browsers prüfen.', localOnlyHint:'Aufnahmen werden nur in diesem Browser auf diesem Gerät gespeichert — auf anderen Geräten erscheinen sie nicht. Sie sind aber in der Export-Sicherung oben enthalten, also gelegentlich exportieren (Import stellt sie wieder her). Das Löschen der Browserdaten entfernt sie.', importedCount:'{n} Aufnahmen wiederhergestellt', outputHint:'Erkläre es laut, beende die Aufnahme, öffne oben die Referenz und bewerte dich beim erneuten Anhören.', subtopicTag:'Unterthema: {name}', tooLong:'Die Aufnahme überschritt 30 Minuten und wurde automatisch beendet.', saveFailed:'Die Aufnahme konnte nicht gespeichert werden.', notesHint:'Mündliche Aufnahmen zu diesem Thema (auch die aus dem Output-Tab erscheinen hier)' },
+    rec: { title:'🎙 Mündlicher Abruf', start:'● Aufnahme starten', stop:'■ Aufnahme beenden', recording:'Aufnahme läuft', busyElsewhere:'Aufnahme läuft an anderer Stelle', empty:'Noch keine Aufnahmen. Erkläre es laut, höre es dir an und bewerte dich selbst.', rateLabel:'Anhören und bewerten', rateGood:'Gewusst', rateUnsure:'Unsicher', rateBad:'Nicht gewusst', summary:'Bewertet — gewusst {good} · unsicher {unsure} · nicht gewusst {bad}', del:'Löschen', confirmDelete:'Diese Aufnahme löschen? Das lässt sich nicht rückgängig machen.', unsupported:'Dieser Browser unterstützt keine Aufnahmen.', micDenied:'Das Mikrofon kann nicht verwendet werden. Bitte die Mikrofonberechtigung des Browsers prüfen.', localOnlyHint:'Aufnahmen werden nur in diesem Browser auf diesem Gerät gespeichert — auf anderen Geräten erscheinen sie nicht. Sie sind aber in der Export-Sicherung oben enthalten, also gelegentlich exportieren (Import stellt sie wieder her). Das Löschen der Browserdaten entfernt sie.', importedCount:'{n} Aufnahmen wiederhergestellt', outputHint:'Erkläre es laut, beende die Aufnahme, öffne oben die Referenz und bewerte dich beim erneuten Anhören.', subtopicTag:'Unterthema: {name}', tooLong:'Die Aufnahme überschritt 30 Minuten und wurde automatisch beendet.', saveFailed:'Die Aufnahme konnte nicht gespeichert werden.', notesHint:'Mündliche Aufnahmen zu diesem Thema (auch die aus dem Output-Tab erscheinen hier) — wie getippte Notizen auch in der Referenzansicht des Output-Tabs abspielbar', refTitle:'🎙 Meine mündlichen Aufnahmen' },
     richtext: { toolbarAria:'Formatierungsleiste', toolbarHint:'Cmd/Strg+/ springt zur Leiste · ←→ zum Wechseln · Enter zum Anwenden · Esc zurück zur Notiz', colorAria:'Textfarbe wählen', highlightAria:'Text hervorheben', clearHighlightAria:'Hervorhebung entfernen', clearAria:'Farbe zurücksetzen', boldAria:'Fett', italicAria:'Kursiv', underlineAria:'Unterstrichen', bulletAria:'Aufzählungsliste', imageAria:'Bild hinzufügen', arrowAria:'Pfeil hinzufügen', textboxAria:'Textfeld hinzufügen', textboxPlaceholder:'Text eingeben', tagAria:'Markierung hinzufügen', tagPrompt:'Text für diese Markierung eingeben (leer lassen zum Entfernen):', tagNeedsSelection:'Bitte zuerst Text auswählen, um ihn zu markieren.', tagEditAria:'Markierung bearbeiten', tagDeleteAria:'Markierung löschen' },
     sidenote: {
       title:'Notizen', placeholder:'Hier frei notieren…', saved:'Gespeichert',
@@ -2453,7 +2459,7 @@ const LANG = {
       recurringNoneToday:'Aucun plan récurrent programmé pour aujourd’hui.', recurringEmpty:'Aucun plan récurrent pour l’instant.',
       recurringManageTitle:'Gérer tous les plans récurrents', recurringNotTodayTag:'Pas aujourd’hui'
     },
-    rec: { title:'🎙 Restitution orale', start:'● Démarrer l’enregistrement', stop:'■ Arrêter l’enregistrement', recording:'Enregistrement en cours', busyElsewhere:'Enregistrement en cours ailleurs', empty:'Aucun enregistrement pour l’instant. Expliquez à voix haute, puis réécoutez-vous et notez-vous.', rateLabel:'Réécouter et noter', rateGood:'Su', rateUnsure:'Hésitant', rateBad:'Raté', summary:'Notés — su {good} · hésitant {unsure} · raté {bad}', del:'Supprimer', confirmDelete:'Supprimer cet enregistrement ? Cette action est irréversible.', unsupported:'Ce navigateur ne prend pas en charge l’enregistrement.', micDenied:'Impossible d’utiliser le micro. Vérifiez l’autorisation du micro dans le navigateur.', localOnlyHint:'Les enregistrements sont conservés uniquement dans ce navigateur sur cet appareil — ils n’apparaissent pas sur d’autres appareils. Ils sont toutefois inclus dans la sauvegarde Exporter en haut : exportez de temps en temps (Importer les restaure). Effacer les données du navigateur les supprime.', importedCount:'{n} enregistrements restaurés', outputHint:'Expliquez à voix haute, arrêtez l’enregistrement, ouvrez la référence ci-dessus puis notez-vous en réécoutant.', subtopicTag:'Sous-thème : {name}', tooLong:'L’enregistrement a dépassé 30 minutes et a été arrêté automatiquement.', saveFailed:'Impossible d’enregistrer.', notesHint:'Enregistrements oraux liés à ce thème (ceux faits dans l’onglet Output s’y retrouvent aussi)' },
+    rec: { title:'🎙 Restitution orale', start:'● Démarrer l’enregistrement', stop:'■ Arrêter l’enregistrement', recording:'Enregistrement en cours', busyElsewhere:'Enregistrement en cours ailleurs', empty:'Aucun enregistrement pour l’instant. Expliquez à voix haute, puis réécoutez-vous et notez-vous.', rateLabel:'Réécouter et noter', rateGood:'Su', rateUnsure:'Hésitant', rateBad:'Raté', summary:'Notés — su {good} · hésitant {unsure} · raté {bad}', del:'Supprimer', confirmDelete:'Supprimer cet enregistrement ? Cette action est irréversible.', unsupported:'Ce navigateur ne prend pas en charge l’enregistrement.', micDenied:'Impossible d’utiliser le micro. Vérifiez l’autorisation du micro dans le navigateur.', localOnlyHint:'Les enregistrements sont conservés uniquement dans ce navigateur sur cet appareil — ils n’apparaissent pas sur d’autres appareils. Ils sont toutefois inclus dans la sauvegarde Exporter en haut : exportez de temps en temps (Importer les restaure). Effacer les données du navigateur les supprime.', importedCount:'{n} enregistrements restaurés', outputHint:'Expliquez à voix haute, arrêtez l’enregistrement, ouvrez la référence ci-dessus puis notez-vous en réécoutant.', subtopicTag:'Sous-thème : {name}', tooLong:'L’enregistrement a dépassé 30 minutes et a été arrêté automatiquement.', saveFailed:'Impossible d’enregistrer.', notesHint:'Enregistrements oraux liés à ce thème (ceux faits dans l’onglet Output s’y retrouvent aussi) — comme les notes saisies, ils s’écoutent aussi dans la vue de référence de l’onglet Output', refTitle:'🎙 Mes enregistrements oraux' },
     richtext: { toolbarAria:'Barre de mise en forme', toolbarHint:'Cmd/Ctrl+/ ouvre cette barre · ←→ pour naviguer · Entrée pour appliquer · Échap pour revenir à la note', colorAria:'Choisir la couleur du texte', highlightAria:'Surligner le texte', clearHighlightAria:'Retirer le surlignage', clearAria:'Réinitialiser la couleur', boldAria:'Gras', italicAria:'Italique', underlineAria:'Souligné', bulletAria:'Liste à puces', imageAria:'Ajouter une image', arrowAria:'Ajouter une flèche', textboxAria:'Ajouter une zone de texte', textboxPlaceholder:'Saisir un texte', tagAria:'Ajouter une étiquette', tagPrompt:'Saisissez le texte de cette étiquette (laissez vide pour la supprimer) :', tagNeedsSelection:'Sélectionnez d’abord du texte à étiqueter.', tagEditAria:'Modifier l’étiquette', tagDeleteAria:'Supprimer l’étiquette' },
     sidenote: {
       title:'Notes', placeholder:'Notez quelque chose ici…', saved:'Enregistré',
@@ -9752,6 +9758,7 @@ App.deleteSubject = function(id){
     state.subjects = state.subjects.filter(s=>s.id!==id);
     state.cards = state.cards.filter(c=>c.subjectId!==id);
     state.gaps = state.gaps.filter(g=>g.subjectId!==id);
+    recDeleteWhere(r=>r.subjectId===id);
     if(state.activeSubjectId===id) state.activeSubjectId=null;
     if(state.notesTopicId && !state.subjects.some(s=>s.topics.some(tp=>tp.id===state.notesTopicId))) state.notesTopicId=null;
     if(state.draw.subjectId===id){ state.draw.subjectId=null; state.draw.current=null; state.draw.currentSubId=null; }
@@ -9820,6 +9827,7 @@ App.deleteTopic = function(sid,tid){
   const target = s.topics.find(tp=>tp.id===tid);
   const doDelete = function(){
     s.topics = s.topics.filter(tp=>tp.id!==tid);
+    recDeleteWhere(r=>r.topicId===tid);
     saveState(); renderAll();
   };
   if(target){
@@ -11428,7 +11436,10 @@ App.deleteSubtopic = function(sid, tid, subid){
   const tp = s.topics.find(x=>x.id===tid);
   const target = findSubtopicNode(tp.subtopics, subid);
   const doDelete = function(){
+    const goneIds = new Set([subid]);
+    if(target) flattenSubtopics(target.subtopics||[]).forEach(({node})=>goneIds.add(node.id));
     removeSubtopicNode(tp.subtopics, subid);
+    recDeleteWhere(r=>r.topicId===tid && goneIds.has(r.subtopicId));
     if(state.editingSubtopicId===subid) state.editingSubtopicId = null;
     saveState(); renderAll();
   };
@@ -12098,6 +12109,19 @@ async function recList(topicId, subId){
     .filter(r=>r.uid===recUid() && (subId===undefined || (r.subtopicId||null)===subId))
     .sort((a,b)=>a.createdAt<b.createdAt?1:-1);
 }
+/* Deletes every take that matches pred (a recording follows its topic /
+   subtopic / subject: when those are deleted the audio goes with them, just
+   like the typed note would). Safe when IndexedDB is unavailable. */
+async function recDeleteWhere(pred){
+  try{
+    const all = await recRun('readonly', os=>os.getAll());
+    if(!Array.isArray(all)) return 0;
+    const ids = all.filter(pred).map(r=>r.id);
+    if(!ids.length) return 0;
+    await recRun('readwrite', os=>{ ids.forEach(id=>os.delete(id)); return null; });
+    return ids.length;
+  }catch(e){ return 0; }
+}
 const recSession = { active:false, source:null, target:null, mr:null, chunks:[], stream:null, startedAt:0, timer:null, limitTimer:null };
 let recObjectUrls = [];
 function recFmtDur(sec){ sec = Math.max(0, Math.round(sec||0)); return Math.floor(sec/60)+':'+String(sec%60).padStart(2,'0'); }
@@ -12135,7 +12159,7 @@ function renderRecPanel(source, sid, tid, subId){
 /* Fills every rec panel on screen from IndexedDB. Called after each render. */
 async function refreshRecPanels(){
   const panels = [...document.querySelectorAll('.rec-panel')];
-  if(!panels.length) return;
+  if(!panels.length && !document.querySelector('.rec-ref')) return;
   recObjectUrls.forEach(u=>{ try{ URL.revokeObjectURL(u); }catch(e){} });
   recObjectUrls = [];
   for(const el of panels){
@@ -12165,6 +12189,42 @@ async function refreshRecPanels(){
             <button class="btn danger small" onclick="App.recDelete('${r.id}')" style="margin-left:auto;">${t('rec.del')}</button></div>
         </div>`;
       }).join('');
+  }
+  await refreshRecRefBlocks();
+}
+/* Read-only "my spoken recordings" block shown inside the Output tab's
+   reference view, right under the typed notes it sits beside. subId null =
+   the whole topic (topic note + every subtopic, like buildFullTopicNotesHtml);
+   an id = only that subtopic. Filled in by refreshRecPanels. */
+function renderRecRefBlock(sid, tid, subId){
+  return `<div class="rec-ref" data-sid="${sid}" data-tid="${tid}" data-sub="${subId||''}"></div>`;
+}
+function recRefItemHtml(r){
+  const url = URL.createObjectURL(r.blob); recObjectUrls.push(url);
+  const grade = r.rating ? ' · '+t(r.rating==='good'?'rec.rateGood':r.rating==='unsure'?'rec.rateUnsure':'rec.rateBad') : '';
+  return `<div class="rec-ref-item"><div class="rec-meta">${escapeHtml(formatDateTime(r.createdAt))} · ${recFmtDur(r.duration)}${escapeHtml(grade)}</div><audio controls preload="metadata" src="${url}"></audio></div>`;
+}
+async function refreshRecRefBlocks(){
+  const blocks = [...document.querySelectorAll('.rec-ref')];
+  for(const el of blocks){
+    const sid = el.dataset.sid, tid = el.dataset.tid, sub = el.dataset.sub || null;
+    const list = await recList(tid, sub ? sub : undefined);
+    if(!document.body.contains(el)) continue;
+    if(!list.length){ el.innerHTML = ''; continue; }
+    const s = state.subjects.find(x=>x.id===sid);
+    const tp = s && s.topics.find(x=>x.id===tid);
+    const groups = [];
+    const own = list.filter(r=>!r.subtopicId);
+    if(own.length && !sub) groups.push({name: tp ? tp.name : '', items: own});
+    if(tp){
+      flattenSubtopics(tp.subtopics).forEach(({node})=>{
+        const items = list.filter(r=>r.subtopicId===node.id);
+        if(items.length) groups.push({name: node.name, items});
+      });
+    }
+    // takes whose subtopic no longer exists simply stay out of sight
+    el.innerHTML = `<div class="rec-ref-title">${t('rec.refTitle')}</div>` + groups.map(g=>
+      `<div class="rec-ref-group">${g.name ? '<strong>'+escapeHtml(g.name)+'</strong>' : ''}${g.items.map(recRefItemHtml).join('')}</div>`).join('');
   }
 }
 function recUpdateHeaders(){
@@ -12234,7 +12294,7 @@ App.recRate = async function(id, rating){
     const text = (tally.good+tally.unsure+tally.bad) ? tf('rec.summary', tally) : '';
     if(line){ if(text) line.textContent = text; else line.remove(); }
     else if(text){ const d = document.createElement('div'); d.className='muted mono'; d.style.cssText='font-size:11.5px;margin:8px 0 2px;'; d.textContent = text; box.prepend(d); }
-  });
+  });  refreshRecRefBlocks();
 };
 App.recDelete = function(id){
   showConfirm(t('rec.confirmDelete'), async function(){
@@ -12294,7 +12354,7 @@ function renderOutputSequential(){
 
   const hasAnyNotes = !richIsEmpty(tp.notes) || flattenSubtopics(tp.subtopics).some(({node})=>!richIsEmpty(node.notes));
   const referencePane = state.output.revealed
-    ? (hasAnyNotes ? `<div class="reference-box">${buildFullTopicNotesHtml(tp)}</div>` : `<div class="reference-box"><span class="muted">${t('output.noReference')}</span></div>`)
+    ? (hasAnyNotes ? `<div class="reference-box">${buildFullTopicNotesHtml(tp)}${renderRecRefBlock(s.id, tp.id, null)}</div>` : `<div class="reference-box"><span class="muted">${t('output.noReference')}</span>${renderRecRefBlock(s.id, tp.id, null)}</div>`)
     : `<div class="reference-box" style="display:flex;align-items:center;justify-content:center;text-align:center;">
          <div class="muted" style="font-size:12.5px;">${t('output.revealHint')}</div>
        </div>`;
@@ -12447,7 +12507,7 @@ function renderExamQuestion(){
     : (!richIsEmpty(tp.notes) || flattenSubtopics(tp.subtopics).some(({node})=>!richIsEmpty(node.notes)) ? buildFullTopicNotesHtml(tp) : `<span class="muted">${t('output.noReference')}</span>`);
 
   const referencePane = ex.revealed
-    ? `<div class="reference-box">${referenceHtml}</div>`
+    ? `<div class="reference-box">${referenceHtml}${renderRecRefBlock(s.id, tp.id, item.subId||null)}</div>`
     : `<div class="reference-box" style="display:flex;align-items:center;justify-content:center;text-align:center;">
          <div class="muted" style="font-size:12.5px;">${t('output.revealHint')}</div>
        </div>`;
