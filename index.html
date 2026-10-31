@@ -1037,6 +1037,7 @@
     overflow:hidden;
   }
   .sidenote-panel.collapsed{width:0 !important;border-left:none;}
+  .sidenote-panel[data-vv], .sidenote-edgebtn[data-vv]{will-change:transform;transition:width .18s ease, transform .14s ease-out;}
   .sidenote-resizer{
     position:absolute;left:0;top:0;bottom:0;width:7px;
     cursor:ew-resize;z-index:2;touch-action:none;
@@ -8261,41 +8262,41 @@ function isMobileSidenote(){
 // Keep an open memo on the edge of what is actually visible while pinch-zoomed
 // (position:fixed follows the layout viewport, so it would slide out of view).
 function applySidenoteVV(){
+  // Transform-only (no top/height changes): the panel keeps its normal fixed box and is
+  // just moved/scaled onto the visible area, so pinching stays smooth on the compositor.
   const vv = window.visualViewport;
   ['right','left'].forEach(function(side){
     const ids = sidenoteIds(side);
     const panel = document.getElementById(ids.panel), edge = document.getElementById(ids.edgeBtn);
     if(!panel) return;
     const on = vv && vv.scale > 1.01 && !isMobileSidenote();
-    const layoutW = document.documentElement.clientWidth;
-    const tx = side==='left' ? vv && vv.offsetLeft : vv && (vv.offsetLeft + vv.width - layoutW);
     if(on){
-      const k = 1/vv.scale, origin = side==='left' ? 'top left' : 'top right';
-      panel.style.top = vv.offsetTop+'px'; panel.style.bottom = 'auto';
-      panel.style.height = (vv.height*vv.scale)+'px';
-      panel.style.transformOrigin = origin;
-      panel.style.transform = 'translate('+tx+'px,0) scale('+k+')';
+      const k = 1/vv.scale;
+      const layoutW = document.documentElement.clientWidth, layoutH = document.documentElement.clientHeight;
+      const tx = side==='left' ? vv.offsetLeft : (vv.offsetLeft + vv.width - layoutW);
+      const ty = vv.offsetTop;
       panel.dataset.vv = '1';
+      panel.style.transformOrigin = side==='left' ? 'top left' : 'top right';
+      panel.style.transform = 'translate('+tx+'px,'+ty+'px) scale('+k+')';
       if(edge){
-        edge.style.top = (vv.offsetTop + vv.height/2)+'px';
-        edge.style.transformOrigin = side==='left' ? 'left center' : 'right center';
-        edge.style.transform = 'translate('+tx+'px,0) translateY(-50%) scale('+k+')';
         edge.dataset.vv = '1';
+        edge.style.transformOrigin = side==='left' ? 'left center' : 'right center';
+        edge.style.transform = 'translate('+tx+'px,'+(vv.offsetTop + vv.height/2 - layoutH/2)+'px) translateY(-50%) scale('+k+')';
       }
     } else {
-      if(panel.dataset.vv){
-        panel.style.top = ''; panel.style.bottom = ''; panel.style.height = '';
-        panel.style.transform = ''; panel.style.transformOrigin = ''; delete panel.dataset.vv;
-      }
-      if(edge && edge.dataset.vv){
-        edge.style.top = ''; edge.style.transform = ''; edge.style.transformOrigin = ''; delete edge.dataset.vv;
-      }
+      if(panel.dataset.vv){ panel.style.transform = ''; panel.style.transformOrigin = ''; delete panel.dataset.vv; }
+      if(edge && edge.dataset.vv){ edge.style.transform = ''; edge.style.transformOrigin = ''; delete edge.dataset.vv; }
     }
   });
 }
+let sidenoteVVRaf = 0;
+function scheduleSidenoteVV(){
+  if(sidenoteVVRaf) return;
+  sidenoteVVRaf = requestAnimationFrame(function(){ sidenoteVVRaf = 0; applySidenoteVV(); });
+}
 if(window.visualViewport){
-  window.visualViewport.addEventListener('resize', applySidenoteVV);
-  window.visualViewport.addEventListener('scroll', applySidenoteVV);
+  window.visualViewport.addEventListener('resize', scheduleSidenoteVV);
+  window.visualViewport.addEventListener('scroll', scheduleSidenoteVV);
 }
 function sidenoteIds(side){
   const suf = side==='left' ? 'Left' : '';
