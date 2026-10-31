@@ -829,7 +829,15 @@
     padding:9px 16px;text-align:center;border-radius:10px;
     box-shadow:0 6px 20px rgba(0,0,0,.28);
   }
-  .sync-badge{border:1px solid var(--line, rgba(128,128,128,.4));background:transparent;color:var(--ink);border-radius:999px;padding:3px 10px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;}
+  /* The badge and the "saved" status text change on every save/sync (every
+     few seconds while typing in Notes or with a timer running). Their size
+     must NOT depend on the text, or the header — and with it the whole page,
+     since everything sits below it — jumps up and down a few pixels each
+     time (emoji glyphs like ↻ ⏳ 📴 have different line heights, and the
+     status line appears/disappears/grows). So both get a fixed box. */
+  .sync-badge{border:1px solid var(--line, rgba(128,128,128,.4));background:transparent;color:var(--ink);border-radius:999px;padding:0 10px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;
+    box-sizing:border-box;height:24px;min-width:120px;display:inline-flex;align-items:center;justify-content:center;line-height:1;overflow:hidden;flex:none;}
+  .sync-badge[hidden]{display:none;}
   .sync-badge.is-synced{color:var(--teal);border-color:var(--teal);}
   .sync-badge.is-offline,.sync-badge.is-pending{color:var(--amber);border-color:var(--amber);}
   .sync-badge.is-syncing{color:var(--ink-dim);}
@@ -849,6 +857,7 @@
     font-family:inherit;font-size:12.5px;font-weight:700;padding:5px 12px;cursor:pointer;flex:none;
   }
   .save-fail-banner-btn:hover{opacity:0.85;}
+  #headerStatus{min-height:18px;line-height:18px;width:0;min-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right;flex:none;}
   #headerStatus.status-error{color:#dc2626;font-weight:700;}
   .timer-bar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;}
   .timer-widget{
@@ -4640,6 +4649,7 @@ function setStatus(msg, isError){
   const el = document.getElementById('headerStatus');
   if(!el) return;
   el.textContent = msg;
+  el.title = msg || '';
   el.classList.toggle('status-error', !!isError);
 }
 
@@ -8431,7 +8441,7 @@ function renderHeaderTimers(){
         </div>
       ` : `
         <div class="tw-time" style="font-size:16px;cursor:pointer;" onclick="App.startStopwatchEdit()" title="${t('focus.editStopwatchHint')}">${fmtTime(state.stopwatch.elapsedSeconds)} <span style="font-size:11px;opacity:.6;">✏️</span></div>
-        ${(!state.timer.running && state.stopwatch.lastSittingSeconds>0) ? `<div class="muted mono" style="font-size:10px;margin-top:1px;">${t('focus.lastSitting')}: ${fmtTime(state.stopwatch.lastSittingSeconds)}</div>` : ''}
+        ${(!state.timer.running && state.stopwatch.lastSittingSeconds>0) ? `<div class="muted mono" style="font-size:10px;margin-top:1px;">${t('focus.lastSitting')}: ${fmtTime(state.stopwatch.lastSittingSeconds)}</div>` : (state.stopwatch.lastSittingSeconds>0 ? `<div class="muted mono" style="font-size:10px;margin-top:1px;visibility:hidden;" aria-hidden="true">${t('focus.lastSitting')}: ${fmtTime(state.stopwatch.lastSittingSeconds)}</div>` : '')}
       `;
   bar.innerHTML = `
     <div class="timer-widget linked ${state.timer.running?'running':''} ${overtime?'overtime':''}">
