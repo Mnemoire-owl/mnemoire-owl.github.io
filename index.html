@@ -23,6 +23,8 @@
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
+  /* Open side memos sit beside the page instead of covering it (desktop only; set by updateSidenoteInsets) */
+  body{padding-left:var(--sn-l,0px);padding-right:var(--sn-r,0px);box-sizing:border-box;transition:padding .18s ease;}
   /* CLASSIC_THEME: when the person toggles off the wizard theme, this class
      on <body> reinstates the original cream/parchment palette by overriding
      the same custom properties the wizard theme sets on :root above. */
@@ -631,7 +633,7 @@
   }
   .cal-cell:hover{border-color:var(--line);}
   .cal-cell.out-month{opacity:.32;}
-  .cal-cell.is-today .cal-daynum{color:var(--amber);font-weight:700;}
+  .cal-cell.is-today .cal-daynum{color:var(--amber);font-weight:600;}
   .cal-cell.is-selected{background:var(--surface-2);border-color:var(--amber);}
   .cal-daynum{font-size:11.5px;font-family:'IBM Plex Mono',monospace;}
   .cal-bar{display:flex;height:5px;border-radius:3px;overflow:hidden;background:var(--surface-2);}
@@ -679,7 +681,7 @@
     flex:none;
   }
   .punch-hole:hover{border-color:var(--amber);}
-  .punch-hole.done{background:var(--amber);border-color:var(--amber);color:var(--bg);font-weight:700;}
+  .punch-hole.done{background:var(--amber);border-color:var(--amber);color:var(--bg);font-weight:600;}
 
   .progress-track{height:6px;background:var(--surface-2);border-radius:4px;overflow:hidden;}
   .progress-fill{height:100%;background:var(--teal);}
@@ -8270,6 +8272,16 @@ function sidenoteState(side){
 function sidenoteTKey(side, key){
   return (side==='left' ? 'sidenoteLeft.' : 'sidenote.') + key;
 }
+function updateSidenoteInsets(){
+  let l = 0, r = 0;
+  if(!isMobileSidenote()){
+    const pr = document.getElementById('sidenotePanel'), pl = document.getElementById('sidenotePanelLeft');
+    if(pr && state.sidenote && !state.sidenote.collapsed) r = state.sidenote.width || 260;
+    if(pl && state.sidenoteLeft && !state.sidenoteLeft.collapsed) l = state.sidenoteLeft.width || 260;
+  }
+  const rs = document.documentElement.style;
+  rs.setProperty('--sn-l', l+'px'); rs.setProperty('--sn-r', r+'px');
+}
 function applySidenoteLayout(side){
   const ids = sidenoteIds(side);
   const panel = document.getElementById(ids.panel);
@@ -8290,6 +8302,7 @@ function applySidenoteLayout(side){
     panel.classList.remove('collapsed');
     edgeBtn.classList.remove('show');
   }
+  updateSidenoteInsets();
 }
 App.toggleSidenote = function(side){
   side = side==='left' ? 'left' : 'right';
@@ -8353,6 +8366,7 @@ function initSidenoteResize(side){
       const w = side==='left' ? Math.round(p.clientX) : Math.round(window.innerWidth - p.clientX);
       sn.width = Math.max(200, Math.min(520, w));
       panel.style.width = sn.width + 'px';
+      updateSidenoteInsets();
     }
     e.preventDefault();
   }
