@@ -25,6 +25,8 @@
   html,body{margin:0;padding:0;}
   /* Open side memos sit beside the page instead of covering it (desktop only; set by updateSidenoteInsets) */
   body{padding-left:var(--sn-l,0px);padding-right:var(--sn-r,0px);box-sizing:border-box;transition:padding .18s ease;}
+  /* ...and then the page fills the space between them instead of staying a narrow 960px column */
+  body.sn-open .wrap{max-width:none;}
   /* CLASSIC_THEME: when the person toggles off the wizard theme, this class
      on <body> reinstates the original cream/parchment palette by overriding
      the same custom properties the wizard theme sets on :root above. */
@@ -8281,6 +8283,7 @@ function updateSidenoteInsets(){
   }
   const rs = document.documentElement.style;
   rs.setProperty('--sn-l', l+'px'); rs.setProperty('--sn-r', r+'px');
+  document.body.classList.toggle('sn-open', l>0 || r>0);
 }
 function applySidenoteLayout(side){
   const ids = sidenoteIds(side);
