@@ -1032,11 +1032,12 @@
     position:fixed;top:0;right:0;bottom:0;
     background:var(--surface);border-left:1px solid var(--line);
     display:flex;flex-direction:column;
-    z-index:500;max-width:34vw;
+    z-index:500;max-width:40vw;
     transition:width .18s ease;
     overflow:hidden;
   }
   .sidenote-panel.collapsed{width:0 !important;border-left:none;}
+  .sidenote-panel.sn-dragging{transition:none !important;}
   .sidenote-panel[data-vv], .sidenote-edgebtn[data-vv]{will-change:transform;transition:width .18s ease, transform .14s ease-out;}
   .sidenote-resizer{
     position:absolute;left:0;top:0;bottom:0;width:7px;
@@ -8393,8 +8394,15 @@ function initSidenoteResize(side){
       sn.mobileHeight = Math.max(160, Math.min(Math.round(window.innerHeight*0.75), h));
       panel.style.height = sn.mobileHeight + 'px';
     } else {
-      const w = side==='left' ? Math.round(p.clientX) : Math.round(window.innerWidth - p.clientX);
-      sn.width = Math.max(200, Math.min(520, w));
+      // Cursor -> panel width in on-screen px. While pinch-zoomed the panel is drawn on the
+      // visible area (see applySidenoteVV), so measure against that, not the layout viewport.
+      const vv = window.visualViewport, z = (vv && vv.scale > 1.01) ? vv.scale : 1;
+      const rawW = z > 1
+        ? (side==='left' ? (p.clientX - vv.offsetLeft) : (vv.offsetLeft + vv.width - p.clientX)) * z
+        : (side==='left' ? p.clientX : window.innerWidth - p.clientX);
+      // same ceiling as the CSS (40vw) so the edge stays under the cursor instead of stalling
+      const cap = Math.min(520, Math.floor(window.innerWidth * 0.4));
+      sn.width = Math.max(Math.min(200, cap), Math.min(cap, Math.round(rawW)));
       panel.style.width = sn.width + 'px';
     }
     e.preventDefault();
@@ -8402,6 +8410,7 @@ function initSidenoteResize(side){
   function onUp(){
     if(!dragging) return;
     dragging = false;
+    panel.classList.remove('sn-dragging');
     resizer.classList.remove('dragging');
     document.body.style.userSelect = '';
     saveState();
@@ -8409,6 +8418,7 @@ function initSidenoteResize(side){
   function onDown(e){
     if(sidenoteState(side).collapsed) return;
     dragging = true;
+    panel.classList.add('sn-dragging');
     resizer.classList.add('dragging');
     document.body.style.userSelect = 'none';
     e.preventDefault();
